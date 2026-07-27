@@ -1,0 +1,5 @@
+#pragma once
+enum dataType{DATA_RAW=0, DATA_TIFF=1, DATA_JPEG=2, DATA_VTK=3, DATA_UNDEF=-1};
+enum polyType{POLY_PLY=0, POLY_VTP=1, POLY_OBJ=2, POLY_STL=3, POLY_VTK=4, POLY_G=5, POLY_VTR=6, POLY_XYZ=7, POLY_UNDEF=-1};
+enum bitsizeType{BIT8=0, BIT16=1, BIT_UNDEF=-1};
+enum endianType{LITTLE=0, BIG=1, ENDIAN_UNDEF=-1};

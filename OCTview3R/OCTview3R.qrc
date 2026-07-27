@@ -1,0 +1,28 @@
+<RCC>
+    <qresource prefix="/OCTview3R">
+        <file>Resources/icons/bullet_arrow_down.png</file>
+        <file>Resources/icons/bullet_arrow_up.png</file>
+        <file>Resources/icons/transform_rotate_90.png</file>
+        <file>Resources/icons/x.png</file>
+        <file>Resources/icons/xu.png</file>
+        <file>Resources/icons/y.png</file>
+        <file>Resources/icons/yu.png</file>
+        <file>Resources/icons/z.png</file>
+        <file>Resources/icons/zu.png</file>
+        <file>Resources/icons/000-000-000.bmp</file>
+        <file>Resources/icons/000-000-255.bmp</file>
+        <file>Resources/icons/000-162-232.bmp</file>
+        <file>Resources/icons/000-255-000.bmp</file>
+        <file>Resources/icons/195-195-195.bmp</file>
+        <file>Resources/icons/255-000-000.bmp</file>
+        <file>Resources/icons/255-174-201.bmp</file>
+        <file>Resources/icons/255-255-000.bmp</file>
+        <file>Resources/icons/255-255-255.bmp</file>
+        <file>Resources/icons/black body.bmp</file>
+        <file>Resources/icons/black2.bmp</file>
+        <file>Resources/icons/greyscale.bmp</file>
+        <file>Resources/icons/rainbow.bmp</file>
+        <file>Resources/icons/vorlage.png</file>
+        <file>Resources/icons/white2.bmp</file>
+    </qresource>
+</RCC>
