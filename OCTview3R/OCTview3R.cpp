@@ -109,16 +109,26 @@ VTK_MODULE_INIT(vtkRenderingFreeType);
 #include <vtkImageResliceMapper.h>
 //QT
 #include <QFileDialog>
+#include <QColorDialog>
+#include <QLabel>
 #include <QMessageBox>
-#include <QTimer>
-#include <QFutureWatcher>
-#include <QFuture>
-#include <QtConcurrent/qtconcurrentrun.h>
-#include <QProgressDialog>
+#include <QThread>
 #include <qfileinfo.h>
 
+#include <cmath>
+
 OCTview3R::OCTview3R()
+	: renWin(nullptr),
+	  iren(nullptr),
+	  cam(nullptr),
+	  statusLabel(nullptr),
+	  ui(new Ui_OCTview3R),
+	  openData(nullptr),
+	  openPoly(nullptr)
 {
+	qRegisterMetaType<vtkImageData*>("vtkImageData*");
+	qRegisterMetaType<vtkPolyData*>("vtkPolyData*");
+
 	//Initialize control-structures
 	settings.activeIndex			= 0;
 	settings.numMaxIndex			= 0;
@@ -145,37 +155,20 @@ OCTview3R::OCTview3R()
 	settings.y_rot_cam				= 0.0;
 	settings.z_rot_cam				= 0.0;
 
-	moveCameraCallbackMutex			= false;
 	onePlaneCallbackMutex			= false;
 
 	//general
-	renderer					= vtkRenderer::New();
-	renWin						= vtkRenderWindow::New();
-	iren						= vtkRenderWindowInteractor::New();
-	scalarBarActor				= vtkScalarBarActor::New();
-	scalarBarWidget				= vtkScalarBarWidget::New();
-	axes						= vtkCubeAxesActor::New();
-	lookupTable					= vtkLookupTable::New();
-	im							= vtkImageResliceMapper::New();
-	ip							= vtkImageProperty::New();
-	ia							= vtkImageSlice::New();
-	cam							= vtkCamera::New();
-	camTrans					= vtkTransform::New();
-	math						= vtkMath::New();
-	axesActor					= vtkAxesActor::New();
-	orientWidget				= vtkOrientationMarkerWidget::New();
-	//rayCastCompositeFunction	= vtkVolumeRayCastCompositeFunction::New();
-	//rayCastMIPFunction			= vtkVolumeRayCastMIPFunction::New();
-	//volumeRayCastMapper			= vtkVolumeRayCastMapper::New();
+	renderer					= vtkSmartPointer<vtkRenderer>::New();
+	scalarBarActor				= vtkSmartPointer<vtkScalarBarActor>::New();
+	scalarBarWidget				= vtkSmartPointer<vtkScalarBarWidget>::New();
+	axes						= vtkSmartPointer<vtkCubeAxesActor>::New();
+	camTrans					= vtkSmartPointer<vtkTransform>::New();
+	axesActor					= vtkSmartPointer<vtkAxesActor>::New();
+	orientWidget				= vtkSmartPointer<vtkOrientationMarkerWidget>::New();
 
 	//setup ui pointer
-	this->ui = new Ui_OCTview3R;
 	this->ui->setupUi(this);
 	this->showMaximized();
-	delete this->ui->centralwidget;
-
-	//POLY TESTING
-	connect(this->ui->pushButton_magic, SIGNAL(clicked()), this, SLOT(transform()));
 
 	//Qt GUI Initials
 	Qt::WindowFlags flags = 0;
@@ -234,7 +227,7 @@ OCTview3R::OCTview3R()
 	connect(this->ui->kernelXSpinBox, SIGNAL(valueChanged(int)), this, SLOT(slotKernelXChanged(int)));
 	connect(this->ui->kernelYSpinBox, SIGNAL(valueChanged(int)), this, SLOT(slotKernelYChanged(int)));
 	connect(this->ui->kernelZSpinBox, SIGNAL(valueChanged(int)), this, SLOT(slotKernelZChanged(int)));
-	connect(this->ui->planeOrientationComboBox, SIGNAL(highlighted(int)), this, SLOT(slotOrientationChanged(int)));
+	connect(this->ui->planeOrientationComboBox, SIGNAL(currentIndexChanged(int)), this, SLOT(slotOrientationChanged(int)));
 	connect(this->ui->planePushButton, SIGNAL(clicked()), this, SLOT(slotGetPlaneData()));
 	connect(this->ui->pushButton_render, SIGNAL(clicked()), this, SLOT(slotRenderAgain()));
 	connect(this->ui->actionX, SIGNAL(triggered()), this, SLOT(slotFrontX())); 
@@ -265,8 +258,6 @@ OCTview3R::OCTview3R()
 	connect(this->ui->y1DoubleSpinBox, SIGNAL(valueChanged(double)), this, SLOT(slotY1(double)));
 	connect(this->ui->z0DoubleSpinBox, SIGNAL(valueChanged(double)), this, SLOT(slotZ0(double)));
 	connect(this->ui->z1DoubleSpinBox, SIGNAL(valueChanged(double)), this, SLOT(slotZ1(double)));
-	connect(this->ui->rotYDoubleSpinBox, SIGNAL(valueChanged(double)), this, SLOT(slotRotY(double)));
-	connect(this->ui->rotZDoubleSpinBox, SIGNAL(valueChanged(double)), this, SLOT(slotRotZ(double)));
 	connect(this->ui->rotXDoubleSpinBox, SIGNAL(valueChanged(double)), this, SLOT(slotRotX(double)));
 	connect(this->ui->rotYDoubleSpinBox, SIGNAL(valueChanged(double)), this, SLOT(slotRotY(double)));
 	connect(this->ui->rotZDoubleSpinBox, SIGNAL(valueChanged(double)), this, SLOT(slotRotZ(double)));
@@ -280,9 +271,9 @@ OCTview3R::OCTview3R()
 	connect(this->ui->tabWidget, SIGNAL(currentChanged(int)), this, SLOT(slotSetImageData(int)));
 	connect(this->ui->pushButton_close, SIGNAL(clicked()), this, SLOT(slotCloseTab()));
 
-	openData = new OpenData(0);
+	openData = new OpenData(this);
 	connect(openData, SIGNAL(signalStartProcess()), this, SLOT(slotProcessDataFile()));
-	openPoly = new OpenPoly(0);
+	openPoly = new OpenPoly(this);
 	connect(openPoly, SIGNAL(signalStartProcess()), this, SLOT(slotProcessPolyFile()));
 
 	//setup statusBar
@@ -295,7 +286,31 @@ OCTview3R::OCTview3R()
 
 OCTview3R::~OCTview3R()
 {
+	for (QThread* thread : loadingThreads)
+	{
+		thread->requestInterruption();
+		thread->quit();
+	}
+	for (QThread* thread : loadingThreads)
+		thread->wait();
+	loadingThreads.clear();
 
+	for (ImageData* data : imageDataList)
+	{
+		if (data->planeObserverTag != 0)
+			data->planeWidget->RemoveObserver(data->planeObserverTag);
+		data->planeWidget->Off();
+		data->planeWidget->SetInteractor(nullptr);
+	}
+	qDeleteAll(imageDataList);
+	imageDataList.clear();
+
+	if (scalarBarWidget)
+		scalarBarWidget->Off();
+	if (orientWidget)
+		orientWidget->SetEnabled(0);
+
+	delete ui;
 }
 
 ImageData *OCTview3R::getInitializedImageData()
@@ -323,8 +338,6 @@ ImageData *OCTview3R::getInitializedImageData()
 	imageData->clipPlane			= vtkSmartPointer<vtkPlane>::New();
 	imageData->implicitPlane		= vtkSmartPointer<vtkImplicitPlaneWidget>::New();
 	imageData->image				= vtkSmartPointer<vtkImageData>::New();
-	imageData->object				= vtkSmartPointer<vtkAlgorithm>::New();
-	imageData->output				= vtkSmartPointer<vtkAlgorithmOutput>::New();
 	imageData->planeCollection		= vtkSmartPointer<vtkPlaneCollection>::New();
 
 	//data
@@ -398,7 +411,8 @@ ImageData *OCTview3R::getInitializedImageData()
 void OCTview3R::slotResetCam()
 {
 	renderer->ResetCamera();
-	iren->Render();
+	if (iren)
+		iren->Render();
 }
 void OCTview3R::initializeVTKPipeline()
 {
@@ -415,6 +429,9 @@ void OCTview3R::initializeVTKPipeline()
 }
 void OCTview3R::slotSetImageData(int index)
 {
+	if (index < 0 || index >= imageDataList.size())
+		return;
+
 	slotSetImageData(imageDataList.at(index));
 }
 
@@ -483,7 +500,7 @@ void OCTview3R::slotSetImageData(ImageData* data)
 		this->ui->comboBox_colormapStyle->setCurrentText(activeImageData->colormapName);
 		this->ui->comboBox_polyMode->setCurrentIndex(activeImageData->polyMode);
 		this->ui->spinBox_pointSize->setMinimum(1);
-		this->ui->spinBox_pointSize->setValue(1);
+		this->ui->spinBox_pointSize->setValue(activeImageData->pointSize);
 		this->ui->pushButton_pickPolyColor->setStyleSheet("background-color: "+activeImageData->polyColor.name());
 		this->ui->pushButton_pickVolumeColor->setStyleSheet("background-color: "+activeImageData->volumeColor.name());
 		this->ui->Slider_objectOpacity->setValue(int(100*activeImageData->objectOpacity));
@@ -491,23 +508,26 @@ void OCTview3R::slotSetImageData(ImageData* data)
 		this->ui->checkBox_invertColormap->setChecked(activeImageData->invertColormap);
 
 		//Set threshold values
-		this->ui->groupBox_threshold->setEnabled(true);		
-		this->ui->Slider_minThreshold->setMinimum(0);
+		this->ui->groupBox_threshold->setEnabled(activeImageData->isVolume);
+		this->ui->Slider_minThreshold->setMinimum(activeImageData->minValue);
 		this->ui->Slider_minThreshold->setMaximum(activeImageData->maxValue);
 		this->ui->Slider_minThreshold->setValue(activeImageData->currentMinThreshold);
-		this->ui->Slider_minThreshold->setEnabled(true);
+		this->ui->Slider_minThreshold->setEnabled(activeImageData->isVolume);
 		this->ui->label_minThreshold->setNum(activeImageData->currentMinThreshold);
-		this->ui->Slider_maxThreshold->setMinimum(0);    
+		this->ui->Slider_maxThreshold->setMinimum(activeImageData->minValue);
 		this->ui->Slider_maxThreshold->setMaximum(activeImageData->maxValue);
 		this->ui->Slider_maxThreshold->setValue(activeImageData->currentMaxThreshold);
-		this->ui->Slider_maxThreshold->setEnabled(true);
+		this->ui->Slider_maxThreshold->setEnabled(activeImageData->isVolume);
 		this->ui->label_maxThreshold->setNum(activeImageData->currentMaxThreshold);
 		//mark threshold change for rendering
 		activeImageData->changedThreshold = true;
 
 		//plane orientation and median kernel
-		this->ui->groupBox_plane->setEnabled(true);
-		this->ui->actionPlane->setCheckable(true);
+		const bool planeSupported = activeImageData->isVolume;
+		if (!planeSupported)
+			activeImageData->showPlane = false;
+		this->ui->groupBox_plane->setEnabled(planeSupported);
+		this->ui->actionPlane->setCheckable(planeSupported);
 		this->ui->actionPlane->setChecked(activeImageData->showPlane);
 		this->ui->groupBox_plane->setChecked(activeImageData->showPlane);
 		this->ui->planeOrientationComboBox->setCurrentIndex(activeImageData->orientIndex);
@@ -528,7 +548,7 @@ void OCTview3R::slotSetImageData(ImageData* data)
 		this->ui->label_file->setText(activeImageData->fileName);
 
 		//set close button
-		this->ui->pushButton_close->setEnabled(this->ui->tabWidget->count()>1);
+		this->ui->pushButton_close->setEnabled(!imageDataList.isEmpty());
 	}else{
 		QMessageBox::information(this,tr("ERROR"), tr("No valid Data selected"));
 	}
@@ -548,30 +568,29 @@ void OCTview3R::slotShowObject(bool value)
 			ui->groupBox_object->setChecked(value);
 	}
 }
-void OCTview3R::moveCameraCallbackFunction(vtkObject* caller, unsigned long eventId, void *clientData, void *callData)
-{
-	OCTview3R *self = reinterpret_cast<OCTview3R*>(clientData);
-	if(self->moveCameraCallbackMutex){
-		self->moveCameraCallbackMutex = false;
-		self->connectVTKPipeline();
-		self->getCamRot();
-		self->moveCameraCallbackMutex = true;
-	}
-}
 void OCTview3R::slotShowPlane(bool value)
 {
-	if(settings.oneFileLoaded && activeImageData->fileLoaded){
+	if(settings.oneFileLoaded && activeImageData->fileLoaded && activeImageData->isVolume){
 		activeImageData->changePlaneInput = true;
 		if(value){
 			activeImageData->showPlane = true;
 			onePlaneCallbackMutex = true;
-			vtkSmartPointer<vtkCallbackCommand> startCallback = vtkSmartPointer<vtkCallbackCommand>::New();
-			startCallback->SetCallback(onePlaneCallbackFunction);
-			startCallback->SetClientData(this);
-			activeImageData->planeWidget->AddObserver(vtkCommand::InteractionEvent, startCallback); 
+			if (activeImageData->planeObserverTag == 0)
+			{
+				vtkSmartPointer<vtkCallbackCommand> startCallback = vtkSmartPointer<vtkCallbackCommand>::New();
+				startCallback->SetCallback(onePlaneCallbackFunction);
+				startCallback->SetClientData(this);
+				activeImageData->planeObserverTag =
+					activeImageData->planeWidget->AddObserver(vtkCommand::InteractionEvent, startCallback);
+			}
 		}else{
 			onePlaneCallbackMutex = false;
 			activeImageData->showPlane = false;
+			if (activeImageData->planeObserverTag != 0)
+			{
+				activeImageData->planeWidget->RemoveObserver(activeImageData->planeObserverTag);
+				activeImageData->planeObserverTag = 0;
+			}
 		}
 		connectVTKPipeline();
 		if(ui->actionPlane->isChecked() != value)
@@ -635,8 +654,9 @@ void OCTview3R::slotOpenPolyFileDialog()
 {
 	openPoly->showDialog();
 }
-void OCTview3R::slotDataFileDialogClosed(vtkImageReader2* tmpData)
+void OCTview3R::slotDataFileDialogClosed(vtkImageData* tmpData)
 {
+	openData->setEnabled(true);
 	if(openData->isValidData() && (tmpData != nullptr)){
 		ImageData* data		= getInitializedImageData();
 		data->showObject	= true;
@@ -646,52 +666,62 @@ void OCTview3R::slotDataFileDialogClosed(vtkImageReader2* tmpData)
 		data->fileName		= openData->getFileName();
 		data->filePath		= openData->getFilePath();
 		data->dataFormat	= openData->getDataFormat();
-		data->width			= openData->getWidth();
-		data->height		= openData->getHeight();
-		data->depth			= openData->getDepth();
-		data->bitsize		= openData->getBitsize();
+		int dimensions[3] = { 0, 0, 0 };
+		int extent[6] = { 0, 0, 0, 0, 0, 0 };
+		tmpData->GetDimensions(dimensions);
+		tmpData->GetExtent(extent);
+		data->width			= dimensions[0];
+		data->height		= dimensions[1];
+		data->depth			= dimensions[2];
+		data->bitsize		= tmpData->GetScalarSize() > 1 ? bitsizeType::BIT16 : bitsizeType::BIT8;
 		data->endian		= openData->getEndian();
-		data->maxValue		= pow(2, 8*((int)data->bitsize+1))-1;
-		data->currentMaxThreshold = pow(2, 8*((int)data->bitsize+1))-1;
-		data->endian		= openData->getEndian();
-		data->VOI[0]		= 0.0;
-		data->VOI[1]		= (double)openData->getWidth();
-		data->VOI[2]		= 0.0;
-		data->VOI[3]		= (double)openData->getHeight();
-		data->VOI[4]		= 0.0;
-		data->VOI[5]		= (double)openData->getDepth();
-		data->spacing[0]	= 1.0;
-		data->spacing[1]	= 1.0;
-		data->spacing[2]	= 1.0;
+		double scalarRange[2] = { 0.0, 0.0 };
+		tmpData->GetScalarRange(scalarRange);
+		data->minValue		= static_cast<int>(std::floor(scalarRange[0]));
+		data->maxValue		= static_cast<int>(std::ceil(scalarRange[1]));
+		data->currentMinThreshold = data->minValue;
+		data->currentMaxThreshold = data->maxValue;
+		data->VOI[0]		= static_cast<double>(extent[0]);
+		data->VOI[1]		= static_cast<double>(extent[1] + 1);
+		data->VOI[2]		= static_cast<double>(extent[2]);
+		data->VOI[3]		= static_cast<double>(extent[3] + 1);
+		data->VOI[4]		= static_cast<double>(extent[4]);
+		data->VOI[5]		= static_cast<double>(extent[5] + 1);
+		tmpData->GetSpacing(data->spacing);
 		data->pointSize		= 1;
 		data->fileLoaded	= true;
 		data->poly			= nullptr;
-		data->data			= tmpData;
+		data->image			= tmpData;
+		tmpData->Delete();
 
 		//allocate new imageData in imageDataList and add tab
+		const bool hadLoadedData = !imageDataList.isEmpty();
 		settings.numMaxIndex++;
 		imageDataList.append(data);
 		int newIndex=imageDataList.indexOf(data);
-		if(settings.oneFileLoaded){
-			tab = new QWidget();
-			tab->setObjectName(QString("tab"+QString().setNum(newIndex)));
-			this->ui->tabWidget->addTab(tab, data->typeName + " " + QString().setNum(settings.numMaxIndex));
+		if(hadLoadedData){
+			QWidget* newTab = new QWidget();
+			newTab->setObjectName(QString("tab"+QString().setNum(settings.numMaxIndex)));
+			this->ui->tabWidget->addTab(newTab, data->typeName + " " + QString().setNum(settings.numMaxIndex));
+		}else if(this->ui->tabWidget->count() == 0){
+			this->ui->tabWidget->addTab(new QWidget(), data->typeName + " " + QString().setNum(settings.numMaxIndex));
 		}
 		this->ui->tabWidget->setTabText(newIndex, data->typeName + " " + QString().setNum(settings.numMaxIndex));
 		this->ui->tabWidget->setCurrentIndex(newIndex);
+		settings.oneFileLoaded = true;
 		//set values in GUI
 		slotSetImageData(data);
-		settings.oneFileLoaded = true;
 		//render all
-		if(settings.numMaxIndex==1)
+		if(!hadLoadedData)
 			settings.firstFileLoaded = true;
 		connectVTKPipeline();
-	}else{
-		settings.oneFileLoaded = false;
+	}else if (tmpData != nullptr){
+		tmpData->Delete();
 	}
 }
 void OCTview3R::slotPolyFileDialogClosed(vtkPolyData* tmpPoly)
 {
+	openPoly->setEnabled(true);
 	if(openPoly->isValidData() && (tmpPoly != nullptr)){
 		ImageData *data		= getInitializedImageData();
 		data->showObject	= true;
@@ -701,46 +731,56 @@ void OCTview3R::slotPolyFileDialogClosed(vtkPolyData* tmpPoly)
 		data->fileName		= openPoly->getFileName();
 		data->filePath		= openPoly->getFilePath();
 		data->polyFormat	= openPoly->getPolyFormat();
-		data->maxValue		= pow(2, 8*((int)data->bitsize+1))-1;
-		data->currentMaxThreshold = pow(2, 8*((int)data->bitsize+1))-1;
-		std::memcpy(data->VOI, openPoly->getVOI(), 6*sizeof(double));
+		tmpPoly->GetBounds(data->VOI);
 		data->fileLoaded	= true;
 		data->poly			= tmpPoly;
+		data->image			= nullptr;
+		tmpPoly->Delete();
 		
 		//allocate new imageData in imageDataList and add tab
+		const bool hadLoadedData = !imageDataList.isEmpty();
+		settings.numMaxIndex++;
 		imageDataList.append(data);
 		int newIndex=imageDataList.indexOf(data);
-		if(settings.oneFileLoaded){
-			tab = new QWidget();
-			tab->setObjectName(QString("tab"+QString().setNum(newIndex)));
-			this->ui->tabWidget->addTab(tab, data->typeName + " " + QString().setNum(newIndex+1));
+		if(hadLoadedData){
+			QWidget* newTab = new QWidget();
+			newTab->setObjectName(QString("tab"+QString().setNum(settings.numMaxIndex)));
+			this->ui->tabWidget->addTab(newTab, data->typeName + " " + QString().setNum(settings.numMaxIndex));
+		}else if(this->ui->tabWidget->count() == 0){
+			this->ui->tabWidget->addTab(new QWidget(), data->typeName + " " + QString().setNum(settings.numMaxIndex));
 		}
-		this->ui->tabWidget->setTabText(newIndex, data->typeName + " " + QString().setNum(newIndex+1));
+		this->ui->tabWidget->setTabText(newIndex, data->typeName + " " + QString().setNum(settings.numMaxIndex));
 		this->ui->tabWidget->setCurrentIndex(newIndex);
-		settings.numMaxIndex++;
+		settings.oneFileLoaded = true;
 		//set values in GUI
 		slotSetImageData(data);
-		settings.oneFileLoaded = true;
 		//render all
-		if(settings.numMaxIndex==1)
+		if(!hadLoadedData)
 			settings.firstFileLoaded = true;
 		connectVTKPipeline();
-	}else{
-		settings.oneFileLoaded = false;
+	}else if (tmpPoly != nullptr){
+		tmpPoly->Delete();
 	}
 }
 void OCTview3R::slotProcessDataFile()
 {
 	if(openData->isValidData()){
-		loading *l = new loading(openData);
-		QThread *thread = new QThread(nullptr);
-		l->moveToThread(thread);
-		connect(l, SIGNAL(updateProgress(int)), openData, SLOT(updateProgress(int)));
-		connect(l, SIGNAL(loaded(vtkImageReader2*)), this, SLOT(slotDataFileDialogClosed(vtkImageReader2*)));	//slot with result called after process
-		connect(l, SIGNAL(loaded(vtkImageReader2*)), openData, SLOT(doAccepted()));								//close opendata dialog
-		connect(l, SIGNAL(loaded(vtkImageReader2*)), thread, SLOT(quit()));										//signal thrown after finishing process
-		connect(thread, SIGNAL(finished()), thread, SLOT(deleteLater()));										//obligatory for clean up
-		connect(thread, SIGNAL(started()), l, SLOT(loadData()));												//connecting thread with process
+		openData->setEnabled(false);
+		loading *worker = new loading(openData);
+		QThread *thread = new QThread(this);
+		loadingThreads.append(thread);
+		worker->moveToThread(thread);
+		connect(worker, &loading::updateProgress, openData, &OpenData::updateProgress);
+		connect(worker, &loading::dataLoaded, this, &OCTview3R::slotDataFileDialogClosed);
+		connect(worker, &loading::dataLoaded, openData, &OpenData::doAccepted);
+		connect(worker, &loading::failed, this, &OCTview3R::slotDataLoadFailed);
+		connect(worker, &loading::finished, worker, &QObject::deleteLater);
+		connect(worker, &loading::finished, thread, &QThread::quit);
+		connect(thread, &QThread::finished, this, [this, thread]() {
+			loadingThreads.removeOne(thread);
+		});
+		connect(thread, &QThread::finished, thread, &QObject::deleteLater);
+		connect(thread, &QThread::started, worker, &loading::loadData);
 		thread->start();
 	}else{
 		QMessageBox::information(this,tr("ERROR"), tr("No valid data selected"));
@@ -749,24 +789,43 @@ void OCTview3R::slotProcessDataFile()
 void OCTview3R::slotProcessPolyFile()
 {
 	if(openPoly->isValidData()){
-		loading *l = new loading(openPoly);
-		QThread *thread = new QThread(nullptr);
-		l->moveToThread(thread);
-		connect(l, SIGNAL(updateProgress(int)), openPoly, SLOT(updateProgress(int)));
-		connect(l, SIGNAL(loaded(vtkPolyData*)), this, SLOT(slotPolyFileDialogClosed(vtkPolyData*)));		//slot with result called after process
-		connect(l, SIGNAL(loaded(vtkPolyData*)), openPoly, SLOT(doAccepted()));								//close opendata dialog
-		connect(l, SIGNAL(loaded(vtkPolyData*)), thread, SLOT(quit()));										//signal thrown after finishing process
-		connect(thread, SIGNAL(finished()), thread, SLOT(deleteLater()));									//obligatory for clean up
-		connect(thread, SIGNAL(started()), l, SLOT(loadPoly()));											//connecting thread with process
+		openPoly->setEnabled(false);
+		loading *worker = new loading(openPoly);
+		QThread *thread = new QThread(this);
+		loadingThreads.append(thread);
+		worker->moveToThread(thread);
+		connect(worker, &loading::updateProgress, openPoly, &OpenPoly::updateProgress);
+		connect(worker, &loading::polyLoaded, this, &OCTview3R::slotPolyFileDialogClosed);
+		connect(worker, &loading::polyLoaded, openPoly, &OpenPoly::doAccepted);
+		connect(worker, &loading::failed, this, &OCTview3R::slotPolyLoadFailed);
+		connect(worker, &loading::finished, worker, &QObject::deleteLater);
+		connect(worker, &loading::finished, thread, &QThread::quit);
+		connect(thread, &QThread::finished, this, [this, thread]() {
+			loadingThreads.removeOne(thread);
+		});
+		connect(thread, &QThread::finished, thread, &QObject::deleteLater);
+		connect(thread, &QThread::started, worker, &loading::loadPoly);
 		thread->start();
 	}else{
 		QMessageBox::information(this,tr("ERROR"), tr("No valid data selected"));
 	}
 }
 
+void OCTview3R::slotDataLoadFailed(const QString& message)
+{
+	openData->setEnabled(true);
+	QMessageBox::critical(this, tr("Volume loading failed"), message);
+}
+
+void OCTview3R::slotPolyLoadFailed(const QString& message)
+{
+	openPoly->setEnabled(true);
+	QMessageBox::critical(this, tr("Polygonal-data loading failed"), message);
+}
+
 void OCTview3R::connectVTKPipeline()
 {
-	for(int i=0; i<settings.numMaxIndex;i++){
+	for(int i=0; i<imageDataList.size();i++){
 		if(imageDataList.at(i)->fileLoaded){
 			if(imageDataList.at(i)->isVolume){
 				// COLORMAP
@@ -1003,16 +1062,20 @@ void OCTview3R::connectVTKPipeline()
 				}
 				imageDataList.at(i)->colorFun->ClampingOff(); //Values out of the segment are zero
 				imageDataList.at(i)->opacityFun->RemoveAllPoints();
-				imageDataList.at(i)->opacityFun->AddSegment(imageDataList.at(i)->currentMinThreshold, 0, imageDataList.at(i)->currentMaxThreshold, 1.0);
+				imageDataList.at(i)->opacityFun->AddSegment(
+					imageDataList.at(i)->currentMinThreshold,
+					0,
+					imageDataList.at(i)->currentMaxThreshold,
+					imageDataList.at(i)->objectOpacity);
 				imageDataList.at(i)->opacityFun->ClampingOff(); //Values out of the segment are zero
 
 				// THRESHOLD
 				if(imageDataList.at(i)->isVolume){
 					if(imageDataList.at(i)->dataFormat == dataType::DATA_JPEG){
-						imageDataList.at(i)->luminance->SetInputConnection(imageDataList.at(i)->data->GetOutputPort());
+						imageDataList.at(i)->luminance->SetInputData(imageDataList.at(i)->image);
 						imageDataList.at(i)->extractVOI->SetInputConnection(imageDataList.at(i)->luminance->GetOutputPort());
 					}else{
-						imageDataList.at(i)->extractVOI->SetInputConnection(imageDataList.at(i)->data->GetOutputPort());
+						imageDataList.at(i)->extractVOI->SetInputData(imageDataList.at(i)->image);
 					}
 					imageDataList.at(i)->extractVOI->SetVOI(
 						(int)imageDataList.at(i)->VOI[0],(int)imageDataList.at(i)->VOI[1]-1,
@@ -1116,8 +1179,11 @@ void OCTview3R::connectVTKPipeline()
 					}else{
 						imageDataList.at(i)->clipPlane->SetNormal(imageDataList.at(i)->planeWidget->GetNormal());
 					}
+					imageDataList.at(i)->planeCollection->RemoveAllItems();
 					imageDataList.at(i)->planeCollection->AddItem(imageDataList.at(i)->clipPlane);
 					imageDataList.at(i)->volumeMapper->SetClippingPlanes(imageDataList.at(i)->planeCollection);
+				}else{
+					imageDataList.at(i)->planeCollection->RemoveAllItems();
 				}
 				switch(imageDataList.at(i)->blendMode){
 					case 1:  imageDataList.at(i)->volumeMapper->SetBlendModeToComposite(); break;
@@ -1126,16 +1192,17 @@ void OCTview3R::connectVTKPipeline()
 					default: imageDataList.at(i)->volumeMapper->SetBlendModeToMaximumIntensity(); break;
 				}
 				imageDataList.at(i)->volumeMapper->SetInputConnection(imageDataList.at(i)->threshold->GetOutputPort());
-				imageDataList.at(i)->volumeMapper->SetFinalColorLevel(1.0-imageDataList.at(i)->objectOpacity);
 				imageDataList.at(i)->volume->SetMapper(imageDataList.at(i)->volumeMapper);
 				imageDataList.at(i)->volume->SetScale(settings.x_fac,settings.y_fac,settings.z_fac);
+				imageDataList.at(i)->transform->Identity();
 				imageDataList.at(i)->transform->Translate(imageDataList.at(i)->shift);
 				imageDataList.at(i)->transform->RotateX(imageDataList.at(i)->rot[0]);
 				imageDataList.at(i)->transform->RotateY(imageDataList.at(i)->rot[1]);
 				imageDataList.at(i)->transform->RotateZ(imageDataList.at(i)->rot[2]);
 				imageDataList.at(i)->volume->SetUserTransform(imageDataList.at(i)->transform);
 				imageDataList.at(i)->volume->Update();
-				renderer->AddVolume(imageDataList.at(i)->volume);
+				if (!renderer->HasViewProp(imageDataList.at(i)->volume))
+					renderer->AddVolume(imageDataList.at(i)->volume);
 				if(imageDataList.at(i)->showObject && imageDataList.at(i)->isVolume){
 					imageDataList.at(i)->volume->SetVisibility(true);
 				}else{
@@ -1164,7 +1231,8 @@ void OCTview3R::connectVTKPipeline()
 					imageDataList.at(i)->polyColor.greenF(),
 					imageDataList.at(i)->polyColor.blueF()
 				);
-				renderer->AddActor(imageDataList.at(i)->polyActor);
+				if (!renderer->HasViewProp(imageDataList.at(i)->polyActor))
+					renderer->AddActor(imageDataList.at(i)->polyActor);
 				if(imageDataList.at(i)->showObject && imageDataList.at(i)->isPolyData){
 					imageDataList.at(i)->polyActor->SetVisibility(true);
 				}else{
@@ -1256,12 +1324,6 @@ void OCTview3R::slotSetColormap(QString value)
 {
 	if(settings.oneFileLoaded && activeImageData->fileLoaded){
 		activeImageData->colormapName = value;
-
-		//BUG WORKAROUND:
-		//TODO: Move this to ImageData
-		renderer->RemoveViewProp(activeImageData->volume);
-		renderer->RemoveVolume(activeImageData->volume);
-
 		connectVTKPipeline();
 	}
 }
@@ -1272,10 +1334,6 @@ void OCTview3R::slotPickVolumeColor()
 		if(color.isValid()){
 			activeImageData->volumeColor = color;
 			this->ui->pushButton_pickVolumeColor->setStyleSheet("background-color: "+activeImageData->volumeColor.name());
-			//BUG WORKAROUND:
-			//TODO: Change this to PolyData and move to ImageData
-			renderer->RemoveViewProp(activeImageData->volume);
-			renderer->RemoveVolume(activeImageData->volume);
 			connectVTKPipeline();
 		}
 	}
@@ -1377,23 +1435,23 @@ void OCTview3R::slotMedianCheckBox(bool value)
 }
 void OCTview3R::slotKernelXChanged(int value)
 {
-	if(settings.oneFileLoaded && activeImageData->fileLoaded){
-		activeImageData->medianKernelX = value;
-	}
+	if(!settings.oneFileLoaded || activeImageData == nullptr || !activeImageData->fileLoaded)
+		return;
+	activeImageData->medianKernelX = value;
 	slotMedianCheckBox(activeImageData->checkMedian);
 }
 void OCTview3R::slotKernelYChanged(int value)
 {
-	if(settings.oneFileLoaded && activeImageData->fileLoaded){
-		activeImageData->medianKernelY = value;
-	}
+	if(!settings.oneFileLoaded || activeImageData == nullptr || !activeImageData->fileLoaded)
+		return;
+	activeImageData->medianKernelY = value;
 	slotMedianCheckBox(activeImageData->checkMedian);
 }
 void OCTview3R::slotKernelZChanged(int value)
 {
-	if(settings.oneFileLoaded && activeImageData->fileLoaded){
-		activeImageData->medianKernelZ = value;
-	}
+	if(!settings.oneFileLoaded || activeImageData == nullptr || !activeImageData->fileLoaded)
+		return;
+	activeImageData->medianKernelZ = value;
 	slotMedianCheckBox(activeImageData->checkMedian);
 }
 void OCTview3R::slotOrientationChanged(int value)
@@ -1537,17 +1595,7 @@ void OCTview3R::slotRenderAgain()
 	if(settings.oneFileLoaded && activeImageData->fileLoaded){
 		activeImageData->fileChanged = true;
 		activeImageData->changePlaneInput = true;
-
-		//QFUTURE to load the volume in another thread while still responsive in the GUI with a ProgressDialog
-		QFutureWatcher<void>* watcherLoadFile = new QFutureWatcher<void>();
-		QFuture<void> futureLoadFile;
-		QProgressDialog* progressDialog = new QProgressDialog("Loading file...", QString(), 0, 0, this);
-		progressDialog->setMinimumWidth(600);
-		connect(watcherLoadFile, SIGNAL(finished()), progressDialog, SLOT(close()));
-		connect(progressDialog, SIGNAL(canceled()), watcherLoadFile, SLOT(cancel()));
-		connect(watcherLoadFile, SIGNAL(finished()), this, SLOT(connectVTKPipeline()));
-		watcherLoadFile->setFuture(futureLoadFile);
-		progressDialog->show();
+		connectVTKPipeline();
 	}
 }
 void OCTview3R::slotPlaneUp()
@@ -1556,7 +1604,11 @@ void OCTview3R::slotPlaneUp()
 		double aNormal[3]; 
 		double *normal = aNormal; 
 		normal = activeImageData->planeWidget->GetNormal();
-		if((normal[0]==1) || (normal[1]==1) || (normal[2]==1) || (normal[0]==-1) || (normal[1]==-1) || (normal[2]==-1)){
+		const bool isOrthogonal =
+			std::abs(std::abs(normal[0]) - 1.0) < 1e-6 ||
+			std::abs(std::abs(normal[1]) - 1.0) < 1e-6 ||
+			std::abs(std::abs(normal[2]) - 1.0) < 1e-6;
+		if(isOrthogonal){
 			int index = activeImageData->planeWidget->GetSliceIndex();
 			activeImageData->planeWidget->SetSliceIndex(index + 1);
 			iren->Render();
@@ -1573,7 +1625,11 @@ void OCTview3R::slotPlaneDown()
 		double aNormal[3]; 
 		double *normal = aNormal; 
 		normal = activeImageData->planeWidget->GetNormal();
-		if((normal[0]==1) || (normal[1]==1) || (normal[2]==1) || (normal[0]==-1) || (normal[1]==-1) || (normal[2]==-1)){
+		const bool isOrthogonal =
+			std::abs(std::abs(normal[0]) - 1.0) < 1e-6 ||
+			std::abs(std::abs(normal[1]) - 1.0) < 1e-6 ||
+			std::abs(std::abs(normal[2]) - 1.0) < 1e-6;
+		if(isOrthogonal){
 			int index = activeImageData->planeWidget->GetSliceIndex();
 			activeImageData->planeWidget->SetSliceIndex(index - 1);
 			iren->Render();
@@ -1701,32 +1757,12 @@ void OCTview3R::slotScaleZ(double value)
 		connectVTKPipeline();
 	}
 }
-//TODO: check if callback works when camera is rotated
-void OCTview3R::getCamRot()
-{
-	cam = renderer->GetActiveCamera();
-	double focalPoint[3];
-	cam->GetFocalPoint(focalPoint);
-	double viewUp[3];
-	cam->GetViewUp(viewUp);
-	double position[3];
-	cam->GetPosition(position);
-
-	double rotX = 0, rotY = 0, rotZ = 0;
-
-	//TODO: calculate x-,y-,z-angles
-
-	ui->rotXCamDoubleSpinBox->setValue(rotX);
-	ui->rotYCamDoubleSpinBox->setValue(rotY);
-	ui->rotZCamDoubleSpinBox->setValue(rotZ);
-}
 void OCTview3R::slotRotCamX(double value)
 {
 	double dx = value - settings.x_rot_cam;
 	settings.x_rot_cam = value;
+	camTrans->Identity();
 	camTrans->RotateX(dx);
-	camTrans->RotateY(0.0);
-	camTrans->RotateZ(0.0);
 	cam = renderer->GetActiveCamera();
 	cam->ApplyTransform(camTrans);
 	slotResetCam();
@@ -1735,9 +1771,8 @@ void OCTview3R::slotRotCamY(double value)
 {
 	double dy = value - settings.y_rot_cam;
 	settings.y_rot_cam = value;
-	camTrans->RotateX(0.0);
+	camTrans->Identity();
 	camTrans->RotateY(dy);
-	camTrans->RotateZ(0.0);
 	cam = renderer->GetActiveCamera();
 	cam->ApplyTransform(camTrans);
 	slotResetCam();
@@ -1746,8 +1781,7 @@ void OCTview3R::slotRotCamZ(double value)
 {
 	double dz = value - settings.z_rot_cam;
 	settings.z_rot_cam = value;
-	camTrans->RotateX(0.0);
-	camTrans->RotateY(0.0);
+	camTrans->Identity();
 	camTrans->RotateZ(dz);
 	cam = renderer->GetActiveCamera();
 	cam->ApplyTransform(camTrans);
@@ -1767,22 +1801,30 @@ void OCTview3R::slotRotCamStepZ(double value)
 }
 void OCTview3R::slotBackground1(QString qstr)
 {
-	settings.background_RGB1[0] = qstr.split("-")[0].toInt();
-	settings.background_RGB1[1] = qstr.split("-")[1].toInt();
-	settings.background_RGB1[2] = qstr.split("-")[2].toInt();
-	initializeVTKPipeline();
+	const QStringList components = qstr.split("-");
+	if (components.size() != 3)
+		return;
+	settings.background_RGB1[0] = components[0].toInt();
+	settings.background_RGB1[1] = components[1].toInt();
+	settings.background_RGB1[2] = components[2].toInt();
+	renderer->SetBackground(double(settings.background_RGB1[0])/255.0, double(settings.background_RGB1[1])/255.0, double(settings.background_RGB1[2])/255.0);
+	renWin->Render();
 }
 void OCTview3R::slotBackground2(QString qstr)
 {
-	settings.background_RGB2[0] = qstr.split("-")[0].toInt();
-	settings.background_RGB2[1] = qstr.split("-")[1].toInt();
-	settings.background_RGB2[2] = qstr.split("-")[2].toInt();
-	initializeVTKPipeline();
+	const QStringList components = qstr.split("-");
+	if (components.size() != 3)
+		return;
+	settings.background_RGB2[0] = components[0].toInt();
+	settings.background_RGB2[1] = components[1].toInt();
+	settings.background_RGB2[2] = components[2].toInt();
+	renderer->SetBackground2(double(settings.background_RGB2[0])/255.0, double(settings.background_RGB2[1])/255.0, double(settings.background_RGB2[2])/255.0);
+	renWin->Render();
 }
 void OCTview3R::slotSaveDisplay()
 {
-	vtkWindowToImageFilter *w2i = vtkWindowToImageFilter::New();
-	vtkTIFFWriter *writer = vtkTIFFWriter::New();
+	auto w2i = vtkSmartPointer<vtkWindowToImageFilter>::New();
+	auto writer = vtkSmartPointer<vtkTIFFWriter>::New();
 	w2i->SetInput(renWin);
 	w2i->Update();
 	writer->SetInputConnection(w2i->GetOutputPort());
@@ -1799,15 +1841,56 @@ void OCTview3R::slotSaveDisplay()
 }
 void OCTview3R::slotCloseTab()
 {
-	//TODO: Still messy. First tab can't be removed, volume view is not updated!
-	int index = imageDataList.indexOf(activeImageData,1);
-	if(imageDataList.length()>1 && (index!=-1)){
-		this->ui->tabWidget->removeTab(index);
-		imageDataList.removeOne(activeImageData);
-		this->ui->tabWidget->setCurrentIndex(index+1);
+	const int index = ui->tabWidget->currentIndex();
+	if (index < 0 || index >= imageDataList.size())
+		return;
+
+	ImageData* data = imageDataList.takeAt(index);
+	if (data->planeObserverTag != 0)
+		data->planeWidget->RemoveObserver(data->planeObserverTag);
+	data->planeWidget->Off();
+	data->planeWidget->SetInteractor(nullptr);
+	renderer->RemoveVolume(data->volume);
+	renderer->RemoveActor(data->polyActor);
+
+	QWidget* page = ui->tabWidget->widget(index);
+	ui->tabWidget->removeTab(index);
+	if (page)
+		page->deleteLater();
+	delete data;
+
+	settings.oneFileLoaded = !imageDataList.isEmpty();
+	activeImageData = nullptr;
+
+	if (imageDataList.isEmpty())
+	{
+		ui->tabWidget->addTab(new QWidget(), tr("Open File"));
+		ui->pushButton_close->setEnabled(false);
+		ui->groupBox_object->setEnabled(false);
+		ui->groupBox_plane->setEnabled(false);
+		ui->groupBox_threshold->setEnabled(false);
+		ui->groupBox_colorMapping->setEnabled(false);
+		ui->actionObject->setCheckable(false);
+		ui->actionPlane->setCheckable(false);
+		ui->label_file->setText(tr("File:"));
+		statusLabel->setText(tr("No file loaded."));
+		renderer->RemoveActor(axes);
+		scalarBarWidget->Off();
+		orientWidget->SetEnabled(0);
+		renWin->Render();
+		return;
 	}
+
+	const int nextIndex = qMin(index, imageDataList.size() - 1);
+	ui->tabWidget->setCurrentIndex(nextIndex);
+	slotSetImageData(nextIndex);
+	connectVTKPipeline();
 }
 
+#if 0
+// Legacy experimental visualization routines retained for reference only.
+// They depend on machine-specific paths and are intentionally excluded from
+// the production build.
 void OCTview3R::magic()
 {
 
@@ -2206,3 +2289,4 @@ void OCTview3R::transform()
   renderWindowInteractorT->Start();
   */
 }
+#endif

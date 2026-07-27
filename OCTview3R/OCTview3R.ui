@@ -672,19 +672,6 @@
            <double>1.000000000000000</double>
           </property>
          </widget>
-         <widget class="QPushButton" name="pushButton_magic">
-          <property name="geometry">
-           <rect>
-            <x>10</x>
-            <y>60</y>
-            <width>91</width>
-            <height>22</height>
-           </rect>
-          </property>
-          <property name="text">
-           <string>Movie mode</string>
-          </property>
-         </widget>
         </widget>
        </item>
        <item>
@@ -1797,7 +1784,7 @@
           </property>
           <property name="icon">
            <iconset>
-            <normaloff>:/OCTViewer/Resources/icons/bullet_arrow_up.png</normaloff>:/OCTViewer/Resources/icons/bullet_arrow_up.png</iconset>
+            <normaloff>:/OCTview3R/Resources/icons/bullet_arrow_up.png</normaloff>:/OCTview3R/Resources/icons/bullet_arrow_up.png</iconset>
           </property>
           <property name="iconSize">
            <size>
@@ -1823,7 +1810,7 @@
           </property>
           <property name="icon">
            <iconset>
-            <normaloff>:/OCTViewer/Resources/icons/bullet_arrow_down.png</normaloff>:/OCTViewer/Resources/icons/bullet_arrow_down.png</iconset>
+            <normaloff>:/OCTview3R/Resources/icons/bullet_arrow_down.png</normaloff>:/OCTview3R/Resources/icons/bullet_arrow_down.png</iconset>
           </property>
           <property name="iconSize">
            <size>

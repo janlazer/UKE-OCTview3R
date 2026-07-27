@@ -25,13 +25,12 @@ icons, and a collection of example data sets.
 The current project configuration targets the following toolchain:
 
 - Windows x64
-- Visual Studio with the MSVC v142 toolset
+- Visual Studio 2022 with the MSVC v143 toolset
 - Windows 10 SDK
 - Qt 5.15.2 for `msvc2019_64`
 - Qt Visual Studio Tools / Qt MSBuild integration
 - VTK 8.2 built for x64 with Qt and OpenGL support
 
-Visual Studio 2022 can build the project when the v142 toolset is installed.
 Qt and VTK must use ABI-compatible compiler and runtime settings.
 
 ## Building
@@ -48,18 +47,18 @@ Qt and VTK must use ABI-compatible compiler and runtime settings.
 
    ```powershell
    $env:VTKDIR = "C:\Programming\VTK\include"
-   $env:VTKLIB = "C:\Programming\VTK\lib\Release"
+   $env:VTKLIB = "C:\Programming\VTK\lib"
    $env:VTKBIN = "C:\Programming\VTK\bin"
    ```
 
-   `VTKLIB` must point to the configuration-specific directory that contains
-   the VTK `.lib` files. Pointing it only to `C:\Programming\VTK\lib` causes
-   linker error `LNK1181`.
+   The project automatically selects the `Debug` or `Release` subdirectory
+   below `VTKLIB`. A configuration-specific directory containing the VTK
+   `.lib` files can also be supplied directly.
 
 3. Open `OCTview3R.sln` in Visual Studio.
 
-4. Select `Release | x64` or `Debug | x64` and build the solution. For a Debug
-   build, set `VTKLIB` to the corresponding VTK Debug library directory.
+4. Select `Release | x64` or `Debug | x64` and build the solution. The selected
+   configuration determines which VTK library subdirectory is used.
 
 The Release configuration can also be built from a Visual Studio developer
 shell:
@@ -70,7 +69,7 @@ shell:
   /t:Build `
   /p:Configuration=Release `
   /p:Platform=x64 `
-  /p:VTKLIB="C:\Programming\VTK\lib\Release"
+  /p:VTKLIB="C:\Programming\VTK\lib"
 ```
 
 ## Running
@@ -89,6 +88,7 @@ $env:PATH = "C:\Programming\VTK\bin\Release;C:\Programming\Qt\5.15.2\msvc2019_64
 OCTview3R.sln
 OCTview3R/
   OCTview3R.cpp/.h       Main window and visualization pipeline
+  viewerData.h           Per-data-set viewer state and owned VTK objects
   loading.cpp/.h         Background data loading
   opendata.cpp/.h/.ui    Volume-data import dialog
   openpoly.cpp/.h/.ui    Polygonal-data import dialog
@@ -103,12 +103,12 @@ This is a legacy research codebase and currently has no automated test suite.
 The application builds successfully with the reference dependency versions
 above, but several areas need further work before critical use:
 
-- VTR import requires correction and additional format tests.
-- Thread and VTK object lifetimes should be converted to explicit RAII
-  ownership.
+- VTR and other scientific-data imports need broader format coverage tests.
 - Tab removal and repeated transform/render operations need regression tests.
-- Experimental routines with machine-specific paths should be removed or
-  isolated from the production interface.
+- The visualization pipeline is still concentrated in the main-window class
+  and would benefit from smaller, independently testable components.
+- A future Qt/VTK upgrade should be handled as a dedicated migration because
+  both frameworks have breaking API changes beyond the reference versions.
 
 When adding new functionality, prefer small, testable pipeline components and
 VTK smart pointers over additional raw-pointer ownership.

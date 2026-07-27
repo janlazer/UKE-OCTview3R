@@ -1,37 +1,32 @@
 #include "OpenData.h"
+#include "ui_opendata.h"
 
-#include <vtkObject.h>
+#include <QCloseEvent>
+#include <QFileDialog>
+#include <QFileInfo>
+
 #include <vtkSmartPointer.h>
-#include <vtkImageReader2.h>
-#include <vtkImageReader.h>
 #include <vtkTIFFReader.h>
 #include <vtkJPEGReader.h>
 #include <vtkImageData.h>
 #include <vtkStructuredPoints.h>
 #include <vtkStructuredPointsReader.h>
-#include <vtkImageDataGeometryFilter.h>
-#include <vtkProgressObserver.h>
-#include <vtkCommand.h>
-#include <vtkCallbackCommand.h>
 
-OpenData::OpenData(QWidget *parent) : QDialog(parent)
+OpenData::OpenData(QWidget *parent)
+	: QDialog(parent),
+	  ui(nullptr),
+	  m_windowIsOpen(false),
+	  m_validData(false),
+	  m_lastPath("."),
+	  m_fileName("Choose file..."),
+	  m_bitsize(bitsizeType::BIT8),
+	  m_endian(endianType::LITTLE),
+	  m_dataFormat(dataType::DATA_UNDEF),
+	  m_width(0),
+	  m_height(0),
+	  m_depth(0)
 {
 	initGUI();
-}
-
-OpenData::OpenData(const OpenData &od)
-{
-	ui = od.ui;
-	m_windowIsOpen = od.m_windowIsOpen;
-	m_validData = od.m_validData;
-	m_lastPath = od.m_lastPath;
-    m_fileName = od.m_fileName;
-	m_bitsize = od.m_bitsize;
-    m_endian = od.m_endian;
-	m_dataFormat = od.m_dataFormat;
-    m_width = od.m_width; 
-	m_height = od.m_height;
-	m_depth = od.m_depth;
 }
 
 OpenData::~OpenData(void)
@@ -43,44 +38,46 @@ void OpenData::showDialog()
 {
 	emit updateProgress(0);
 	if(!this->isWindowOpen()){
-		
+		m_windowIsOpen = true;
 		show();
 	}else{
 		raise();
+		activateWindow();
 	}
 }
+
+void OpenData::closeEvent(QCloseEvent *event)
+{
+	m_windowIsOpen = false;
+	QDialog::closeEvent(event);
+}
+
 void OpenData::openFile()
 {
 	//SLOT after pressing Button New File...
-	m_windowIsOpen = true;
-	QFileDialog getFileDialog(this, "Open File", m_lastPath, "Volume Data (*.tif *.raw *.jpg *.vtk)");
+	QFileDialog getFileDialog(this, "Open File", m_lastPath, "Volume Data (*.tif *.tiff *.raw *.jpg *.jpeg *.vtk)");
 	getFileDialog.setAcceptMode(QFileDialog::AcceptOpen);
 	QStringList filters;
-	filters << "TIF files (*.tif)" << "RAW files (*.raw)" << "JPG files (*.jpg)" << "VTK files (*.vtk)";
+	filters << "TIFF files (*.tif *.tiff)" << "RAW files (*.raw)" << "JPEG files (*.jpg *.jpeg)" << "VTK files (*.vtk)";
 	getFileDialog.setNameFilters(filters);
 	if(getFileDialog.exec() == QDialog::Accepted){
 		QString selectedFilter = getFileDialog.selectedNameFilter();
-		QString fileName = getFileDialog.selectedFiles()[0];
+		QString fileName = getFileDialog.selectedFiles().value(0);
 		fileAttributes(fileName, selectedFilter);
-		this->m_validData = true;
+		this->m_validData = !m_fileName.isEmpty() && m_dataFormat != dataType::DATA_UNDEF;
 		emit updateProgress(0);
 	}else{
-		QMessageBox::information(this,tr("WARNING"), tr("No valid image data selected"));	
-		this->m_validData = false;
+		return;
 	}
 }
-void OpenData::ProgressFunction(vtkObject* caller, long unsigned int eventId, void* clientData, void* callData)
-{
-	vtkTIFFReader* tmp = static_cast<vtkTIFFReader*>(caller);
-	OpenData *pOpenData = reinterpret_cast<OpenData*>(clientData);
-	qDebug() << QString().setNum(tmp->GetProgress());
-	emit pOpenData->updateProgress(int(tmp->GetProgress()*100));
-} 
-#include <vtkGenericDataObjectReader.h>
+
 void OpenData::fileAttributes(QString fileName, QString selectedFilter)
 {
 	//gets the user input, called by openFile()
-	if(selectedFilter=="RAW files (*.raw)"){
+	Q_UNUSED(selectedFilter);
+	const QString suffix = QFileInfo(fileName).suffix().toLower();
+
+	if(suffix == "raw"){
 		m_dataFormat = dataType::DATA_RAW;
 		ui->comboBox_endian->setEnabled(true);
 		ui->label_endian->setEnabled(true);
@@ -92,16 +89,16 @@ void OpenData::fileAttributes(QString fileName, QString selectedFilter)
 		ui->label_width->setEnabled(true);
 		ui->spinBox_depth->setEnabled(true);
 		ui->label_depth->setEnabled(true);
-	}else if(selectedFilter=="TIF files (*.tif)"){
+	}else if(suffix == "tif" || suffix == "tiff"){
 		m_dataFormat = dataType::DATA_TIFF;
-		vtkTIFFReader *tiff = vtkTIFFReader::New();
+		auto tiff = vtkSmartPointer<vtkTIFFReader>::New();
 		tiff->SetFileName(fileName.toLocal8Bit());
 		tiff->UpdateInformation();
-		int dataExt[6];
+		int dataExt[6] = { 0, 0, 0, 0, 0, 0 };
 		tiff->GetDataExtent(dataExt);
-		setWidth(dataExt[1] + 1);
-		setHeight(dataExt[3] + 1);
-		setDepth(dataExt[5] + 1);
+		setWidth(dataExt[1] - dataExt[0] + 1);
+		setHeight(dataExt[3] - dataExt[2] + 1);
+		setDepth(dataExt[5] - dataExt[4] + 1);
 		//CHECK BITSIZE
 		switch(tiff->GetDataScalarType()){
 			case VTK_UNSIGNED_CHAR:
@@ -128,13 +125,12 @@ void OpenData::fileAttributes(QString fileName, QString selectedFilter)
 		ui->label_width->setEnabled(false);
 		ui->spinBox_depth->setEnabled(false);
 		ui->label_depth->setEnabled(false);
-	}else if(selectedFilter=="JPG files (*.jpg)"){
+	}else if(suffix == "jpg" || suffix == "jpeg"){
 		m_dataFormat = dataType::DATA_JPEG;
-		vtkJPEGReader *jpeg = vtkJPEGReader::New();
+		auto jpeg = vtkSmartPointer<vtkJPEGReader>::New();
 		jpeg->SetFileName(fileName.toLocal8Bit());
-		jpeg->UpdateWholeExtent();
-		int *dimensions = new int(2);
-		dimensions = jpeg->GetOutput()->GetDimensions();
+		jpeg->Update();
+		int *dimensions = jpeg->GetOutput()->GetDimensions();
 		setWidth(dimensions[0]);
 		setHeight(dimensions[1]);
 		ui->comboBox_endian->setEnabled(true);
@@ -147,16 +143,16 @@ void OpenData::fileAttributes(QString fileName, QString selectedFilter)
 		ui->label_width->setEnabled(false);
 		ui->spinBox_depth->setEnabled(true);
 		ui->label_depth->setEnabled(true);
-	}else if(selectedFilter=="VTK files (*.vtk)"){
+	}else if(suffix == "vtk"){
 		m_dataFormat = dataType::DATA_VTK;
-		vtkStructuredPointsReader *vtk = vtkStructuredPointsReader::New();
+		auto vtk = vtkSmartPointer<vtkStructuredPointsReader>::New();
 		vtk->SetFileName(fileName.toLocal8Bit());
-		vtk->UpdateWholeExtent();
-		int dataExt[6];
-		vtk->GetUpdateExtent(dataExt);
-		setWidth(dataExt[1] + 1);
-		setHeight(dataExt[3] + 1);
-		setDepth(dataExt[5] + 1);
+		vtk->UpdateInformation();
+		int dataExt[6] = { 0, 0, 0, 0, 0, 0 };
+		vtk->GetOutput()->GetExtent(dataExt);
+		setWidth(dataExt[1] - dataExt[0] + 1);
+		setHeight(dataExt[3] - dataExt[2] + 1);
+		setDepth(dataExt[5] - dataExt[4] + 1);
 		//CHECK BITSIZE
 		/*switch(vtk->GetDataScalarType()){
 			case VTK_UNSIGNED_CHAR:
@@ -199,7 +195,7 @@ void OpenData::fileAttributes(QString fileName, QString selectedFilter)
 		return;
 	}
 	m_fileName = fileName;
-	m_lastPath = fileName.section("/",0,-2);
+	m_lastPath = QFileInfo(fileName).absolutePath();
 	ui->label_fileName->setText(m_fileName);
 	ui->label_fileName->adjustSize();
 }
@@ -213,11 +209,6 @@ void OpenData::doRejected()
 	m_windowIsOpen = false;
 	reject();
 }
-void OpenData::doDestroyed()
-{
-	m_windowIsOpen = false;
-}
-
 void OpenData::updateProgress(int value)
 {
 	if(value == 0){
@@ -241,9 +232,6 @@ void OpenData::initGUI()
 {
 	this->ui = new Ui_OpenData;
 	ui->setupUi(this);
-	m_windowIsOpen = false;
-	m_lastPath = ".";
-	m_fileName = "Choose file...";
 	ui->label_fileName->setText(m_fileName);
 	updateProgress(0);
 	connect(ui->openFileButton, SIGNAL(clicked()), this, SLOT(openFile()));
@@ -254,8 +242,6 @@ void OpenData::initGUI()
 	connect(ui->comboBox_endian, SIGNAL(currentIndexChanged(int)), this, SLOT(setEndian(int)));
 	connect(ui->pushButton_ok, SIGNAL(clicked()), this, SLOT(startProcessing()));
 	connect(ui->pushButton_cancel, SIGNAL(clicked()), this, SLOT(doRejected()));
-	connect(this, SIGNAL(signalCloseWindow()), this, SLOT(doRejected()));
-	connect(this, SIGNAL(destroyed()), this, SLOT(doDestroyed()));
 }
 //////////////////////////////////////////////////////////////////////////////////////
 //CHECKER/////////////////////////////////////////////////////////////////////////////

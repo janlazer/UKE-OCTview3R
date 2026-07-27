@@ -1,23 +1,23 @@
 #ifndef OCTVIEW3R_H
 #define OCTVIEW3R_H
 
-#include "vtkSmartPointer.h" // Required for smart pointer internal ivars.
-#include "dataTypes.h"
+#include "viewerData.h"
 #include "opendata.h"
 #include "openpoly.h"
+
+#include <QList>
 #include <QMainWindow>
-#include <QColorDialog>
-#include "qmath.h"
-#include "qvector.h"
-#include "qlabel.h"
 
 // Forward Qt class declarations
 class Ui_OCTview3R;
 class OpenData;
 class OpenPolyData;
+class QLabel;
+class QThread;
 
 // Forward VTK class declarations
-class vtkImageReader2;
+class vtkImageData;
+class vtkPolyData;
 class vtkRenderer;
 class vtkVolume;
 class vtkRenderWindow;
@@ -43,184 +43,8 @@ class vtkTransform;
 class vtkScalarBarActor;
 class vtkScalarBarWidget;
 class vtkCubeAxesActor;
-class RangeSlider;
-class vtkLookupTable;
-class vtkImageMapToColors;
-class vtkMath;
-class vtkEventQtSlotConnect;
-class vtkExtractVOI;
 class vtkOrientationMarkerWidget;
 class vtkAxesActor;
-class vtkWindowToImageFilter;
-class vtkTIFFWriter;
-class vtkVertexGlyphFilter;
-class vtkDataSetAttributes;
-class vtkPlane;
-class vtkImplicitPlaneWidget;
-class vtkClipVolume;
-class vtkClipPolyData;
-class vtkImageClip;
-class vtkCutter;
-class vtkVolumeRayCastMapper;
-class vtkVolumeRayCastMIPFunction;
-class vtkVolumeRayCastCompositeFunction;
-class vtkPlaneSource;
-class vtkPlaneCollection;
-//POINT
-class vtkPolyData;
-class vtkPolyDataMapper;
-class vtkPolyDataReader;
-class vtkPoints;
-class vtkPointData;
-class vtkCellArray;
-class vtkUnsignedCharArray;
-class vtkActor;
-//MESH
-class vtkDataSetMapper;
-class vtkPolygon;
-class vtkCleanPolyData;
-class vtkDelaunay3D;
-class vtkXMLPolyDataReader;
-class vtkXMLImageDataReader;
-class vtkDelaunay2D;
-//DATA
-class vtkGenericDataObjectReader;
-class vtkStructuredGrid;
-class vtkStructuredGridReader;
-class vtkStructuredPointsReader;
-class vtkStructuredGridGeometryFilter;
-class vtkUnstructuredGrid;
-class vtkUnstructuredGridReader;
-class vtkImageDataGeometryFilter;
-class vtkVolumeMapper;
-class vtkTransform;
-class vtkTransformFilter;
-class vtkTransformPolyDataFilter;
-class vtkMatrix4x4;
-class vtkAlgorithm;
-class vtkAlgorithmOutput;
-class vtkWarpScalar;
-class vtkCubeAxesActor2D;
-class vtkAxisActor2D;
-class vtkInteractorStyleTrackballCamera;
-class vtkInteractorStyleTrackball;
-class vtkImageReslice;
-class vtkImageResliceMapper;
-
-struct ImageData
-{
-	//data and polydata
-	vtkSmartPointer<vtkImageThreshold> threshold;
-	vtkSmartPointer<vtkColorTransferFunction> colorFun;
-	vtkSmartPointer<vtkPiecewiseFunction> opacityFun;
-	vtkSmartPointer<vtkImagePlaneWidget> planeWidget;
-	vtkSmartPointer<vtkImageMedian3D> median;
-	vtkSmartPointer<vtkExtractVOI> extractVOI;
-	vtkSmartPointer<vtkVolume> volume;
-	vtkSmartPointer<vtkActor> actor;
-	vtkSmartPointer<vtkTransform> transform; //https://gitlab.kitware.com/vtk/vtk/-/issues/17140
-	vtkSmartPointer<vtkImageLuminance> luminance;
-	vtkSmartPointer<vtkSmartVolumeMapper> volumeMapper;
-	vtkSmartPointer<vtkPolyDataMapper> polyMapper;
-	vtkSmartPointer<vtkActor> polyActor;
-	vtkSmartPointer<vtkImageMapToColors> colorMap;
-	vtkSmartPointer<vtkPlane> clipPlane;
-	vtkSmartPointer<vtkImageData> image;
-	vtkSmartPointer<vtkImplicitPlaneWidget> implicitPlane;
-	vtkSmartPointer<vtkPlaneCollection> planeCollection;
-
-	//object
-	vtkAlgorithm *object;
-	vtkAlgorithmOutput *output;
-	QString typeName;
-	bool fileLoaded; //always true after the first loaded file
-	bool fileChanged;
-	QString fileName;
-	QString filePath;
-	bool isPolyData;
-	bool isVolume;
-	vtkImageReader2 *data;
-	vtkPolyData *poly;
-	dataType dataFormat;
-	polyType polyFormat;
-	endianType endian;
-	bitsizeType bitsize;
-	int width;
-	int height;
-	int depth;
-	double VOI[6];
-	double rot[3];
-	double shift[3];
-	double spacing[3];
-	double objectOpacity;
-	bool showObject;
-
-	//color
-	QString colormapName; //0-Greyscale, 1-Rainbow, 2-Dark Body
-	bool adjustColormap;
-	bool invertColormap;
-	int blendMode;
-	int polyMode;
-	QColor polyColor;
-	QColor volumeColor;
-	double colorRGB[3];
-	int pointSize;
-
-	//threshold
-	bool changedThreshold;
-	int minValue;
-	int maxValue;
-	int currentMinThreshold;
-	int currentMaxThreshold;
-
-	//plane
-	bool initPlane;
-	bool showPlane;
-	double planeOrigin[3];
-	double planeP1[3];
-	double planeP2[3];
-	bool checkMedian;
-	int medianKernelX;
-	int medianKernelY;
-	int medianKernelZ;
-	int orientIndex; //0: xy, 1:xz, 2:yz
-	bool orientChanged;
-	int planeOrientation;
-	bool changePlaneInput;
-	bool switchPlane;
-	bool planeIsVisible;
-};
-
-struct Settings
-{
-	//current index
-	int activeIndex;
-	int numMaxIndex;
-
-	//init questions
-	bool oneFileLoaded;
-	bool firstFileLoaded;
-
-	//general
-	int background_RGB1[3];
-	int background_RGB2[3];
-
-	//actions
-	bool showAxesTriad;
-	bool showAxesBox;
-	bool showOrientAxes;
-	bool showScalarBar;
-
-	//stretching
-	double x_fac;
-	double y_fac;
-	double z_fac;
-
-	//camera rotation
-	double x_rot_cam;
-	double y_rot_cam;
-	double z_rot_cam;
-};
 
 class OCTview3R : public QMainWindow
 {
@@ -237,29 +61,16 @@ public slots:
 	virtual void slotExit();
 
 protected:
-	vtkRenderer* renderer;
+	vtkSmartPointer<vtkRenderer> renderer;
 	vtkRenderWindow* renWin;
 	vtkRenderWindowInteractor* iren;
-	//vtkVolumeRayCastCompositeFunction *rayCastCompositeFunction;
-	//vtkVolumeRayCastMIPFunction *rayCastMIPFunction;
-	//vtkVolumeRayCastMapper *volumeRayCastMapper;
-	vtkImageReader* imageReader;
-	vtkTIFFReader* TIFFReader;
-	vtkJPEGReader* JPEGReader;
-	vtkStructuredPointsReader *VTKReader;
-	vtkScalarBarActor* scalarBarActor;
-	vtkScalarBarWidget* scalarBarWidget;
-	vtkCubeAxesActor* axes;
-	vtkLookupTable* lookupTable;
-	vtkImageResliceMapper *im;
-	vtkImageProperty *ip;
-	vtkImageSlice *ia;
+	vtkSmartPointer<vtkScalarBarActor> scalarBarActor;
+	vtkSmartPointer<vtkScalarBarWidget> scalarBarWidget;
+	vtkSmartPointer<vtkCubeAxesActor> axes;
 	vtkCamera *cam;
-	vtkTransform *camTrans;
-	vtkMath *math;
-	vtkEventQtSlotConnect *connections;
-	vtkAxesActor *axesActor;
-	vtkOrientationMarkerWidget *orientWidget;
+	vtkSmartPointer<vtkTransform> camTrans;
+	vtkSmartPointer<vtkAxesActor> axesActor;
+	vtkSmartPointer<vtkOrientationMarkerWidget> orientWidget;
 
 signals:
 	void signalLoadFileStarted(void);
@@ -268,17 +79,15 @@ signals:
 protected slots:
 	void connectVTKPipeline(void);
 
-	//POLY TESTING
-	void magic();
-	void transform();
-
 	//new file
 	void slotSetImageData(ImageData*);
 	void slotSetImageData(int);
 	void slotOpenDataFileDialog(void);
 	void slotOpenPolyFileDialog(void);
-	void slotDataFileDialogClosed(vtkImageReader2*);
+	void slotDataFileDialogClosed(vtkImageData*);
 	void slotPolyFileDialogClosed(vtkPolyData*);
+	void slotDataLoadFailed(const QString&);
+	void slotPolyLoadFailed(const QString&);
 
 	//threshold
 	void slotSetThreshold(void);
@@ -355,14 +164,6 @@ protected slots:
 	void slotCloseTab();
 
 private:
-	//callback variables
-	static void moveCameraCallbackFunction(
-		vtkObject *caller,
-		unsigned long eventId,
-		void *clientData,
-		void *callData
-	);
-	bool moveCameraCallbackMutex;
 	static void onePlaneCallbackFunction(
 		vtkObject *caller,
 		unsigned long eventId,
@@ -371,27 +172,22 @@ private:
 	);
 	bool onePlaneCallbackMutex;
 
-	//essential variables
-	QString fileName;
-	QString filePath;
 	QLabel *statusLabel;
 
 	//designer form
 	Ui_OCTview3R *ui;
-	QWidget *tab;
 	OpenData *openData;
 	OpenPoly *openPoly;
 
 	//parameter structures
 	Settings settings;
-	ImageData* activeImageData;
+	ImageData* activeImageData = nullptr;
 	QList<ImageData*> imageDataList;
+	QList<QThread*> loadingThreads;
 
 public:
 	//helper
 	ImageData* getInitializedImageData();
-	void calculateThickSlabDistanceRange();
-	void getCamRot();
 	void initializeVTKPipeline();
 };
 

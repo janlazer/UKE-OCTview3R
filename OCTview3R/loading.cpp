@@ -1,304 +1,326 @@
-#include "Loading.h"
+#include "loading.h"
 
-#include <vtkImageData.h>
-#include <vtkImageReader2.h>
-#include <vtkImageReader.h>
-#include <vtkTIFFReader.h>
-#include <vtkJPEGReader.h>
-#include <vtkStructuredPointsReader.h>
-#include <vtkStructuredGridReader.h>
-#include <vtkStructuredGridGeometryFilter.h>
+#include "opendata.h"
+#include "openpoly.h"
+
+#include <QFileInfo>
+#include <QRegularExpression>
+
 #include <vtkBYUReader.h>
+#include <vtkCleanPolyData.h>
+#include <vtkDelaunay3D.h>
+#include <vtkGeometryFilter.h>
+#include <vtkImageReader.h>
+#include <vtkJPEGReader.h>
 #include <vtkOBJReader.h>
 #include <vtkPLYReader.h>
-#include <vtkSTLReader.h>
-#include <vtkXMLPolyDataReader.h>
 #include <vtkPolyDataReader.h>
-#include <vtkPolyData.h>
-#include <vtkImageDataGeometryFilter.h>
-#include <vtkGeometryFilter.h>
 #include <vtkSimplePointsReader.h>
-#include <vtkDelaunay3D.h>
-#include <vtkCleanPolyData.h>
-#include <vtkDataSetMapper.h>
-#include <vtkUnstructuredGrid.h>
+#include <vtkSTLReader.h>
+#include <vtkStructuredPoints.h>
+#include <vtkStructuredPointsReader.h>
+#include <vtkTIFFReader.h>
+#include <vtkXMLPolyDataReader.h>
+#include <vtkXMLRectilinearGridReader.h>
 
-loading::loading(OpenData* od)
+namespace
 {
-	setData(od);
+bool hasUsableImage(vtkImageData* image)
+{
+	return image != nullptr && image->GetNumberOfPoints() > 0;
 }
 
-loading::loading(OpenPoly* op)
+bool hasUsablePolyData(vtkPolyData* poly)
 {
-	setPoly(op);
+	return poly != nullptr && poly->GetNumberOfPoints() > 0;
+}
 }
 
-loading::~loading(void)
+loading::loading(OpenData* openData)
 {
+	setData(openData);
+}
 
+loading::loading(OpenPoly* openPoly)
+{
+	setPoly(openPoly);
+}
+
+void loading::reportFailure(const QString& message)
+{
+	emit updateProgress(0);
+	emit failed(message);
+	emit finished();
 }
 
 void loading::loadData()
 {
 	emit updateProgress(-1);
 
-	vtkImageReader2 *data = vtkImageReader2::New();
-	vtkImageReader *raw = vtkImageReader::New();
-	vtkTIFFReader *tiff = vtkTIFFReader::New();
-	vtkJPEGReader *jpeg = vtkJPEGReader::New();
-	vtkStructuredPointsReader *vtk = vtkStructuredPointsReader::New();
-	switch(m_dataFormat){
-		case DATA_UNDEF:
-			data = nullptr;
-			break;
-		case DATA_RAW:
-			if(m_depth > 1){
-				raw->SetFileName(m_fileName.toLocal8Bit());
-				raw->SetDataExtent(0,m_width-1,0,m_height-1,0,m_depth-1);
-				raw->SetFileDimensionality(3);
-				raw->SetDataOrigin(-0.5*m_width,-0.5*m_height,-0.5*m_depth);
-				//CHECK BITSIZE
-				switch(m_bitsize){
-					case bitsizeType::BIT16: 
-						raw->SetDataScalarTypeToUnsignedShort();
-						break;
-					case bitsizeType::BIT8:
-						raw->SetDataScalarTypeToUnsignedChar();
-						break;
-					default:
-						break;
-				}
-				//CHECK ENDIANNESS
-				switch(m_endian){
-					case endianType::BIG:
-						raw->SetDataByteOrderToBigEndian();
-						break;
-					case endianType::LITTLE:
-						raw->SetDataByteOrderToLittleEndian();
-						break;
-				}
-				raw->UpdateInformation();
-				raw->Update();
-				data = (vtkImageReader2*)raw;
-				break;
-			}
-			data = nullptr;
-			break;
-		case DATA_TIFF:
-			tiff->SetFileName(m_fileName.toStdString().c_str());
-			tiff->UpdateInformation();
-			int dataExt[6];
-			tiff->GetDataExtent(dataExt);
-			m_width = dataExt[1] + 1;
-			m_height = dataExt[3] + 1;
-			m_depth = dataExt[5] + 1;
-			if(m_depth > 1){
-				tiff->SetDataOrigin(-0.5*m_width,-0.5*m_height,-0.5*m_depth);
-				//CHECK BITSIZE
-				switch(tiff->GetDataScalarType()){
-					case VTK_UNSIGNED_CHAR:
-						m_bitsize = bitsizeType::BIT8;
-						tiff->SetDataScalarTypeToUnsignedChar();
-						break;
-					case VTK_UNSIGNED_SHORT:
-						m_bitsize = bitsizeType::BIT16;
-						tiff->SetDataScalarTypeToUnsignedShort();
-						break;
-				}
-				//CHECK ENDIANNESS
-				QString switchString = QString::fromUtf8(tiff->GetDataByteOrderAsString());
-				if(switchString=="BigEndian"){
-					m_endian = endianType::BIG;
-					tiff->SetDataByteOrderToBigEndian();
-				}else if(switchString=="LittleEndian"){
-					m_endian= endianType::LITTLE;
-					tiff->SetDataByteOrderToLittleEndian();
-				}
-				tiff->UpdateInformation();
-				tiff->UpdateWholeExtent();
- 				tiff->Update();
-				data = (vtkImageReader2*)tiff;
-				break;
-			}
-			data = nullptr;
-			break;
-		case DATA_VTK:
-			vtk->SetFileName(m_fileName.toStdString().c_str());
-			vtk->UpdateInformation();
-			int vtkDataExt[6];
-			vtk->GetUpdateExtent(vtkDataExt);
-			m_width = vtkDataExt[1] + 1;
-			m_height = vtkDataExt[3] + 1;
-			m_depth = vtkDataExt[5] + 1;
-			if(m_depth > 1){
-				vtk->UpdateInformation();
-				data = (vtkImageReader2*)vtk;
-				break;
-			}
-			data = nullptr;
-			break;
-		case DATA_JPEG:
-			QFileInfo info = m_fileName.toLocal8Bit();
-			QString path = info.path();
-			QString baseName = info.baseName();
-			int length = baseName.length();
-			QString tmp = "";
-			int digits = 0;
-			if(baseName.at(length-1).isDigit()){
-				digits++;
-				tmp += baseName.at(length-1);
-				for(int i = length - 2; i > 0; i--){
-					if(baseName.at(i).isDigit()){
-						digits++;
-						tmp += baseName.at(i);
-					}
-					else break;
-				}
-			}
-			// reversing tmp!
-			QByteArray ba = tmp.toLocal8Bit();
-			char *d = ba.data();
-			std::reverse(d, d + tmp.length());
-			tmp = QString(d);
-			QString namePrefix = baseName.mid(0, length - digits);
-			int nameNumber = baseName.mid(length - digits, length).toInt();
-			jpeg->SetFilePrefix((path+"/").toLocal8Bit());
-			jpeg->SetFileDimensionality(3);
-			switch(digits){
-				case 1:	jpeg->SetFilePattern(("%s"+namePrefix+"%01d.jpg").toLocal8Bit()); break;
-				case 2:	jpeg->SetFilePattern(("%s"+namePrefix+"%02d.jpg").toLocal8Bit()); break;
-				case 3: jpeg->SetFilePattern(("%s"+namePrefix+"%03d.jpg").toLocal8Bit()); break;
-				case 4: jpeg->SetFilePattern(("%s"+namePrefix+"%04d.jpg").toLocal8Bit()); break;
-				case 5: jpeg->SetFilePattern(("%s"+namePrefix+"%05d.jpg").toLocal8Bit()); break;
-				default: jpeg->SetFilePattern(("%s"+namePrefix+".jpg").toLocal8Bit()); break;
-			}
-			jpeg->UpdateWholeExtent();
-			int *dimensions = jpeg->GetOutput()->GetDimensions();
-			m_width = dimensions[0];
-			m_height = dimensions[1];
-			if(m_depth > 1){
-				jpeg->SetDataOrigin((-0.5)*m_width,(-0.5)*m_height,-0.5*m_depth);
-				jpeg->SetDataSpacing(1, 1, 1);
-				jpeg->SetDataExtent(0, m_width-1, 0,m_height-1, nameNumber, nameNumber+m_depth-1); 
-				switch(m_endian){
-					case endianType::BIG:
-						jpeg->SetDataByteOrderToBigEndian();
-						break;
-					case endianType::LITTLE:
-						jpeg->SetDataByteOrderToLittleEndian();
-						break;
-				}
-				jpeg->SetDataScalarTypeToUnsignedChar();
-				jpeg->UpdateInformation();
-				jpeg->UpdateWholeExtent();
-				jpeg->Update();
-				data = (vtkImageReader2*)jpeg;
-				break;
-			}
-			data = nullptr;
-			break;
+	vtkImageData* output = nullptr;
+
+	switch (m_dataFormat)
+	{
+	case dataType::DATA_RAW:
+	{
+		if (m_width <= 0 || m_height <= 0 || m_depth <= 0)
+		{
+			reportFailure(tr("RAW dimensions must be greater than zero."));
+			return;
+		}
+
+		auto reader = vtkSmartPointer<vtkImageReader>::New();
+		reader->SetFileName(m_fileName.toLocal8Bit().constData());
+		reader->SetDataExtent(0, m_width - 1, 0, m_height - 1, 0, m_depth - 1);
+		reader->SetFileDimensionality(m_depth > 1 ? 3 : 2);
+		reader->SetDataOrigin(-0.5 * m_width, -0.5 * m_height, -0.5 * m_depth);
+
+		if (m_bitsize == bitsizeType::BIT16)
+			reader->SetDataScalarTypeToUnsignedShort();
+		else if (m_bitsize == bitsizeType::BIT8)
+			reader->SetDataScalarTypeToUnsignedChar();
+		else
+		{
+			reportFailure(tr("Unsupported RAW scalar type."));
+			return;
+		}
+
+		if (m_endian == endianType::BIG)
+			reader->SetDataByteOrderToBigEndian();
+		else
+			reader->SetDataByteOrderToLittleEndian();
+
+		reader->Update();
+		output = reader->GetOutput();
+		if (hasUsableImage(output))
+		{
+			m_data = vtkSmartPointer<vtkImageData>::New();
+			m_data->ShallowCopy(output);
+		}
+		break;
 	}
-	m_data = data;
+	case dataType::DATA_TIFF:
+	{
+		auto reader = vtkSmartPointer<vtkTIFFReader>::New();
+		reader->SetFileName(m_fileName.toLocal8Bit().constData());
+		reader->Update();
+		output = reader->GetOutput();
+		if (hasUsableImage(output))
+		{
+			int dimensions[3] = { 0, 0, 0 };
+			output->GetDimensions(dimensions);
+			output->SetOrigin(
+				-0.5 * dimensions[0],
+				-0.5 * dimensions[1],
+				-0.5 * dimensions[2]);
+			m_data = vtkSmartPointer<vtkImageData>::New();
+			m_data->ShallowCopy(output);
+		}
+		break;
+	}
+	case dataType::DATA_VTK:
+	{
+		auto reader = vtkSmartPointer<vtkStructuredPointsReader>::New();
+		reader->SetFileName(m_fileName.toLocal8Bit().constData());
+		reader->Update();
+		output = reader->GetOutput();
+		if (hasUsableImage(output))
+		{
+			m_data = vtkSmartPointer<vtkImageData>::New();
+			m_data->ShallowCopy(output);
+		}
+		break;
+	}
+	case dataType::DATA_JPEG:
+	{
+		const QFileInfo fileInfo(m_fileName);
+		const QString baseName = fileInfo.completeBaseName();
+		const QString suffix = fileInfo.suffix();
+		const QRegularExpressionMatch numberMatch =
+			QRegularExpression(QStringLiteral("(\\d+)$")).match(baseName);
+		const int depth = qMax(1, m_depth);
+
+		auto reader = vtkSmartPointer<vtkJPEGReader>::New();
+		if (depth == 1)
+		{
+			reader->SetFileName(m_fileName.toLocal8Bit().constData());
+		}
+		else
+		{
+			if (!numberMatch.hasMatch())
+			{
+				reportFailure(tr("A JPEG stack filename must end in a slice number."));
+				return;
+			}
+
+			const QString digitsText = numberMatch.captured(1);
+			const QString namePrefix =
+				baseName.left(baseName.length() - digitsText.length());
+			const QString directoryPrefix =
+				QFileInfo(m_fileName).absolutePath() + QStringLiteral("/");
+			const QString pattern =
+				QStringLiteral("%s") + namePrefix +
+				QStringLiteral("%0") + QString::number(digitsText.length()) +
+				QStringLiteral("d.") + suffix;
+
+			reader->SetFilePrefix(directoryPrefix.toLocal8Bit().constData());
+			reader->SetFilePattern(pattern.toLocal8Bit().constData());
+			reader->SetFileNameSliceOffset(digitsText.toInt());
+			reader->SetFileDimensionality(3);
+			reader->SetDataExtent(
+				0, qMax(0, m_width - 1),
+				0, qMax(0, m_height - 1),
+				0, depth - 1);
+		}
+
+		reader->Update();
+		output = reader->GetOutput();
+		if (hasUsableImage(output))
+		{
+			int dimensions[3] = { 0, 0, 0 };
+			output->GetDimensions(dimensions);
+			output->SetOrigin(
+				-0.5 * dimensions[0],
+				-0.5 * dimensions[1],
+				-0.5 * dimensions[2]);
+			m_data = vtkSmartPointer<vtkImageData>::New();
+			m_data->ShallowCopy(output);
+		}
+		break;
+	}
+	default:
+		reportFailure(tr("Unsupported volume-data format."));
+		return;
+	}
+
+	if (!hasUsableImage(m_data))
+	{
+		reportFailure(tr("The selected volume data could not be read: %1").arg(m_fileName));
+		return;
+	}
+
 	emit updateProgress(100);
-	emit loaded(data);
+	// Transfer one reference across the queued Qt connection. The GUI slot
+	// adopts it into a vtkSmartPointer and releases this transfer reference.
+	m_data->Register(nullptr);
+	emit dataLoaded(m_data);
+	emit finished();
 }
 
 void loading::loadPoly()
 {
 	emit updateProgress(-1);
 
-	vtkPLYReader *ply = vtkPLYReader::New();
-	vtkXMLPolyDataReader *vtp = vtkXMLPolyDataReader::New();
-	vtkOBJReader *obj = vtkOBJReader::New();
-	vtkSTLReader *stl = vtkSTLReader::New();
-	vtkPolyDataReader *vtk = vtkPolyDataReader::New();
-	vtkBYUReader *g = vtkBYUReader::New();
-	vtkStructuredPointsReader *vtr = vtkStructuredPointsReader::New();
-	vtkImageDataGeometryFilter *geomFilter = vtkImageDataGeometryFilter::New();
-	vtkSimplePointsReader *xyz = vtkSimplePointsReader::New();
-	vtkPolyData *poly = vtkPolyData::New();
-	vtkGeometryFilter *geometryFilter = vtkGeometryFilter::New();
-	vtkDelaunay3D *delaunay3D = vtkDelaunay3D::New();
-	vtkCleanPolyData *clean = vtkCleanPolyData::New();
-	int dataExt[6] = {0,0,0,0,0,0};
-	switch(m_polyFormat){
-		case POLY_UNDEF:
-			poly = nullptr;
-			break;
-		case POLY_PLY:
-			ply->SetFileName(m_fileName.toLocal8Bit());
-			ply->Update();
-			poly = ply->GetOutput();;
-			break;
-		case POLY_VTP:
-			vtp->SetFileName(m_fileName.toLocal8Bit());
-			vtp->Update();
-			poly = vtp->GetOutput();
-			break;
-		case POLY_OBJ:
-			obj->SetFileName(m_fileName.toLocal8Bit());
-			obj->Update();
-			poly = obj->GetOutput();
-			break;
-		case POLY_STL:
-			stl->SetFileName(m_fileName.toLocal8Bit());
-			stl->Update();
-			poly = stl->GetOutput();
-			break;
-		case POLY_VTK:
-			vtk->SetFileName(m_fileName.toLocal8Bit());
-			vtk->Update();
-			poly = vtk->GetOutput();
-			break;
-		case POLY_G:
-			g->SetGeometryFileName(m_fileName.toLocal8Bit());
-			g->Update();
-			poly = g->GetOutput();
-			break;
-		case POLY_VTR:
-			vtr->SetFileName(m_fileName.toLocal8Bit());
-			vtr->Update();
-			geometryFilter->SetInputConnection(vtr->GetOutputPort());
-			geometryFilter->Update();
-			poly = geometryFilter->GetOutput();
-		case POLY_XYZ:
-			xyz->SetFileName(m_fileName.toLocal8Bit());
-			xyz->Update();
-			clean->SetInputData(xyz->GetOutput());
-			clean->SetTolerance(0.005);
-			clean->Update();
-			delaunay3D->SetInputData(clean->GetOutput());
-			delaunay3D->Update();
-			geometryFilter->SetInputData(delaunay3D->GetOutput());
-			geometryFilter->Update();
-			poly = geometryFilter->GetOutput();
-			break;
+	vtkPolyData* output = nullptr;
+
+	switch (m_polyFormat)
+	{
+	case polyType::POLY_PLY:
+	{
+		auto reader = vtkSmartPointer<vtkPLYReader>::New();
+		reader->SetFileName(m_fileName.toLocal8Bit().constData());
+		reader->Update();
+		output = reader->GetOutput();
+		break;
 	}
-	m_poly = poly;
+	case polyType::POLY_VTP:
+	{
+		auto reader = vtkSmartPointer<vtkXMLPolyDataReader>::New();
+		reader->SetFileName(m_fileName.toLocal8Bit().constData());
+		reader->Update();
+		output = reader->GetOutput();
+		break;
+	}
+	case polyType::POLY_OBJ:
+	{
+		auto reader = vtkSmartPointer<vtkOBJReader>::New();
+		reader->SetFileName(m_fileName.toLocal8Bit().constData());
+		reader->Update();
+		output = reader->GetOutput();
+		break;
+	}
+	case polyType::POLY_STL:
+	{
+		auto reader = vtkSmartPointer<vtkSTLReader>::New();
+		reader->SetFileName(m_fileName.toLocal8Bit().constData());
+		reader->Update();
+		output = reader->GetOutput();
+		break;
+	}
+	case polyType::POLY_VTK:
+	{
+		auto reader = vtkSmartPointer<vtkPolyDataReader>::New();
+		reader->SetFileName(m_fileName.toLocal8Bit().constData());
+		reader->Update();
+		output = reader->GetOutput();
+		break;
+	}
+	case polyType::POLY_G:
+	{
+		auto reader = vtkSmartPointer<vtkBYUReader>::New();
+		reader->SetGeometryFileName(m_fileName.toLocal8Bit().constData());
+		reader->Update();
+		output = reader->GetOutput();
+		break;
+	}
+	case polyType::POLY_VTR:
+	{
+		auto reader = vtkSmartPointer<vtkXMLRectilinearGridReader>::New();
+		auto geometry = vtkSmartPointer<vtkGeometryFilter>::New();
+		reader->SetFileName(m_fileName.toLocal8Bit().constData());
+		geometry->SetInputConnection(reader->GetOutputPort());
+		geometry->Update();
+		output = geometry->GetOutput();
+		break;
+	}
+	case polyType::POLY_XYZ:
+	{
+		auto reader = vtkSmartPointer<vtkSimplePointsReader>::New();
+		auto clean = vtkSmartPointer<vtkCleanPolyData>::New();
+		auto delaunay = vtkSmartPointer<vtkDelaunay3D>::New();
+		auto geometry = vtkSmartPointer<vtkGeometryFilter>::New();
+		reader->SetFileName(m_fileName.toLocal8Bit().constData());
+		clean->SetInputConnection(reader->GetOutputPort());
+		clean->SetTolerance(0.005);
+		delaunay->SetInputConnection(clean->GetOutputPort());
+		geometry->SetInputConnection(delaunay->GetOutputPort());
+		geometry->Update();
+		output = geometry->GetOutput();
+		break;
+	}
+	default:
+		reportFailure(tr("Unsupported polygonal-data format."));
+		return;
+	}
+
+	if (!hasUsablePolyData(output))
+	{
+		reportFailure(tr("The selected polygonal data could not be read: %1").arg(m_fileName));
+		return;
+	}
+
+	m_poly = vtkSmartPointer<vtkPolyData>::New();
+	m_poly->ShallowCopy(output);
+
 	emit updateProgress(100);
-	emit loaded(poly);
+	m_poly->Register(nullptr);
+	emit polyLoaded(m_poly);
+	emit finished();
 }
 
-void loading::setData(OpenData* od)
+void loading::setData(OpenData* openData)
 {
-	m_lastPath = od->getFilePath();
-	m_fileName = od->getFileName();
-	m_bitsize = od->getBitsize();
-	m_endian = od->getEndian();
-	m_dataFormat = od->getDataFormat();
-	m_polyFormat = polyType(-1);
-	m_width = od->getWidth(); 
-	m_height = od->getHeight();
-	m_depth = od->getDepth();
+	m_fileName = openData->getFileName();
+	m_bitsize = openData->getBitsize();
+	m_endian = openData->getEndian();
+	m_dataFormat = openData->getDataFormat();
+	m_width = openData->getWidth();
+	m_height = openData->getHeight();
+	m_depth = openData->getDepth();
 }
 
-void loading::setPoly(OpenPoly* op)
+void loading::setPoly(OpenPoly* openPoly)
 {
-	m_lastPath = op->getFilePath();
-	m_fileName = op->getFileName();
-	m_bitsize = bitsizeType(-1);
-	m_endian = endianType(-1);
-	m_dataFormat = dataType(-1);
-	m_polyFormat = op->getPolyFormat();
-	std::memcpy(m_VOI, op->getVOI(), 6*sizeof(double));
+	m_fileName = openPoly->getFileName();
+	m_polyFormat = openPoly->getPolyFormat();
 }
