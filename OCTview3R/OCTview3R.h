@@ -74,6 +74,7 @@ protected slots:
 	void slotPickVolumeColor(void);
 	void slotPickPolyColor(void);
 	void slotSetObjectOpacity(int);
+	void slotSetPolyGloss(int);
 	void slotSetPointSize(int);
 
 	//object

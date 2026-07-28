@@ -117,6 +117,7 @@ VTK_MODULE_INIT(vtkRenderingFreeType);
 #include <QThread>
 #include <qfileinfo.h>
 
+#include <algorithm>
 #include <cmath>
 
 OCTview3R::OCTview3R()
@@ -210,6 +211,7 @@ OCTview3R::OCTview3R()
 	connect(this->ui->Slider_minThreshold, SIGNAL(sliderReleased()), this, SLOT(slotSetThreshold()));
 	connect(this->ui->Slider_maxThreshold, SIGNAL(sliderReleased()), this, SLOT(slotSetThreshold()));
 	connect(this->ui->Slider_objectOpacity, SIGNAL(sliderMoved(int)), this, SLOT(slotSetObjectOpacity(int)));
+	connect(this->ui->Slider_polyGloss, SIGNAL(sliderMoved(int)), this, SLOT(slotSetPolyGloss(int)));
 	connect(this->ui->comboBox_colormapStyle, SIGNAL(currentIndexChanged(QString)), this, SLOT(slotSetColormap(QString)));
 	connect(this->ui->pushButton_pickPolyColor, SIGNAL(clicked()), this, SLOT(slotPickPolyColor()));
 	connect(this->ui->pushButton_pickVolumeColor, SIGNAL(clicked()), this, SLOT(slotPickVolumeColor()));
@@ -353,7 +355,23 @@ void OCTview3R::slotSetImageData(ImageData* data)
 
 		//Set range elements
 		this->ui->groupBox_object->setEnabled(true);
-		const bool rangesSupported = activeImageData->isVolume;
+		const bool rangesSupported =
+			activeImageData->isVolume || activeImageData->isPolyData;
+		const int rangeDecimals = activeImageData->isPolyData ? 4 : 0;
+		const double rangeStep = activeImageData->isPolyData ? 0.01 : 1.0;
+		const double minimumGap = activeImageData->isPolyData ? 0.0001 : 1.0;
+		this->ui->x0DoubleSpinBox->setDecimals(rangeDecimals);
+		this->ui->x1DoubleSpinBox->setDecimals(rangeDecimals);
+		this->ui->y0DoubleSpinBox->setDecimals(rangeDecimals);
+		this->ui->y1DoubleSpinBox->setDecimals(rangeDecimals);
+		this->ui->z0DoubleSpinBox->setDecimals(rangeDecimals);
+		this->ui->z1DoubleSpinBox->setDecimals(rangeDecimals);
+		this->ui->x0DoubleSpinBox->setSingleStep(rangeStep);
+		this->ui->x1DoubleSpinBox->setSingleStep(rangeStep);
+		this->ui->y0DoubleSpinBox->setSingleStep(rangeStep);
+		this->ui->y1DoubleSpinBox->setSingleStep(rangeStep);
+		this->ui->z0DoubleSpinBox->setSingleStep(rangeStep);
+		this->ui->z1DoubleSpinBox->setSingleStep(rangeStep);
 		this->ui->x0DoubleSpinBox->setEnabled(rangesSupported);
 		this->ui->x1DoubleSpinBox->setEnabled(rangesSupported);
 		this->ui->y0DoubleSpinBox->setEnabled(rangesSupported);
@@ -362,26 +380,32 @@ void OCTview3R::slotSetImageData(ImageData* data)
 		this->ui->z1DoubleSpinBox->setEnabled(rangesSupported);
 		this->ui->pushButton_render->setEnabled(rangesSupported);
 		this->ui->x0DoubleSpinBox->setMinimum(activeImageData->sourceVOI[0]);
-		this->ui->x0DoubleSpinBox->setMaximum(activeImageData->sourceVOI[1] - 1.0);
+		this->ui->x0DoubleSpinBox->setMaximum(activeImageData->sourceVOI[1] - minimumGap);
 		this->ui->x0DoubleSpinBox->setValue(activeImageData->VOI[0]);
-		this->ui->x1DoubleSpinBox->setMinimum(activeImageData->sourceVOI[0] + 1.0);
+		this->ui->x1DoubleSpinBox->setMinimum(activeImageData->sourceVOI[0] + minimumGap);
 		this->ui->x1DoubleSpinBox->setMaximum(activeImageData->sourceVOI[1]);
 		this->ui->x1DoubleSpinBox->setValue(activeImageData->VOI[1]);
 		this->ui->y0DoubleSpinBox->setMinimum(activeImageData->sourceVOI[2]);
-		this->ui->y0DoubleSpinBox->setMaximum(activeImageData->sourceVOI[3] - 1.0);
+		this->ui->y0DoubleSpinBox->setMaximum(activeImageData->sourceVOI[3] - minimumGap);
 		this->ui->y0DoubleSpinBox->setValue(activeImageData->VOI[2]);
-		this->ui->y1DoubleSpinBox->setMinimum(activeImageData->sourceVOI[2] + 1.0);
+		this->ui->y1DoubleSpinBox->setMinimum(activeImageData->sourceVOI[2] + minimumGap);
 		this->ui->y1DoubleSpinBox->setMaximum(activeImageData->sourceVOI[3]);
 		this->ui->y1DoubleSpinBox->setValue(activeImageData->VOI[3]);
 		this->ui->z0DoubleSpinBox->setMinimum(activeImageData->sourceVOI[4]);
-		this->ui->z0DoubleSpinBox->setMaximum(activeImageData->sourceVOI[5] - 1.0);
+		this->ui->z0DoubleSpinBox->setMaximum(activeImageData->sourceVOI[5] - minimumGap);
 		this->ui->z0DoubleSpinBox->setValue(activeImageData->VOI[4]);
-		this->ui->z1DoubleSpinBox->setMinimum(activeImageData->sourceVOI[4] + 1.0);
+		this->ui->z1DoubleSpinBox->setMinimum(activeImageData->sourceVOI[4] + minimumGap);
 		this->ui->z1DoubleSpinBox->setMaximum(activeImageData->sourceVOI[5]);
 		this->ui->z1DoubleSpinBox->setValue(activeImageData->VOI[5]);
-		this->ui->xLabel->setText("["+QString().setNum(activeImageData->sourceVOI[0])+","+QString().setNum(activeImageData->sourceVOI[1])+"]");
-		this->ui->yLabel->setText("["+QString().setNum(activeImageData->sourceVOI[2])+","+QString().setNum(activeImageData->sourceVOI[3])+"]");
-		this->ui->zLabel->setText("["+QString().setNum(activeImageData->sourceVOI[4])+","+QString().setNum(activeImageData->sourceVOI[5])+"]");
+		this->ui->xLabel->setText(
+			"[" + QString::number(activeImageData->sourceVOI[0], 'f', 2) +
+			"," + QString::number(activeImageData->sourceVOI[1], 'f', 2) + "]");
+		this->ui->yLabel->setText(
+			"[" + QString::number(activeImageData->sourceVOI[2], 'f', 2) +
+			"," + QString::number(activeImageData->sourceVOI[3], 'f', 2) + "]");
+		this->ui->zLabel->setText(
+			"[" + QString::number(activeImageData->sourceVOI[4], 'f', 2) +
+			"," + QString::number(activeImageData->sourceVOI[5], 'f', 2) + "]");
 		{
 			const QSignalBlocker blockRotX(this->ui->rotXDoubleSpinBox);
 			const QSignalBlocker blockRotY(this->ui->rotYDoubleSpinBox);
@@ -409,6 +433,12 @@ void OCTview3R::slotSetImageData(ImageData* data)
 		this->ui->pushButton_pickPolyColor->setStyleSheet("background-color: "+activeImageData->polyColor.name());
 		this->ui->pushButton_pickVolumeColor->setStyleSheet("background-color: "+activeImageData->volumeColor.name());
 		this->ui->Slider_objectOpacity->setValue(int(100*activeImageData->objectOpacity));
+		this->ui->Slider_polyGloss->setEnabled(activeImageData->isPolyData);
+		this->ui->label_polyGloss->setEnabled(activeImageData->isPolyData);
+		this->ui->label_polyGlossValue->setEnabled(activeImageData->isPolyData);
+		this->ui->Slider_polyGloss->setValue(
+			static_cast<int>(std::round(100.0 * activeImageData->polyGloss)));
+		this->ui->label_polyGlossValue->setNum(this->ui->Slider_polyGloss->value());
 		this->ui->checkBox_adjustColormap->setChecked(activeImageData->adjustColormap);
 		this->ui->checkBox_invertColormap->setChecked(activeImageData->invertColormap);
 
@@ -735,12 +765,20 @@ void OCTview3R::refreshViewer()
 	if (!viewerController)
 		return;
 
-	viewerController->refresh(documentModel, activeImageData, settings);
-	if (settings.firstFileLoaded)
+	const bool resetCamera = settings.firstFileLoaded;
+	if (resetCamera)
 	{
 		settings.firstFileLoaded = false;
-		slotFrontZ();
+		cam = viewerController->renderer()->GetActiveCamera();
+		cam->SetFocalPoint(0.0, 0.0, 0.0);
+		cam->SetViewUp(1.0, 0.0, 0.0);
+		cam->SetPosition(0.0, 0.0, -1.0);
 	}
+	viewerController->refresh(
+		documentModel,
+		activeImageData,
+		settings,
+		resetCamera);
 }
 
 void OCTview3R::slotSetColormap(QString value)
@@ -951,7 +989,8 @@ void OCTview3R::slotShiftZ(double value)
 void OCTview3R::slotApplyRanges()
 {
 	if(!settings.oneFileLoaded || activeImageData == nullptr ||
-	   !activeImageData->fileLoaded || !activeImageData->isVolume)
+	   !activeImageData->fileLoaded ||
+	   (!activeImageData->isVolume && !activeImageData->isPolyData))
 		return;
 
 	const double requestedVOI[6] = {
@@ -963,12 +1002,16 @@ void OCTview3R::slotApplyRanges()
 		requestedVOI[0] < requestedVOI[1] &&
 		requestedVOI[2] < requestedVOI[3] &&
 		requestedVOI[4] < requestedVOI[5];
+	const double boundaryTolerance =
+		activeImageData->isPolyData ? 0.0001 : 0.0;
 	bool insideSource = true;
 	for (int i = 0; i < 6; i += 2)
 	{
 		insideSource = insideSource &&
-			requestedVOI[i] >= activeImageData->sourceVOI[i] &&
-			requestedVOI[i + 1] <= activeImageData->sourceVOI[i + 1];
+			requestedVOI[i] >=
+				activeImageData->sourceVOI[i] - boundaryTolerance &&
+			requestedVOI[i + 1] <=
+				activeImageData->sourceVOI[i + 1] + boundaryTolerance;
 	}
 	if (!ordered || !insideSource)
 	{
@@ -979,10 +1022,20 @@ void OCTview3R::slotApplyRanges()
 		return;
 	}
 
-	for (int i = 0; i < 6; ++i)
-		activeImageData->VOI[i] = requestedVOI[i];
-	activeImageData->changePlaneInput = true;
-	activeImageData->orientChanged = true;
+	for (int i = 0; i < 6; i += 2)
+	{
+		activeImageData->VOI[i] = std::max(
+			requestedVOI[i],
+			activeImageData->sourceVOI[i]);
+		activeImageData->VOI[i + 1] = std::min(
+			requestedVOI[i + 1],
+			activeImageData->sourceVOI[i + 1]);
+	}
+	if (activeImageData->isVolume)
+	{
+		activeImageData->changePlaneInput = true;
+		activeImageData->orientChanged = true;
+	}
 	refreshViewer();
 }
 void OCTview3R::slotPlaneUp()
@@ -1038,6 +1091,16 @@ void OCTview3R::slotSetObjectOpacity(int value)
 {
 	if(settings.oneFileLoaded && activeImageData->fileLoaded){
 		activeImageData->objectOpacity = (double)value * 0.01;
+	refreshViewer();
+	}
+}
+
+void OCTview3R::slotSetPolyGloss(int value)
+{
+	if(settings.oneFileLoaded && activeImageData->fileLoaded &&
+	   activeImageData->isPolyData){
+		activeImageData->polyGloss = static_cast<double>(value) * 0.01;
+		this->ui->label_polyGlossValue->setNum(value);
 	refreshViewer();
 	}
 }

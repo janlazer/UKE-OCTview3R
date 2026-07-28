@@ -13,7 +13,8 @@ icons, and a collection of example data sets.
 - Polygonal and point-data import for VTK, STL, PLY, VTP, OBJ, BYU (`.g`),
   VTR, and XYZ files
 - Maximum-intensity, composite, additive, and minimum-intensity blend modes
-- Threshold, opacity, and color-transfer controls
+- Threshold, opacity, color-transfer, and polygonal gloss controls
+- Per-axis range cropping for volume and polygonal data
 - Interactive image plane with optional median filtering and clipping
 - Multiple data sets in a tabbed user interface
 - Object translation, rotation, and axis scaling

@@ -7,6 +7,8 @@
 #include <vtkSmartPointer.h>
 
 class vtkActor;
+class vtkBox;
+class vtkClipPolyData;
 class vtkColorTransferFunction;
 class vtkExtractVOI;
 class vtkImageData;
@@ -40,6 +42,8 @@ struct ImageData
 	vtkSmartPointer<vtkSmartVolumeMapper> volumeMapper;
 	vtkSmartPointer<vtkPolyDataMapper> polyMapper;
 	vtkSmartPointer<vtkActor> polyActor;
+	vtkSmartPointer<vtkBox> polyClipBox;
+	vtkSmartPointer<vtkClipPolyData> polyClipper;
 	vtkSmartPointer<vtkImageMapToColors> colorMap;
 	vtkSmartPointer<vtkPlane> clipPlane;
 	vtkSmartPointer<vtkImageData> image;
@@ -67,6 +71,7 @@ struct ImageData
 	double shift[3] = {};
 	double spacing[3] = { 1.0, 1.0, 1.0 };
 	double objectOpacity = 0.5;
+	double polyGloss = 0.1;
 	bool showObject = false;
 
 	QString colormapName = "Greyscale";

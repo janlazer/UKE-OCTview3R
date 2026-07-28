@@ -4,6 +4,8 @@
 #include "viewerData.h"
 
 #include <vtkActor.h>
+#include <vtkBox.h>
+#include <vtkClipPolyData.h>
 #include <vtkColorTransferFunction.h>
 #include <vtkExtractVOI.h>
 #include <vtkImageData.h>
@@ -43,6 +45,8 @@ ImageData& DocumentModel::create()
 	document->volumeMapper = vtkSmartPointer<vtkSmartVolumeMapper>::New();
 	document->polyMapper = vtkSmartPointer<vtkPolyDataMapper>::New();
 	document->polyActor = vtkSmartPointer<vtkActor>::New();
+	document->polyClipBox = vtkSmartPointer<vtkBox>::New();
+	document->polyClipper = vtkSmartPointer<vtkClipPolyData>::New();
 	document->clipPlane = vtkSmartPointer<vtkPlane>::New();
 	document->implicitPlane = vtkSmartPointer<vtkImplicitPlaneWidget>::New();
 	document->image = vtkSmartPointer<vtkImageData>::New();

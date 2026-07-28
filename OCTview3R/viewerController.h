@@ -7,6 +7,7 @@
 
 class vtkAxesActor;
 class vtkCubeAxesActor;
+class vtkLight;
 class vtkOrientationMarkerWidget;
 class vtkRenderWindow;
 class vtkRenderWindowInteractor;
@@ -31,7 +32,8 @@ public:
 	void refresh(
 		const DocumentModel& documents,
 		ImageData* activeDocument,
-		const Settings& settings);
+		const Settings& settings,
+		bool resetCamera = false);
 	void refreshAll(
 		const DocumentModel& documents,
 		ImageData* activeDocument,
@@ -67,6 +69,7 @@ private:
 	vtkSmartPointer<vtkScalarBarWidget> m_scalarBarWidget;
 	vtkSmartPointer<vtkCubeAxesActor> m_axes;
 	vtkSmartPointer<vtkAxesActor> m_axesActor;
+	vtkSmartPointer<vtkLight> m_headlight;
 	vtkSmartPointer<vtkOrientationMarkerWidget> m_orientationWidget;
 	vtkRenderWindow* m_renderWindow = nullptr;
 	vtkRenderWindowInteractor* m_interactor = nullptr;

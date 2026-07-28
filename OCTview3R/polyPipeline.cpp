@@ -3,11 +3,15 @@
 #include "viewerData.h"
 
 #include <vtkActor.h>
+#include <vtkBox.h>
+#include <vtkClipPolyData.h>
 #include <vtkPolyData.h>
 #include <vtkPolyDataMapper.h>
 #include <vtkProperty.h>
 #include <vtkRenderer.h>
 #include <vtkTransform.h>
+
+#include <cmath>
 
 void PolyPipeline::update(
 	ImageData& data,
@@ -22,27 +26,58 @@ void PolyPipeline::update(
 	data.transform->RotateZ(data.rot[2]);
 	data.transform->Translate(data.shift);
 
-	data.polyMapper->SetInputData(data.poly);
+	bool rangeIsRestricted = false;
+	for (int i = 0; i < 6; ++i)
+	{
+		if (std::abs(data.VOI[i] - data.sourceVOI[i]) > 1e-9)
+		{
+			rangeIsRestricted = true;
+			break;
+		}
+	}
+	if (rangeIsRestricted)
+	{
+		data.polyClipBox->SetBounds(data.VOI);
+		data.polyClipper->SetInputData(data.poly);
+		data.polyClipper->SetClipFunction(data.polyClipBox);
+		data.polyClipper->InsideOutOn();
+		data.polyClipper->GenerateClippedOutputOff();
+		data.polyMapper->SetInputConnection(data.polyClipper->GetOutputPort());
+	}
+	else
+	{
+		data.polyMapper->SetInputData(data.poly);
+	}
 	data.polyActor->SetMapper(data.polyMapper);
 	data.polyActor->SetScale(1.0, 1.0, 1.0);
 	data.polyActor->SetUserTransform(data.transform);
+	// Keep the actor in one render pass across the full opacity range. Without
+	// this, VTK switches from translucent to opaque rendering at exactly 1.0.
+	data.polyActor->ForceTranslucentOn();
 
+	vtkProperty* property = data.polyActor->GetProperty();
 	switch (data.polyMode)
 	{
 	case 1:
-		data.polyActor->GetProperty()->SetRepresentationToWireframe();
+		property->SetRepresentationToWireframe();
 		break;
 	case 2:
-		data.polyActor->GetProperty()->SetRepresentationToSurface();
+		property->SetRepresentationToSurface();
 		break;
 	default:
-		data.polyActor->GetProperty()->SetRepresentationToPoints();
-		data.polyActor->GetProperty()->SetPointSize(data.pointSize);
+		property->SetRepresentationToPoints();
+		property->SetPointSize(data.pointSize);
 		break;
 	}
 
-	data.polyActor->GetProperty()->SetOpacity(data.objectOpacity);
-	data.polyActor->GetProperty()->SetColor(
+	property->SetLighting(true);
+	property->SetInterpolationToPhong();
+	property->SetAmbient(0.2);
+	property->SetDiffuse(0.8);
+	property->SetSpecular(data.polyGloss);
+	property->SetSpecularPower(20.0);
+	property->SetOpacity(data.objectOpacity);
+	property->SetColor(
 		data.polyColor.redF(),
 		data.polyColor.greenF(),
 		data.polyColor.blueF());

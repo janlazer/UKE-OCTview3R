@@ -7,6 +7,7 @@
 #include <vtkColorTransferFunction.h>
 #include <vtkCubeAxesActor.h>
 #include <vtkImagePlaneWidget.h>
+#include <vtkLight.h>
 #include <vtkOrientationMarkerWidget.h>
 #include <vtkRenderWindow.h>
 #include <vtkRenderWindowInteractor.h>
@@ -21,6 +22,7 @@ ViewerController::ViewerController()
 	  m_scalarBarWidget(vtkSmartPointer<vtkScalarBarWidget>::New()),
 	  m_axes(vtkSmartPointer<vtkCubeAxesActor>::New()),
 	  m_axesActor(vtkSmartPointer<vtkAxesActor>::New()),
+	  m_headlight(vtkSmartPointer<vtkLight>::New()),
 	  m_orientationWidget(vtkSmartPointer<vtkOrientationMarkerWidget>::New())
 {
 }
@@ -43,7 +45,19 @@ void ViewerController::initialize(
 		return;
 
 	m_renderWindow->AddRenderer(m_renderer);
+	m_renderWindow->SetAlphaBitPlanes(1);
+	m_renderWindow->SetMultiSamples(0);
 	m_interactor->SetDesiredUpdateRate(10.0);
+	m_renderer->AutomaticLightCreationOff();
+	m_renderer->RemoveAllLights();
+	m_renderer->TwoSidedLightingOn();
+	m_headlight->SetLightTypeToHeadlight();
+	m_headlight->SetColor(1.0, 1.0, 1.0);
+	m_headlight->SetIntensity(1.0);
+	m_renderer->AddLight(m_headlight);
+	m_renderer->SetUseDepthPeeling(1);
+	m_renderer->SetMaximumNumberOfPeels(100);
+	m_renderer->SetOcclusionRatio(0.1);
 	m_renderer->GradientBackgroundOn();
 	setBackground1(
 		settings.background_RGB1[0],
@@ -58,10 +72,13 @@ void ViewerController::initialize(
 void ViewerController::refresh(
 	const DocumentModel& documents,
 	ImageData* activeDocument,
-	const Settings& settings)
+	const Settings& settings,
+	bool resetCamera)
 {
 	if (activeDocument != nullptr && activeDocument->fileLoaded)
 		updateDocument(*activeDocument, settings);
+	if (resetCamera)
+		m_renderer->ResetCamera();
 	finishRefresh(documents, activeDocument, settings);
 }
 
