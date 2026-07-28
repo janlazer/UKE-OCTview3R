@@ -30,9 +30,11 @@ The current project configuration targets the following toolchain:
 - Windows 10 SDK
 - Qt 5.15.2 for `msvc2019_64`
 - Qt Visual Studio Tools / Qt MSBuild integration
-- VTK 8.2 built for x64 with Qt and OpenGL support
+- VTK 8.2.0 built for x64 with Qt and OpenGL support
 
 Qt and VTK must use ABI-compatible compiler and runtime settings.
+This matches the VTK, Qt, and MSVC configuration used by the
+`OpticalSampleScannerJob` in `UKE-smartLab`.
 
 ## Building
 
@@ -53,8 +55,15 @@ Qt and VTK must use ABI-compatible compiler and runtime settings.
    ```
 
    The project automatically selects the `Debug` or `Release` subdirectory
-   below `VTKLIB`. A configuration-specific directory containing the VTK
-   `.lib` files can also be supplied directly.
+   below `VTKLIB` and `VTKBIN`. A configuration-specific directory can also
+   be supplied directly. Do not add both VTK runtime configurations to the
+   global `PATH`; the project prepends only the active configuration.
+
+   This follows the `UKE-smartLab` dependency layout:
+
+   - `VTKDIR` contains the VTK 8.2.0 headers.
+   - `VTKLIB\Debug` and `VTKLIB\Release` contain the matching import libraries.
+   - `VTKBIN\Debug` and `VTKBIN\Release` contain the matching runtime DLLs.
 
 3. Open `OCTview3R.sln` in Visual Studio.
 
@@ -75,18 +84,45 @@ shell:
 
 ## Running
 
-Ensure that the Qt and configuration-specific VTK DLL directories are on
-`PATH`, then start the generated executable:
+Use the configuration-aware launcher to avoid mixing Debug and Release DLLs:
 
 ```powershell
-$env:PATH = "C:\Programming\VTK\bin\Release;C:\Programming\Qt\5.15.2\msvc2019_64\bin;$env:PATH"
-.\x64\Release\OCTview3R.exe
+.\run-viewer.ps1 -Configuration Release
 ```
+
+The launcher prepends `VTKBIN\<Configuration>` and the Qt DLL directory only
+for the child process.
+
+## Deployment
+
+Create a deployable runtime directory with Qt plugins and the matching VTK
+DLLs:
+
+```powershell
+.\deploy-runtime.ps1 -Configuration Release
+```
+
+The result is written to `dist\Release`. The same deployment can be invoked as
+an MSBuild target:
+
+```powershell
+& "C:\Program Files\Microsoft Visual Studio\2022\Community\MSBuild\Current\Bin\MSBuild.exe" `
+  .\OCTview3R.sln `
+  /t:DeployRuntime `
+  /p:Configuration=Release `
+  /p:Platform=x64
+```
+
+`windeployqt` also places `vc_redist.x64.exe` in the deployment directory.
+Install it once on target systems that do not already provide the matching
+Microsoft Visual C++ runtime.
 
 ## Project Structure
 
 ```text
 OCTview3R.sln
+run-viewer.ps1             Configuration-safe development launcher
+deploy-runtime.ps1         Qt/VTK runtime deployment
 OCTview3R/
   OCTview3R.cpp/.h       Main window and UI event handling
   documentModel.cpp/.h   Data-set ownership and active-document selection

@@ -18,6 +18,7 @@ x86/
 [Aa][Rr][Mm]64/
 [Bb]in/
 [Oo]bj/
+dist/
 ipch/
 *.obj
 *.iobj

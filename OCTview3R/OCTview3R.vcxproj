@@ -40,6 +40,8 @@
   <PropertyGroup Label="UserMacros">
     <VTKLibraryDirectory Condition="Exists('$(VTKLIB)\$(Configuration)')">$(VTKLIB)\$(Configuration)</VTKLibraryDirectory>
     <VTKLibraryDirectory Condition="'$(VTKLibraryDirectory)'==''">$(VTKLIB)</VTKLibraryDirectory>
+    <VTKRuntimeDirectory Condition="Exists('$(VTKBIN)\$(Configuration)')">$(VTKBIN)\$(Configuration)</VTKRuntimeDirectory>
+    <VTKRuntimeDirectory Condition="'$(VTKRuntimeDirectory)'==''">$(VTKBIN)</VTKRuntimeDirectory>
   </PropertyGroup>
   <ImportGroup Condition="Exists('$(QtMsBuild)\qt_defaults.props')">
     <Import Project="$(QtMsBuild)\qt_defaults.props" />
@@ -57,6 +59,9 @@
   <ImportGroup Condition="Exists('$(QtMsBuild)\qt.props')">
     <Import Project="$(QtMsBuild)\qt.props" />
   </ImportGroup>
+  <PropertyGroup Condition="'$(Platform)'=='x64'">
+    <LocalDebuggerEnvironment>PATH=$(VTKRuntimeDirectory);$(QtDllPath);%PATH%</LocalDebuggerEnvironment>
+  </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
@@ -131,4 +136,12 @@
     <Import Project="$(QtMsBuild)\qt.targets" />
   </ImportGroup>
   <ImportGroup Label="ExtensionTargets" />
+  <Target Name="ValidateVTKConfiguration" BeforeTargets="PrepareForBuild">
+    <Error Condition="'$(VTKDIR)'=='' or !Exists('$(VTKDIR)')" Text="VTKDIR must point to the VTK include directory." />
+    <Error Condition="'$(VTKLibraryDirectory)'=='' or !Exists('$(VTKLibraryDirectory)')" Text="VTKLIB must point to a VTK library root containing the $(Configuration) libraries." />
+    <Error Condition="'$(VTKRuntimeDirectory)'=='' or !Exists('$(VTKRuntimeDirectory)')" Text="VTKBIN must point to a VTK runtime root containing the $(Configuration) DLLs." />
+  </Target>
+  <Target Name="DeployRuntime" DependsOnTargets="Build">
+    <Exec Command="powershell -NoProfile -ExecutionPolicy Bypass -File &quot;$(SolutionDir)deploy-runtime.ps1&quot; -Configuration &quot;$(Configuration)&quot;" />
+  </Target>
 </Project>
