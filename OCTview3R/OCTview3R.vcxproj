@@ -91,11 +91,16 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="documentModel.cpp" />
     <ClCompile Include="loading.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="OCTview3R.cpp" />
     <ClCompile Include="opendata.cpp" />
     <ClCompile Include="openpoly.cpp" />
+    <ClCompile Include="polyPipeline.cpp" />
+    <ClCompile Include="transformableImagePlaneWidget.cpp" />
+    <ClCompile Include="viewerController.cpp" />
+    <ClCompile Include="volumePipeline.cpp" />
   </ItemGroup>
   <ItemGroup>
     <QtMoc Include="OCTview3R.h" />
@@ -111,7 +116,12 @@
   <ItemGroup>
     <ClInclude Include="dataTypes.h" />
     <ClInclude Include="definitions.h" />
+    <ClInclude Include="documentModel.h" />
+    <ClInclude Include="polyPipeline.h" />
+    <ClInclude Include="transformableImagePlaneWidget.h" />
+    <ClInclude Include="viewerController.h" />
     <ClInclude Include="viewerData.h" />
+    <ClInclude Include="volumePipeline.h" />
     <QtMoc Include="openpoly.h" />
     <QtMoc Include="opendata.h" />
     <QtMoc Include="loading.h" />

@@ -12,6 +12,7 @@ VTK_MODULE_INIT(vtkRenderingFreeType);
 #include "ui_OCTview3R.h"
 #include "OCTview3R.h"
 #include "Loading.h"
+#include "viewerController.h"
 
 #include <vtkImageReader2.h>
 #include <vtkObject.h>
@@ -112,15 +113,14 @@ VTK_MODULE_INIT(vtkRenderingFreeType);
 #include <QColorDialog>
 #include <QLabel>
 #include <QMessageBox>
+#include <QSignalBlocker>
 #include <QThread>
 #include <qfileinfo.h>
 
 #include <cmath>
 
 OCTview3R::OCTview3R()
-	: renWin(nullptr),
-	  iren(nullptr),
-	  cam(nullptr),
+	: cam(nullptr),
 	  statusLabel(nullptr),
 	  ui(new Ui_OCTview3R),
 	  openData(nullptr),
@@ -158,13 +158,8 @@ OCTview3R::OCTview3R()
 	onePlaneCallbackMutex			= false;
 
 	//general
-	renderer					= vtkSmartPointer<vtkRenderer>::New();
-	scalarBarActor				= vtkSmartPointer<vtkScalarBarActor>::New();
-	scalarBarWidget				= vtkSmartPointer<vtkScalarBarWidget>::New();
-	axes						= vtkSmartPointer<vtkCubeAxesActor>::New();
 	camTrans					= vtkSmartPointer<vtkTransform>::New();
-	axesActor					= vtkSmartPointer<vtkAxesActor>::New();
-	orientWidget				= vtkSmartPointer<vtkOrientationMarkerWidget>::New();
+	viewerController			= std::make_unique<ViewerController>();
 
 	//setup ui pointer
 	this->ui->setupUi(this);
@@ -229,7 +224,7 @@ OCTview3R::OCTview3R()
 	connect(this->ui->kernelZSpinBox, SIGNAL(valueChanged(int)), this, SLOT(slotKernelZChanged(int)));
 	connect(this->ui->planeOrientationComboBox, SIGNAL(currentIndexChanged(int)), this, SLOT(slotOrientationChanged(int)));
 	connect(this->ui->planePushButton, SIGNAL(clicked()), this, SLOT(slotGetPlaneData()));
-	connect(this->ui->pushButton_render, SIGNAL(clicked()), this, SLOT(slotRenderAgain()));
+	connect(this->ui->pushButton_render, SIGNAL(clicked()), this, SLOT(slotApplyRanges()));
 	connect(this->ui->actionX, SIGNAL(triggered()), this, SLOT(slotFrontX())); 
 	connect(this->ui->actionY, SIGNAL(triggered()), this, SLOT(slotFrontY())); 
 	connect(this->ui->actionZ, SIGNAL(triggered()), this, SLOT(slotFrontZ())); 
@@ -252,12 +247,6 @@ OCTview3R::OCTview3R()
 	connect(this->ui->doubleSpinBox_rotStepX, SIGNAL(valueChanged(double)), this, SLOT(slotRotCamStepX(double)));
 	connect(this->ui->doubleSpinBox_rotStepY, SIGNAL(valueChanged(double)), this, SLOT(slotRotCamStepY(double)));
 	connect(this->ui->doubleSpinBox_rotStepZ, SIGNAL(valueChanged(double)), this, SLOT(slotRotCamStepZ(double)));
-	connect(this->ui->x0DoubleSpinBox, SIGNAL(valueChanged(double)), this, SLOT(slotX0(double)));
-	connect(this->ui->x1DoubleSpinBox, SIGNAL(valueChanged(double)), this, SLOT(slotX1(double)));
-	connect(this->ui->y0DoubleSpinBox, SIGNAL(valueChanged(double)), this, SLOT(slotY0(double)));
-	connect(this->ui->y1DoubleSpinBox, SIGNAL(valueChanged(double)), this, SLOT(slotY1(double)));
-	connect(this->ui->z0DoubleSpinBox, SIGNAL(valueChanged(double)), this, SLOT(slotZ0(double)));
-	connect(this->ui->z1DoubleSpinBox, SIGNAL(valueChanged(double)), this, SLOT(slotZ1(double)));
 	connect(this->ui->rotXDoubleSpinBox, SIGNAL(valueChanged(double)), this, SLOT(slotRotX(double)));
 	connect(this->ui->rotYDoubleSpinBox, SIGNAL(valueChanged(double)), this, SLOT(slotRotY(double)));
 	connect(this->ui->rotZDoubleSpinBox, SIGNAL(valueChanged(double)), this, SLOT(slotRotZ(double)));
@@ -295,144 +284,43 @@ OCTview3R::~OCTview3R()
 		thread->wait();
 	loadingThreads.clear();
 
-	for (ImageData* data : imageDataList)
-	{
-		if (data->planeObserverTag != 0)
-			data->planeWidget->RemoveObserver(data->planeObserverTag);
-		data->planeWidget->Off();
-		data->planeWidget->SetInteractor(nullptr);
-	}
-	qDeleteAll(imageDataList);
-	imageDataList.clear();
-
-	if (scalarBarWidget)
-		scalarBarWidget->Off();
-	if (orientWidget)
-		orientWidget->SetEnabled(0);
+	if (viewerController)
+		viewerController->clear(documentModel);
+	documentModel.clear();
 
 	delete ui;
 }
 
-ImageData *OCTview3R::getInitializedImageData()
-{
-	ImageData *imageData = new ImageData();
-
-	//new file
-	imageData->fileChanged			= true;
-
-	//vtk
-	imageData->threshold			= vtkSmartPointer<vtkImageThreshold>::New();
-	imageData->colorFun				= vtkSmartPointer<vtkColorTransferFunction>::New();
-	imageData->opacityFun			= vtkSmartPointer<vtkPiecewiseFunction>::New();
-	imageData->planeWidget			= vtkSmartPointer<vtkImagePlaneWidget>::New();
-	imageData->median				= vtkSmartPointer<vtkImageMedian3D>::New();
-	imageData->extractVOI			= vtkSmartPointer<vtkExtractVOI>::New();
-	imageData->volume				= vtkSmartPointer<vtkVolume>::New();
-	imageData->actor				= vtkSmartPointer<vtkActor>::New();
-	imageData->transform			= vtkSmartPointer<vtkTransform>::New();
-	imageData->luminance			= vtkSmartPointer<vtkImageLuminance>::New();
-	imageData->colorMap				= vtkSmartPointer<vtkImageMapToColors>::New();
-	imageData->volumeMapper			= vtkSmartPointer<vtkSmartVolumeMapper>::New();
-	imageData->polyMapper			= vtkSmartPointer<vtkPolyDataMapper>::New();
-	imageData->polyActor			= vtkSmartPointer<vtkActor>::New();
-	imageData->clipPlane			= vtkSmartPointer<vtkPlane>::New();
-	imageData->implicitPlane		= vtkSmartPointer<vtkImplicitPlaneWidget>::New();
-	imageData->image				= vtkSmartPointer<vtkImageData>::New();
-	imageData->planeCollection		= vtkSmartPointer<vtkPlaneCollection>::New();
-
-	//data
-	imageData->bitsize				= bitsizeType(-1);
-	imageData->endian				= endianType(-1);
-	imageData->polyFormat			= polyType(-1);
-	imageData->dataFormat			= dataType(-1);
-	imageData->width				= -1;
-	imageData->height				= -1;
-	imageData->depth				= -1;
-
-	//object
-	imageData->fileName				= "";
-	imageData->filePath				= "";
-	imageData->isPolyData			= false;
-	imageData->isVolume				= false;
-	imageData->VOI[0]				= 0.0;
-	imageData->VOI[1]				= 0.0;
-	imageData->VOI[2]				= 0.0;
-	imageData->VOI[3]				= 0.0;
-	imageData->VOI[4]				= 0.0;
-	imageData->VOI[5]				= 0.0;
-	imageData->rot[0]				= 0.0;
-	imageData->rot[1]				= 0.0;
-	imageData->rot[2]				= 0.0;
-	imageData->shift[0]				= 0.0;
-	imageData->shift[1]				= 0.0;
-	imageData->shift[2]				= 0.0;
-	imageData->spacing[0]			= 1.0;
-	imageData->spacing[1]			= 1.0;
-	imageData->spacing[2]			= 1.0;
-	imageData->pointSize			= 1.0;
-	imageData->showObject			= false;
-	imageData->objectOpacity		= 0.5;
-
-	//color
-	imageData->colormapName			= "Greyscale";
-	imageData->adjustColormap		= true;
-	imageData->invertColormap		= false;
-	imageData->blendMode			= 0;
-	imageData->polyMode				= 0;
-	imageData->polyColor.setRgb(255,0,0);
-	imageData->volumeColor.setRgb(255,0,0);
-
-	//threshold
-	imageData->changedThreshold		= false;
-	imageData->minValue				= 0;
-	imageData->maxValue				= 255;
-	imageData->currentMinThreshold	= 0;
-	imageData->currentMaxThreshold	= 255;
-
-	//plane
-	imageData->initPlane			= true;
-	imageData->showPlane			= false;
-	imageData->planeOrigin[0]		= 0.0; 
-	imageData->planeOrigin[1]		= 0.0; 
-	imageData->planeOrigin[2]		= 0.0;
-	imageData->checkMedian			= false;
-	imageData->medianKernelX		= 1;
-	imageData->medianKernelY		= 1;
-	imageData->medianKernelZ		= 1;
-	imageData->orientIndex			= 0;
-	imageData->orientChanged		= false;
-	imageData->changePlaneInput		= false;
-	imageData->switchPlane			= false;
-	imageData->planeIsVisible		= true;
-
-	return imageData;
-}
-
 void OCTview3R::slotResetCam()
 {
-	renderer->ResetCamera();
-	if (iren)
-		iren->Render();
+	if (!viewerController || !viewerController->renderer())
+		return;
+
+	viewerController->renderer()->ResetCamera();
+	settings.x_rot_cam = 0.0;
+	settings.y_rot_cam = 0.0;
+	settings.z_rot_cam = 0.0;
+	const QSignalBlocker blockRotX(ui->rotXCamDoubleSpinBox);
+	const QSignalBlocker blockRotY(ui->rotYCamDoubleSpinBox);
+	const QSignalBlocker blockRotZ(ui->rotZCamDoubleSpinBox);
+	ui->rotXCamDoubleSpinBox->setValue(0.0);
+	ui->rotYCamDoubleSpinBox->setValue(0.0);
+	ui->rotZCamDoubleSpinBox->setValue(0.0);
+	viewerController->render();
 }
 void OCTview3R::initializeVTKPipeline()
 {
-	// RENDERER
-	renWin = this->ui->qvtkWidget->GetRenderWindow();
-	renWin->AddRenderer(renderer);
-	iren = renWin->GetInteractor();
-	double frameRate = 10.0;
-	iren->SetDesiredUpdateRate(frameRate);
-	renderer->GradientBackgroundOn();
-	renderer->SetBackground(double(settings.background_RGB1[0])/255.0, double(settings.background_RGB1[1])/255.0, double(settings.background_RGB1[2])/255.0);
-	renderer->SetBackground2(double(settings.background_RGB2[0])/255.0, double(settings.background_RGB2[1])/255.0, double(settings.background_RGB2[2])/255.0);
+	viewerController->initialize(this->ui->qvtkWidget->GetRenderWindow(), settings);
 	slotResetCam();
 }
 void OCTview3R::slotSetImageData(int index)
 {
-	if (index < 0 || index >= imageDataList.size())
+	if (index < 0 || index >= documentModel.size())
 		return;
 
-	slotSetImageData(imageDataList.at(index));
+	documentModel.setActiveIndex(index);
+	slotSetImageData(documentModel.at(index));
+	viewerController->refreshDecorations(documentModel, activeImageData, settings);
 }
 
 void OCTview3R::slotSetImageData(ImageData* data)
@@ -440,6 +328,7 @@ void OCTview3R::slotSetImageData(ImageData* data)
 	if(data->fileLoaded){
 		//set activeImageData to new data
 		activeImageData = data;
+		documentModel.setActiveIndex(documentModel.indexOf(data));
 
 		//allow actions
 		this->ui->actionScalarBar->setCheckable(true);
@@ -464,33 +353,49 @@ void OCTview3R::slotSetImageData(ImageData* data)
 
 		//Set range elements
 		this->ui->groupBox_object->setEnabled(true);
-		this->ui->x0DoubleSpinBox->setMinimum(activeImageData->VOI[0]);
-		this->ui->x0DoubleSpinBox->setMaximum(activeImageData->VOI[1]);
+		const bool rangesSupported = activeImageData->isVolume;
+		this->ui->x0DoubleSpinBox->setEnabled(rangesSupported);
+		this->ui->x1DoubleSpinBox->setEnabled(rangesSupported);
+		this->ui->y0DoubleSpinBox->setEnabled(rangesSupported);
+		this->ui->y1DoubleSpinBox->setEnabled(rangesSupported);
+		this->ui->z0DoubleSpinBox->setEnabled(rangesSupported);
+		this->ui->z1DoubleSpinBox->setEnabled(rangesSupported);
+		this->ui->pushButton_render->setEnabled(rangesSupported);
+		this->ui->x0DoubleSpinBox->setMinimum(activeImageData->sourceVOI[0]);
+		this->ui->x0DoubleSpinBox->setMaximum(activeImageData->sourceVOI[1] - 1.0);
 		this->ui->x0DoubleSpinBox->setValue(activeImageData->VOI[0]);
-		this->ui->x1DoubleSpinBox->setMinimum(activeImageData->VOI[0]);
-		this->ui->x1DoubleSpinBox->setMaximum(activeImageData->VOI[1]);
+		this->ui->x1DoubleSpinBox->setMinimum(activeImageData->sourceVOI[0] + 1.0);
+		this->ui->x1DoubleSpinBox->setMaximum(activeImageData->sourceVOI[1]);
 		this->ui->x1DoubleSpinBox->setValue(activeImageData->VOI[1]);
-		this->ui->y0DoubleSpinBox->setMinimum(activeImageData->VOI[2]);
-		this->ui->y0DoubleSpinBox->setMaximum(activeImageData->VOI[3]);
+		this->ui->y0DoubleSpinBox->setMinimum(activeImageData->sourceVOI[2]);
+		this->ui->y0DoubleSpinBox->setMaximum(activeImageData->sourceVOI[3] - 1.0);
 		this->ui->y0DoubleSpinBox->setValue(activeImageData->VOI[2]);
-		this->ui->y1DoubleSpinBox->setMinimum(activeImageData->VOI[2]);
-		this->ui->y1DoubleSpinBox->setMaximum(activeImageData->VOI[3]);
+		this->ui->y1DoubleSpinBox->setMinimum(activeImageData->sourceVOI[2] + 1.0);
+		this->ui->y1DoubleSpinBox->setMaximum(activeImageData->sourceVOI[3]);
 		this->ui->y1DoubleSpinBox->setValue(activeImageData->VOI[3]);
-		this->ui->z0DoubleSpinBox->setMinimum(activeImageData->VOI[4]);
-		this->ui->z0DoubleSpinBox->setMaximum(activeImageData->VOI[5]);
+		this->ui->z0DoubleSpinBox->setMinimum(activeImageData->sourceVOI[4]);
+		this->ui->z0DoubleSpinBox->setMaximum(activeImageData->sourceVOI[5] - 1.0);
 		this->ui->z0DoubleSpinBox->setValue(activeImageData->VOI[4]);
-		this->ui->z1DoubleSpinBox->setMinimum(activeImageData->VOI[4]);
-		this->ui->z1DoubleSpinBox->setMaximum(activeImageData->VOI[5]);
+		this->ui->z1DoubleSpinBox->setMinimum(activeImageData->sourceVOI[4] + 1.0);
+		this->ui->z1DoubleSpinBox->setMaximum(activeImageData->sourceVOI[5]);
 		this->ui->z1DoubleSpinBox->setValue(activeImageData->VOI[5]);
-		this->ui->xLabel->setText("["+QString().setNum(activeImageData->VOI[0])+","+QString().setNum(activeImageData->VOI[1])+"]");
-		this->ui->yLabel->setText("["+QString().setNum(activeImageData->VOI[2])+","+QString().setNum(activeImageData->VOI[3])+"]");
-		this->ui->zLabel->setText("["+QString().setNum(activeImageData->VOI[4])+","+QString().setNum(activeImageData->VOI[5])+"]");
-		this->ui->rotXDoubleSpinBox->setValue(activeImageData->rot[0]);
-		this->ui->rotYDoubleSpinBox->setValue(activeImageData->rot[1]);
-		this->ui->rotZDoubleSpinBox->setValue(activeImageData->rot[2]);
-		this->ui->shiftXDoubleSpinBox->setValue(activeImageData->shift[0]);
-		this->ui->shiftYDoubleSpinBox->setValue(activeImageData->shift[1]);
-		this->ui->shiftZDoubleSpinBox->setValue(activeImageData->shift[2]);
+		this->ui->xLabel->setText("["+QString().setNum(activeImageData->sourceVOI[0])+","+QString().setNum(activeImageData->sourceVOI[1])+"]");
+		this->ui->yLabel->setText("["+QString().setNum(activeImageData->sourceVOI[2])+","+QString().setNum(activeImageData->sourceVOI[3])+"]");
+		this->ui->zLabel->setText("["+QString().setNum(activeImageData->sourceVOI[4])+","+QString().setNum(activeImageData->sourceVOI[5])+"]");
+		{
+			const QSignalBlocker blockRotX(this->ui->rotXDoubleSpinBox);
+			const QSignalBlocker blockRotY(this->ui->rotYDoubleSpinBox);
+			const QSignalBlocker blockRotZ(this->ui->rotZDoubleSpinBox);
+			const QSignalBlocker blockShiftX(this->ui->shiftXDoubleSpinBox);
+			const QSignalBlocker blockShiftY(this->ui->shiftYDoubleSpinBox);
+			const QSignalBlocker blockShiftZ(this->ui->shiftZDoubleSpinBox);
+			this->ui->rotXDoubleSpinBox->setValue(activeImageData->rot[0]);
+			this->ui->rotYDoubleSpinBox->setValue(activeImageData->rot[1]);
+			this->ui->rotZDoubleSpinBox->setValue(activeImageData->rot[2]);
+			this->ui->shiftXDoubleSpinBox->setValue(activeImageData->shift[0]);
+			this->ui->shiftYDoubleSpinBox->setValue(activeImageData->shift[1]);
+			this->ui->shiftZDoubleSpinBox->setValue(activeImageData->shift[2]);
+		}
 		//mark object change for rendering
 		//activeImageData->fileChanged = true;
 
@@ -548,7 +453,7 @@ void OCTview3R::slotSetImageData(ImageData* data)
 		this->ui->label_file->setText(activeImageData->fileName);
 
 		//set close button
-		this->ui->pushButton_close->setEnabled(!imageDataList.isEmpty());
+		this->ui->pushButton_close->setEnabled(!documentModel.empty());
 	}else{
 		QMessageBox::information(this,tr("ERROR"), tr("No valid Data selected"));
 	}
@@ -561,7 +466,7 @@ void OCTview3R::slotShowObject(bool value)
 {
 	if(settings.oneFileLoaded && activeImageData->fileLoaded){
 		activeImageData->showObject = value;
-		connectVTKPipeline();
+	refreshViewer();
 		if(ui->actionObject->isChecked() != value)
 			ui->actionObject->setChecked(value);
 		if(ui->groupBox_object->isChecked() != value)
@@ -592,7 +497,7 @@ void OCTview3R::slotShowPlane(bool value)
 				activeImageData->planeObserverTag = 0;
 			}
 		}
-		connectVTKPipeline();
+	refreshViewer();
 		if(ui->actionPlane->isChecked() != value)
 			ui->actionPlane->setChecked(value);
 		if(ui->groupBox_plane->isChecked() != value)
@@ -605,7 +510,7 @@ void OCTview3R::onePlaneCallbackFunction(vtkObject* caller, unsigned long eventI
 	if(self->onePlaneCallbackMutex){
 		self->onePlaneCallbackMutex = false;
 		// TODO: reset plane outline on release middle mouse button (vtkCommand::EndInteractionEvent)
-		self->connectVTKPipeline();
+	self->refreshViewer();
 		self->onePlaneCallbackMutex = true;
 	}
 }
@@ -613,7 +518,7 @@ void OCTview3R::slotCheckFlipPlane(bool value)
 {
 	if(settings.oneFileLoaded && activeImageData->fileLoaded){
 		activeImageData->switchPlane = value;
-		connectVTKPipeline();
+	refreshViewer();
 	}
 }
 
@@ -627,7 +532,7 @@ void OCTview3R::slotSetThreshold()
 		activeImageData->threshold->ReplaceOutOn();
 		activeImageData->threshold->SetOutValue(0);
 		activeImageData->threshold->Update();
-		connectVTKPipeline();
+	refreshViewer();
 	}
 }
 void OCTview3R::slotCheckMinThresholdSlider(int value)
@@ -658,7 +563,8 @@ void OCTview3R::slotDataFileDialogClosed(vtkImageData* tmpData)
 {
 	openData->setEnabled(true);
 	if(openData->isValidData() && (tmpData != nullptr)){
-		ImageData* data		= getInitializedImageData();
+		const bool hadLoadedData = !documentModel.empty();
+		ImageData* data = &documentModel.create();
 		data->showObject	= true;
 		data->isVolume		= true;
 		data->isPolyData	= false;
@@ -687,6 +593,8 @@ void OCTview3R::slotDataFileDialogClosed(vtkImageData* tmpData)
 		data->VOI[3]		= static_cast<double>(extent[3] + 1);
 		data->VOI[4]		= static_cast<double>(extent[4]);
 		data->VOI[5]		= static_cast<double>(extent[5] + 1);
+		for (int i = 0; i < 6; ++i)
+			data->sourceVOI[i] = data->VOI[i];
 		tmpData->GetSpacing(data->spacing);
 		data->pointSize		= 1;
 		data->fileLoaded	= true;
@@ -694,11 +602,9 @@ void OCTview3R::slotDataFileDialogClosed(vtkImageData* tmpData)
 		data->image			= tmpData;
 		tmpData->Delete();
 
-		//allocate new imageData in imageDataList and add tab
-		const bool hadLoadedData = !imageDataList.isEmpty();
+		// Transfer ownership to the document model and add a matching tab.
 		settings.numMaxIndex++;
-		imageDataList.append(data);
-		int newIndex=imageDataList.indexOf(data);
+		const int newIndex = documentModel.activeIndex();
 		if(hadLoadedData){
 			QWidget* newTab = new QWidget();
 			newTab->setObjectName(QString("tab"+QString().setNum(settings.numMaxIndex)));
@@ -714,7 +620,7 @@ void OCTview3R::slotDataFileDialogClosed(vtkImageData* tmpData)
 		//render all
 		if(!hadLoadedData)
 			settings.firstFileLoaded = true;
-		connectVTKPipeline();
+	refreshViewer();
 	}else if (tmpData != nullptr){
 		tmpData->Delete();
 	}
@@ -723,7 +629,8 @@ void OCTview3R::slotPolyFileDialogClosed(vtkPolyData* tmpPoly)
 {
 	openPoly->setEnabled(true);
 	if(openPoly->isValidData() && (tmpPoly != nullptr)){
-		ImageData *data		= getInitializedImageData();
+		const bool hadLoadedData = !documentModel.empty();
+		ImageData* data = &documentModel.create();
 		data->showObject	= true;
 		data->isVolume		= false;
 		data->isPolyData	= true;
@@ -732,16 +639,16 @@ void OCTview3R::slotPolyFileDialogClosed(vtkPolyData* tmpPoly)
 		data->filePath		= openPoly->getFilePath();
 		data->polyFormat	= openPoly->getPolyFormat();
 		tmpPoly->GetBounds(data->VOI);
+		for (int i = 0; i < 6; ++i)
+			data->sourceVOI[i] = data->VOI[i];
 		data->fileLoaded	= true;
 		data->poly			= tmpPoly;
 		data->image			= nullptr;
 		tmpPoly->Delete();
 		
-		//allocate new imageData in imageDataList and add tab
-		const bool hadLoadedData = !imageDataList.isEmpty();
+		// Transfer ownership to the document model and add a matching tab.
 		settings.numMaxIndex++;
-		imageDataList.append(data);
-		int newIndex=imageDataList.indexOf(data);
+		const int newIndex = documentModel.activeIndex();
 		if(hadLoadedData){
 			QWidget* newTab = new QWidget();
 			newTab->setObjectName(QString("tab"+QString().setNum(settings.numMaxIndex)));
@@ -757,7 +664,7 @@ void OCTview3R::slotPolyFileDialogClosed(vtkPolyData* tmpPoly)
 		//render all
 		if(!hadLoadedData)
 			settings.firstFileLoaded = true;
-		connectVTKPipeline();
+	refreshViewer();
 	}else if (tmpPoly != nullptr){
 		tmpPoly->Delete();
 	}
@@ -823,500 +730,16 @@ void OCTview3R::slotPolyLoadFailed(const QString& message)
 	QMessageBox::critical(this, tr("Polygonal-data loading failed"), message);
 }
 
-void OCTview3R::connectVTKPipeline()
+void OCTview3R::refreshViewer()
 {
-	for(int i=0; i<imageDataList.size();i++){
-		if(imageDataList.at(i)->fileLoaded){
-			if(imageDataList.at(i)->isVolume){
-				// COLORMAP
-				if(imageDataList.at(i)->colormapName=="Greyscale" || imageDataList.at(i)->colormapName==""){
-					//Greyscale
-					imageDataList.at(i)->colorFun->RemoveAllPoints();
-					if(imageDataList.at(i)->adjustColormap){
-						if(!imageDataList.at(i)->invertColormap){
-							imageDataList.at(i)->colorFun->AddRGBPoint(imageDataList.at(i)->currentMinThreshold, 0.0, 0.0, 0.0);
-							imageDataList.at(i)->colorFun->AddRGBPoint(imageDataList.at(i)->currentMaxThreshold, 1.0, 1.0, 1.0);
-						}else{
-							imageDataList.at(i)->colorFun->AddRGBPoint(imageDataList.at(i)->currentMaxThreshold, 0.0, 0.0, 0.0);
-							imageDataList.at(i)->colorFun->AddRGBPoint(imageDataList.at(i)->currentMinThreshold, 1.0, 1.0, 1.0);
-						}
-					}else{
-						if(!imageDataList.at(i)->invertColormap){
-							imageDataList.at(i)->colorFun->AddRGBPoint(
-								(double)imageDataList.at(i)->currentMinThreshold, 
-								(double)imageDataList.at(i)->currentMinThreshold/(double)imageDataList.at(i)->maxValue, 
-								(double)imageDataList.at(i)->currentMinThreshold/(double)imageDataList.at(i)->maxValue, 
-								(double)imageDataList.at(i)->currentMinThreshold/(double)imageDataList.at(i)->maxValue
-							);
-							imageDataList.at(i)->colorFun->AddRGBPoint(
-								(double)imageDataList.at(i)->currentMaxThreshold, 
-								(double)imageDataList.at(i)->currentMaxThreshold/(double)imageDataList.at(i)->maxValue, 
-								(double)imageDataList.at(i)->currentMaxThreshold/(double)imageDataList.at(i)->maxValue, 
-								(double)imageDataList.at(i)->currentMaxThreshold/(double)imageDataList.at(i)->maxValue
-							);
-						}else{
-							imageDataList.at(i)->colorFun->AddRGBPoint(
-								(double)imageDataList.at(i)->currentMaxThreshold, 
-								(double)imageDataList.at(i)->currentMinThreshold/(double)imageDataList.at(i)->maxValue, 
-								(double)imageDataList.at(i)->currentMinThreshold/(double)imageDataList.at(i)->maxValue, 
-								(double)imageDataList.at(i)->currentMinThreshold/(double)imageDataList.at(i)->maxValue
-							);
-							imageDataList.at(i)->colorFun->AddRGBPoint(
-								(double)imageDataList.at(i)->currentMinThreshold, 
-								(double)imageDataList.at(i)->currentMaxThreshold/(double)imageDataList.at(i)->maxValue, 
-								(double)imageDataList.at(i)->currentMaxThreshold/(double)imageDataList.at(i)->maxValue, 
-								(double)imageDataList.at(i)->currentMaxThreshold/(double)imageDataList.at(i)->maxValue
-							);
-						}
-					}
-				}else if(imageDataList.at(i)->colormapName=="Rainbow"){
-					//Rainbow
-					imageDataList.at(i)->colorFun->RemoveAllPoints();
-					imageDataList.at(i)->colorFun->SetColorSpaceToRGB();
-					if(!imageDataList.at(i)->invertColormap){
-						imageDataList.at(i)->colorFun->AddRGBPoint(imageDataList.at(i)->currentMinThreshold, 0.0, 0.0, 0.5);
-						imageDataList.at(i)->colorFun->AddRGBPoint(imageDataList.at(i)->currentMinThreshold + 0.125*(imageDataList.at(i)->currentMaxThreshold-imageDataList.at(i)->currentMinThreshold), 0.0, 0.0, 1.0);
-						imageDataList.at(i)->colorFun->AddRGBPoint(imageDataList.at(i)->currentMinThreshold + 0.375*(imageDataList.at(i)->currentMaxThreshold-imageDataList.at(i)->currentMinThreshold), 0.0, 1.0, 1.0);
-						imageDataList.at(i)->colorFun->AddRGBPoint(imageDataList.at(i)->currentMinThreshold + 0.625*(imageDataList.at(i)->currentMaxThreshold-imageDataList.at(i)->currentMinThreshold), 1.0, 1.0, 0.0);
-						imageDataList.at(i)->colorFun->AddRGBPoint(imageDataList.at(i)->currentMinThreshold + 0.875*(imageDataList.at(i)->currentMaxThreshold-imageDataList.at(i)->currentMinThreshold), 1.0, 0.0, 0.0);
-						imageDataList.at(i)->colorFun->AddRGBPoint(imageDataList.at(i)->currentMaxThreshold, 0.5, 0.0, 0.0);
-					}else{
-						imageDataList.at(i)->colorFun->AddRGBPoint(imageDataList.at(i)->currentMinThreshold, 0.5, 0.0, 0.0);
-						imageDataList.at(i)->colorFun->AddRGBPoint(imageDataList.at(i)->currentMinThreshold + 0.125*(imageDataList.at(i)->currentMaxThreshold-imageDataList.at(i)->currentMinThreshold), 1.0, 0.0, 0.0);
-						imageDataList.at(i)->colorFun->AddRGBPoint(imageDataList.at(i)->currentMinThreshold + 0.375*(imageDataList.at(i)->currentMaxThreshold-imageDataList.at(i)->currentMinThreshold), 1.0, 1.0, 0.0);
-						imageDataList.at(i)->colorFun->AddRGBPoint(imageDataList.at(i)->currentMinThreshold + 0.625*(imageDataList.at(i)->currentMaxThreshold-imageDataList.at(i)->currentMinThreshold), 0.0, 1.0, 1.0);
-						imageDataList.at(i)->colorFun->AddRGBPoint(imageDataList.at(i)->currentMinThreshold + 0.875*(imageDataList.at(i)->currentMaxThreshold-imageDataList.at(i)->currentMinThreshold), 0.0, 0.0, 1.0);
-						imageDataList.at(i)->colorFun->AddRGBPoint(imageDataList.at(i)->currentMaxThreshold, 0.0, 0.0, 0.5);
-					}
-				}else if(imageDataList.at(i)->colormapName=="Black Body"){
-					//Dark Body
-					imageDataList.at(i)->colorFun->RemoveAllPoints();
-					if(imageDataList.at(i)->adjustColormap){
-						imageDataList.at(i)->colorFun->AddRGBPoint(imageDataList.at(i)->currentMinThreshold, 0.0, 0.0, 0.0);
-						imageDataList.at(i)->colorFun->AddRGBPoint(imageDataList.at(i)->currentMinThreshold + 0.25*(imageDataList.at(i)->currentMaxThreshold-imageDataList.at(i)->currentMinThreshold), 1.0, 0.0, 0.0);
-						imageDataList.at(i)->colorFun->AddRGBPoint(imageDataList.at(i)->currentMinThreshold + 0.75*(imageDataList.at(i)->currentMaxThreshold-imageDataList.at(i)->currentMinThreshold), 1.0, 1.0, 0.0);
-						imageDataList.at(i)->colorFun->AddRGBPoint(imageDataList.at(i)->currentMaxThreshold, 1.0, 1.0, 1.0);
-					}else{
-						if(imageDataList.at(i)->currentMinThreshold <= 0.25*imageDataList.at(i)->maxValue 
-							&& imageDataList.at(i)->currentMaxThreshold <= 0.25*imageDataList.at(i)->maxValue){
-								imageDataList.at(i)->colorFun->AddRGBPoint(imageDataList.at(i)->currentMinThreshold, 
-								4*(double)imageDataList.at(i)->currentMinThreshold/(double)imageDataList.at(i)->maxValue, 0.0, 0.0);
-								imageDataList.at(i)->colorFun->AddRGBPoint(imageDataList.at(i)->currentMaxThreshold, 
-								4*(double)imageDataList.at(i)->currentMaxThreshold/(double)imageDataList.at(i)->maxValue, 0.0, 0.0);
-						}else if(imageDataList.at(i)->currentMinThreshold<=0.25*imageDataList.at(i)->maxValue 
-								&& imageDataList.at(i)->currentMaxThreshold >=0.25*imageDataList.at(i)->maxValue 
-								&& imageDataList.at(i)->currentMaxThreshold <= 0.75*imageDataList.at(i)->maxValue){
-							imageDataList.at(i)->colorFun->AddRGBPoint(imageDataList.at(i)->currentMinThreshold, 
-								4*(double)imageDataList.at(i)->currentMinThreshold/(double)imageDataList.at(i)->maxValue, 0.0, 0.0);
-							imageDataList.at(i)->colorFun->AddRGBPoint(imageDataList.at(i)->currentMaxThreshold, 1.0, 
-								(2*(double)imageDataList.at(i)->currentMaxThreshold/(double)imageDataList.at(i)->maxValue)-0.5, 0.0);
-						}else if(imageDataList.at(i)->currentMinThreshold <= 0.25*imageDataList.at(i)->maxValue 
-								&& imageDataList.at(i)->currentMaxThreshold >= 0.75*imageDataList.at(i)->maxValue){
-							imageDataList.at(i)->colorFun->AddRGBPoint(imageDataList.at(i)->currentMinThreshold, 
-								4*(double)imageDataList.at(i)->currentMinThreshold/(double)imageDataList.at(i)->maxValue, 0.0, 0.0);
-							imageDataList.at(i)->colorFun->AddRGBPoint(0.25*imageDataList.at(i)->maxValue, 1.0, 0.0, 0.0 );
-							imageDataList.at(i)->colorFun->AddRGBPoint(0.75*imageDataList.at(i)->maxValue, 1.0, 1.0, 0.0 );
-							imageDataList.at(i)->colorFun->AddRGBPoint(imageDataList.at(i)->currentMaxThreshold, 1.0, 1.0, 
-								(4*(double)imageDataList.at(i)->currentMaxThreshold/(double)imageDataList.at(i)->maxValue)-3);
-						}else if(imageDataList.at(i)->currentMinThreshold > 0.25*imageDataList.at(i)->maxValue 
-								&& imageDataList.at(i)->currentMinThreshold <= 0.75*imageDataList.at(i)->maxValue 
-								&& imageDataList.at(i)->currentMaxThreshold >=0.25*imageDataList.at(i)->maxValue 
-								&& imageDataList.at(i)->currentMaxThreshold <= 0.75*imageDataList.at(i)->maxValue){
-							imageDataList.at(i)->colorFun->AddRGBPoint(imageDataList.at(i)->currentMinThreshold, 1.0, 
-								(2*(double)imageDataList.at(i)->currentMinThreshold/(double)imageDataList.at(i)->maxValue)-0.5, 0.0);
-							imageDataList.at(i)->colorFun->AddRGBPoint(imageDataList.at(i)->currentMaxThreshold, 1.0, 
-								(2*(double)imageDataList.at(i)->currentMaxThreshold/(double)imageDataList.at(i)->maxValue)-0.5, 0.0);
-						}else if(imageDataList.at(i)->currentMinThreshold > 0.25*imageDataList.at(i)->maxValue 
-								&& imageDataList.at(i)->currentMinThreshold <= 0.75*imageDataList.at(i)->maxValue 
-								&& imageDataList.at(i)->currentMaxThreshold >= 0.75*imageDataList.at(i)->maxValue){
-							imageDataList.at(i)->colorFun->AddRGBPoint(imageDataList.at(i)->currentMinThreshold, 1.0, 
-								(2*(double)imageDataList.at(i)->currentMinThreshold/(double)imageDataList.at(i)->maxValue)-0.5, 0.0);
-							imageDataList.at(i)->colorFun->AddRGBPoint(0.75*imageDataList.at(i)->maxValue      , 1.0, 1.0, 0.0 );
-							imageDataList.at(i)->colorFun->AddRGBPoint(imageDataList.at(i)->currentMaxThreshold, 1.0, 1.0, 
-								(4*(double)imageDataList.at(i)->currentMaxThreshold/(double)imageDataList.at(i)->maxValue)-3);
-						}else{
-							imageDataList.at(i)->colorFun->AddRGBPoint(imageDataList.at(i)->currentMinThreshold, 1.0, 1.0, 
-								(4*(double)imageDataList.at(i)->currentMinThreshold/(double)imageDataList.at(i)->maxValue)-3);
-							imageDataList.at(i)->colorFun->AddRGBPoint(imageDataList.at(i)->currentMaxThreshold, 1.0, 1.0, 
-								(4*(double)imageDataList.at(i)->currentMaxThreshold/(double)imageDataList.at(i)->maxValue)-3);
-						}
-					}
-				}
-				if(imageDataList.at(i)->colormapName=="White to"){
-					//White to
-					imageDataList.at(i)->colorFun->RemoveAllPoints();
-					if(imageDataList.at(i)->adjustColormap){
-						if(!imageDataList.at(i)->invertColormap){
-							imageDataList.at(i)->colorFun->AddRGBPoint((double)imageDataList.at(i)->currentMinThreshold, 1.0, 1.0, 1.0);
-							imageDataList.at(i)->colorFun->AddRGBPoint(
-								(double)imageDataList.at(i)->currentMaxThreshold, 
-								imageDataList.at(i)->volumeColor.redF(),
-								imageDataList.at(i)->volumeColor.greenF(), 
-								imageDataList.at(i)->volumeColor.blueF()
-							);
-						}else{
-							imageDataList.at(i)->colorFun->AddRGBPoint((double)imageDataList.at(i)->currentMaxThreshold, 1.0, 1.0, 1.0);
-							imageDataList.at(i)->colorFun->AddRGBPoint(
-								(double)imageDataList.at(i)->currentMinThreshold, 
-								imageDataList.at(i)->volumeColor.redF(),
-								imageDataList.at(i)->volumeColor.greenF(), 
-								imageDataList.at(i)->volumeColor.blueF()
-							);
-						}
-					}else{
-						if(!imageDataList.at(i)->invertColormap){
-							imageDataList.at(i)->colorFun->AddRGBPoint(
-								(double)imageDataList.at(i)->currentMinThreshold, 
-								1.0+((double)imageDataList.at(i)->volumeColor.redF()-1.0)*(double)imageDataList.at(i)->currentMinThreshold/(double)imageDataList.at(i)->maxValue,
-								1.0+((double)imageDataList.at(i)->volumeColor.greenF()-1.0)*(double)imageDataList.at(i)->currentMinThreshold/(double)imageDataList.at(i)->maxValue,
-								1.0+((double)imageDataList.at(i)->volumeColor.blueF()-1.0)*(double)imageDataList.at(i)->currentMinThreshold/(double)imageDataList.at(i)->maxValue
-							);
-							imageDataList.at(i)->colorFun->AddRGBPoint(
-								(double)imageDataList.at(i)->currentMaxThreshold, 
-								1.0+((double)imageDataList.at(i)->volumeColor.redF()-1.0)*(double)imageDataList.at(i)->currentMaxThreshold/(double)imageDataList.at(i)->maxValue,
-								1.0+((double)imageDataList.at(i)->volumeColor.greenF()-1.0)*(double)imageDataList.at(i)->currentMaxThreshold/(double)imageDataList.at(i)->maxValue,
-								1.0+((double)imageDataList.at(i)->volumeColor.blueF()-1.0)*(double)imageDataList.at(i)->currentMaxThreshold/(double)imageDataList.at(i)->maxValue
-							);
-						}else{
-							imageDataList.at(i)->colorFun->AddRGBPoint(
-								(double)imageDataList.at(i)->currentMaxThreshold, 
-								1.0+((double)imageDataList.at(i)->volumeColor.redF()-1.0)*(double)imageDataList.at(i)->currentMinThreshold/(double)imageDataList.at(i)->maxValue,
-								1.0+((double)imageDataList.at(i)->volumeColor.greenF()-1.0)*(double)imageDataList.at(i)->currentMinThreshold/(double)imageDataList.at(i)->maxValue,
-								1.0+((double)imageDataList.at(i)->volumeColor.blueF()-1.0)*(double)imageDataList.at(i)->currentMinThreshold/(double)imageDataList.at(i)->maxValue
-							);
-							imageDataList.at(i)->colorFun->AddRGBPoint(
-								(double)imageDataList.at(i)->currentMinThreshold, 
-								1.0+((double)imageDataList.at(i)->volumeColor.redF()-1.0)*(double)imageDataList.at(i)->currentMaxThreshold/(double)imageDataList.at(i)->maxValue,
-								1.0+((double)imageDataList.at(i)->volumeColor.greenF()-1.0)*(double)imageDataList.at(i)->currentMaxThreshold/(double)imageDataList.at(i)->maxValue,
-								1.0+((double)imageDataList.at(i)->volumeColor.blueF()-1.0)*(double)imageDataList.at(i)->currentMaxThreshold/(double)imageDataList.at(i)->maxValue
-							);
-						}
-					}
-				}
-				if(imageDataList.at(i)->colormapName=="Black to"){
-					//Black to
-					imageDataList.at(i)->colorFun->RemoveAllPoints();
-					if(imageDataList.at(i)->adjustColormap){
-						if(!imageDataList.at(i)->invertColormap){
-							imageDataList.at(i)->colorFun->AddRGBPoint((double)imageDataList.at(i)->currentMinThreshold, 0.0, 0.0, 0.0);
-							imageDataList.at(i)->colorFun->AddRGBPoint(
-								(double)imageDataList.at(i)->currentMaxThreshold, 
-								imageDataList.at(i)->volumeColor.redF(),
-								imageDataList.at(i)->volumeColor.greenF(),
-								imageDataList.at(i)->volumeColor.blueF()
-							);
-						}else{
-							imageDataList.at(i)->colorFun->AddRGBPoint((double)imageDataList.at(i)->currentMaxThreshold, 0.0, 0.0, 0.0);
-							imageDataList.at(i)->colorFun->AddRGBPoint(
-								(double)imageDataList.at(i)->currentMinThreshold, 
-								imageDataList.at(i)->volumeColor.redF(),
-								imageDataList.at(i)->volumeColor.greenF(),
-								imageDataList.at(i)->volumeColor.blueF()
-							);
-						}
-					}else{
-						if(!imageDataList.at(i)->invertColormap){
-							imageDataList.at(i)->colorFun->AddRGBPoint(
-								(double)imageDataList.at(i)->currentMinThreshold, 
-								(double)imageDataList.at(i)->currentMinThreshold/(double)imageDataList.at(i)->maxValue*imageDataList.at(i)->volumeColor.redF(), 
-								(double)imageDataList.at(i)->currentMinThreshold/(double)imageDataList.at(i)->maxValue*imageDataList.at(i)->volumeColor.greenF(), 
-								(double)imageDataList.at(i)->currentMinThreshold/(double)imageDataList.at(i)->maxValue*imageDataList.at(i)->volumeColor.blueF()
-							);
-							imageDataList.at(i)->colorFun->AddRGBPoint(
-								(double)imageDataList.at(i)->currentMaxThreshold, 
-								(double)imageDataList.at(i)->currentMaxThreshold/(double)imageDataList.at(i)->maxValue*imageDataList.at(i)->volumeColor.redF(), 
-								(double)imageDataList.at(i)->currentMaxThreshold/(double)imageDataList.at(i)->maxValue*imageDataList.at(i)->volumeColor.greenF(), 
-								(double)imageDataList.at(i)->currentMaxThreshold/(double)imageDataList.at(i)->maxValue*imageDataList.at(i)->volumeColor.blueF()
-							);
-						}else{
-							imageDataList.at(i)->colorFun->AddRGBPoint(
-								(double)imageDataList.at(i)->currentMaxThreshold, 
-								(double)imageDataList.at(i)->currentMinThreshold/(double)imageDataList.at(i)->maxValue*imageDataList.at(i)->volumeColor.redF(), 
-								(double)imageDataList.at(i)->currentMinThreshold/(double)imageDataList.at(i)->maxValue*imageDataList.at(i)->volumeColor.greenF(), 
-								(double)imageDataList.at(i)->currentMinThreshold/(double)imageDataList.at(i)->maxValue*imageDataList.at(i)->volumeColor.blueF()
-							);
-							imageDataList.at(i)->colorFun->AddRGBPoint(
-								(double)imageDataList.at(i)->currentMinThreshold, 
-								(double)imageDataList.at(i)->currentMaxThreshold/(double)imageDataList.at(i)->maxValue*imageDataList.at(i)->volumeColor.redF(), 
-								(double)imageDataList.at(i)->currentMaxThreshold/(double)imageDataList.at(i)->maxValue*imageDataList.at(i)->volumeColor.greenF(), 
-								(double)imageDataList.at(i)->currentMaxThreshold/(double)imageDataList.at(i)->maxValue*imageDataList.at(i)->volumeColor.blueF()
-							);
-						}
-					}
-				}
-				if(imageDataList.at(i)->colormapName=="Color all to"){
-					//Color all to
-					imageDataList.at(i)->colorFun->RemoveAllPoints();
-					imageDataList.at(i)->colorFun->AddRGBPoint(
-						(double)imageDataList.at(i)->currentMinThreshold, 
-						imageDataList.at(i)->volumeColor.redF(),
-						imageDataList.at(i)->volumeColor.greenF(),
-						imageDataList.at(i)->volumeColor.blueF()
-					);
-					imageDataList.at(i)->colorFun->AddRGBPoint(
-						(double)imageDataList.at(i)->currentMaxThreshold,
-						imageDataList.at(i)->volumeColor.redF(),
-						imageDataList.at(i)->volumeColor.greenF(),
-						imageDataList.at(i)->volumeColor.blueF()
-					);
-				}
-				imageDataList.at(i)->colorFun->ClampingOff(); //Values out of the segment are zero
-				imageDataList.at(i)->opacityFun->RemoveAllPoints();
-				imageDataList.at(i)->opacityFun->AddSegment(
-					imageDataList.at(i)->currentMinThreshold,
-					0,
-					imageDataList.at(i)->currentMaxThreshold,
-					imageDataList.at(i)->objectOpacity);
-				imageDataList.at(i)->opacityFun->ClampingOff(); //Values out of the segment are zero
+	if (!viewerController)
+		return;
 
-				// THRESHOLD
-				if(imageDataList.at(i)->isVolume){
-					if(imageDataList.at(i)->dataFormat == dataType::DATA_JPEG){
-						imageDataList.at(i)->luminance->SetInputData(imageDataList.at(i)->image);
-						imageDataList.at(i)->extractVOI->SetInputConnection(imageDataList.at(i)->luminance->GetOutputPort());
-					}else{
-						imageDataList.at(i)->extractVOI->SetInputData(imageDataList.at(i)->image);
-					}
-					imageDataList.at(i)->extractVOI->SetVOI(
-						(int)imageDataList.at(i)->VOI[0],(int)imageDataList.at(i)->VOI[1]-1,
-						(int)imageDataList.at(i)->VOI[2],(int)imageDataList.at(i)->VOI[3]-1,
-						(int)imageDataList.at(i)->VOI[4],(int)imageDataList.at(i)->VOI[5]-1
-					);
-					imageDataList.at(i)->threshold->SetInputConnection(imageDataList.at(i)->extractVOI->GetOutputPort());
-					imageDataList.at(i)->threshold->ThresholdBetween((double)imageDataList.at(i)->currentMinThreshold, (double)imageDataList.at(i)->currentMaxThreshold);
-					imageDataList.at(i)->threshold->ReplaceOutOn();
-					imageDataList.at(i)->threshold->SetOutValue(0);
-					imageDataList.at(i)->threshold->Update();
-				}
-			
-				//PLANE
-				imageDataList.at(i)->planeWidget->SetInteractor(iren);
-				if(imageDataList.at(i)->planeIsVisible){
-					imageDataList.at(i)->planeWidget->SetTextureVisibility(1);
-					imageDataList.at(i)->planeWidget->GetMarginProperty()->SetOpacity(1);
-					//imageDataList.at(i)->planeWidget->UpdatePlacement();//DEBUG
-				}else{
-					imageDataList.at(i)->planeWidget->SetTextureVisibility(0);
-					imageDataList.at(i)->planeWidget->GetMarginProperty()->SetOpacity(0);
-					//imageDataList.at(i)->planeWidget->UpdatePlacement();//DEBUG
-				}
-				if(imageDataList.at(i)->changePlaneInput){
-					imageDataList.at(i)->changePlaneInput = false;
-					if(imageDataList.at(i)->showPlane){
-						if(imageDataList.at(i)->isVolume){
-							imageDataList.at(i)->colorMap->SetLookupTable(imageDataList.at(i)->colorFun);
-							imageDataList.at(i)->planeWidget->SetColorMap(imageDataList.at(i)->colorMap);
-							imageDataList.at(i)->median->SetInputConnection(imageDataList.at(i)->threshold->GetOutputPort());
-							if(imageDataList.at(i)->checkMedian){
-								imageDataList.at(i)->median->SetKernelSize(imageDataList.at(i)->medianKernelX,imageDataList.at(i)->medianKernelY,imageDataList.at(i)->medianKernelZ);	
-							}else{ 
-								imageDataList.at(i)->median->SetKernelSize(1,1,1);
-							}
-							imageDataList.at(i)->planeWidget->SetInputConnection(imageDataList.at(i)->median->GetOutputPort());
-						}else if(imageDataList.at(i)->isPolyData){
-							imageDataList.at(i)->planeWidget->SetInputData(imageDataList.at(i)->poly);
-						}
-						if(imageDataList.at(i)->orientChanged){
-							imageDataList.at(i)->orientChanged = false;
-							imageDataList.at(i)->planeWidget->SetOrigin(-0.5*imageDataList.at(i)->width,-0.5*imageDataList.at(i)->height,-0.5*imageDataList.at(i)->depth);
-							imageDataList.at(i)->planeWidget->SetPlaneOrientation(imageDataList.at(i)->orientIndex);	
-						}
-						if(false){
-							imageDataList.at(i)->planeWidget->PlaceWidget(
-								 imageDataList.at(i)->VOI[0]*settings.x_fac, imageDataList.at(i)->VOI[1]*settings.x_fac, 
-								 imageDataList.at(i)->VOI[2]*settings.y_fac, imageDataList.at(i)->VOI[3]*settings.y_fac, 
-								 imageDataList.at(i)->VOI[4]*settings.z_fac, imageDataList.at(i)->VOI[5]*settings.z_fac
-							);
-						}
-						//SAVE LAST PLANE POSITION
-						imageDataList.at(i)->planeWidget->GetOrigin(imageDataList.at(i)->planeOrigin);
-						imageDataList.at(i)->planeOrientation = imageDataList.at(i)->planeWidget->GetPlaneOrientation();//TODO: check if neccessary or obsolete with "orientIndex"
-						imageDataList.at(i)->planeWidget->GetPoint1(imageDataList.at(i)->planeP1);
-						imageDataList.at(i)->planeWidget->GetPoint2(imageDataList.at(i)->planeP2);
-						//SET NO MODIFIER FOR RIGHT MOUSE BUTTON
-						imageDataList.at(i)->planeWidget->SetRightButtonAction(vtkImagePlaneWidget::VTK_CURSOR_ACTION);//TODO: unset if not current index
-						imageDataList.at(i)->planeWidget->SetRightButtonAutoModifier(vtkImagePlaneWidget::VTK_NO_MODIFIER);//TODO: unset if not current index
-						//SHOW PLANE & DISPLAY INFORMATION
-						imageDataList.at(i)->planeWidget->UpdatePlacement();
-						imageDataList.at(i)->planeWidget->DisplayTextOn();
-						imageDataList.at(i)->planeWidget->On();
-					}else{
-						//SWITCH PLANE OFF
-						imageDataList.at(i)->planeWidget->DisplayTextOff();
-						imageDataList.at(i)->planeWidget->Off();
-					}
-				}
-				//IMPLICIT PLANE
-				/*
-				imageDataList.at(i)->implicitPlane->SetInteractor(iren);
-				imageDataList.at(i)->implicitPlane->SetInputConnection(imageDataList.at(i)->threshold->GetOutputPort());
-				imageDataList.at(i)->implicitPlane->SetOrigin(
-					0.5*(imageDataList.at(i)->VOI[1]-imageDataList.at(i)->VOI[0]),
-					0.5*(imageDataList.at(i)->VOI[3]-imageDataList.at(i)->VOI[2]),
-					0.5*(imageDataList.at(i)->VOI[5]-imageDataList.at(i)->VOI[4])
-				);
-				imageDataList.at(i)->implicitPlane->SetOutlineTranslation(1);
-				imageDataList.at(i)->implicitPlane->Off();
-				*/
-			}
-			//VOLUME
-			if(imageDataList.at(i)->isVolume){
-				imageDataList.at(i)->volumeMapper->RemoveAllClippingPlanes();//DEBUG
-				if(imageDataList.at(i)->fileChanged){
-					imageDataList.at(i)->fileChanged = false;
-					imageDataList.at(i)->volume->GetProperty()->SetColor(imageDataList.at(i)->colorFun);
-					imageDataList.at(i)->volume->GetProperty()->SetScalarOpacity(imageDataList.at(i)->opacityFun);
-					imageDataList.at(i)->volume->GetProperty()->SetInterpolationTypeToLinear();
-				}
-				if(imageDataList.at(i)->showPlane){
-					imageDataList.at(i)->clipPlane->SetOrigin(imageDataList.at(i)->planeWidget->GetOrigin());
-					if(imageDataList.at(i)->switchPlane){
-						imageDataList.at(i)->clipPlane->SetNormal(
-							(-1)*imageDataList.at(i)->planeWidget->GetNormal()[0],
-							(-1)*imageDataList.at(i)->planeWidget->GetNormal()[1],
-							(-1)*imageDataList.at(i)->planeWidget->GetNormal()[2]
-						);
-					}else{
-						imageDataList.at(i)->clipPlane->SetNormal(imageDataList.at(i)->planeWidget->GetNormal());
-					}
-					imageDataList.at(i)->planeCollection->RemoveAllItems();
-					imageDataList.at(i)->planeCollection->AddItem(imageDataList.at(i)->clipPlane);
-					imageDataList.at(i)->volumeMapper->SetClippingPlanes(imageDataList.at(i)->planeCollection);
-				}else{
-					imageDataList.at(i)->planeCollection->RemoveAllItems();
-				}
-				switch(imageDataList.at(i)->blendMode){
-					case 1:  imageDataList.at(i)->volumeMapper->SetBlendModeToComposite(); break;
-					case 2:  imageDataList.at(i)->volumeMapper->SetBlendModeToAdditive(); break;
-					case 3:  imageDataList.at(i)->volumeMapper->SetBlendModeToMinimumIntensity(); break;
-					default: imageDataList.at(i)->volumeMapper->SetBlendModeToMaximumIntensity(); break;
-				}
-				imageDataList.at(i)->volumeMapper->SetInputConnection(imageDataList.at(i)->threshold->GetOutputPort());
-				imageDataList.at(i)->volume->SetMapper(imageDataList.at(i)->volumeMapper);
-				imageDataList.at(i)->volume->SetScale(settings.x_fac,settings.y_fac,settings.z_fac);
-				imageDataList.at(i)->transform->Identity();
-				imageDataList.at(i)->transform->Translate(imageDataList.at(i)->shift);
-				imageDataList.at(i)->transform->RotateX(imageDataList.at(i)->rot[0]);
-				imageDataList.at(i)->transform->RotateY(imageDataList.at(i)->rot[1]);
-				imageDataList.at(i)->transform->RotateZ(imageDataList.at(i)->rot[2]);
-				imageDataList.at(i)->volume->SetUserTransform(imageDataList.at(i)->transform);
-				imageDataList.at(i)->volume->Update();
-				if (!renderer->HasViewProp(imageDataList.at(i)->volume))
-					renderer->AddVolume(imageDataList.at(i)->volume);
-				if(imageDataList.at(i)->showObject && imageDataList.at(i)->isVolume){
-					imageDataList.at(i)->volume->SetVisibility(true);
-				}else{
-					imageDataList.at(i)->volume->SetVisibility(false);
-				}
-			//POLYDATA
-			}else if(imageDataList.at(i)->isPolyData){
-				imageDataList.at(i)->polyMapper->SetInputData(imageDataList.at(i)->poly);
-				imageDataList.at(i)->polyActor->SetMapper(imageDataList.at(i)->polyMapper);
-				imageDataList.at(i)->polyActor->SetScale(settings.x_fac,settings.y_fac,settings.z_fac);
-				switch(imageDataList.at(i)->polyMode){
-					case 0: default:
-						imageDataList.at(i)->polyActor->GetProperty()->SetRepresentationToPoints();
-						imageDataList.at(i)->polyActor->GetProperty()->SetPointSize(imageDataList.at(i)->pointSize);
-						break;
-					case 1:
-						imageDataList.at(i)->polyActor->GetProperty()->SetRepresentationToWireframe();
-						break;
-					case 2:
-						imageDataList.at(i)->polyActor->GetProperty()->SetRepresentationToSurface();
-						break;
-				}
-				imageDataList.at(i)->polyActor->GetProperty()->SetOpacity(imageDataList.at(i)->objectOpacity);
-				imageDataList.at(i)->polyActor->GetProperty()->SetColor(
-					imageDataList.at(i)->polyColor.redF(),
-					imageDataList.at(i)->polyColor.greenF(),
-					imageDataList.at(i)->polyColor.blueF()
-				);
-				if (!renderer->HasViewProp(imageDataList.at(i)->polyActor))
-					renderer->AddActor(imageDataList.at(i)->polyActor);
-				if(imageDataList.at(i)->showObject && imageDataList.at(i)->isPolyData){
-					imageDataList.at(i)->polyActor->SetVisibility(true);
-				}else{
-					imageDataList.at(i)->polyActor->SetVisibility(false);
-				}
-			}
-		}
-	}
-	if(settings.oneFileLoaded){
-		//CUBE AXES
-		if(settings.showAxesTriad || settings.showAxesBox){
-			if(settings.showAxesTriad){
-				axes->SetXAxisLabelVisibility(1);
-				axes->SetYAxisLabelVisibility(1);
-				axes->SetZAxisLabelVisibility(1);
-				axes->SetXAxisMinorTickVisibility(1);
-				axes->SetYAxisMinorTickVisibility(1);
-				axes->SetZAxisMinorTickVisibility(1);
-				axes->SetXAxisTickVisibility(1);
-				axes->SetYAxisTickVisibility(1);
-				axes->SetZAxisTickVisibility(1);
-				axes->SetXLabelFormat("%6.1f");
-				axes->SetYLabelFormat("%6.1f");
-				axes->SetZLabelFormat("%6.1f");
-				axes->SetScreenSize(12.0);
-				axes->SetFlyModeToOuterEdges();
-				axes->SetCornerOffset(0.0);
-			}else{
-				axes->SetXAxisLabelVisibility(0);
-				axes->SetYAxisLabelVisibility(0);
-				axes->SetZAxisLabelVisibility(0);
-				axes->SetXAxisMinorTickVisibility(0);
-				axes->SetYAxisMinorTickVisibility(0);
-				axes->SetZAxisMinorTickVisibility(0);
-				axes->SetXAxisTickVisibility(0);
-				axes->SetYAxisTickVisibility(0);
-				axes->SetZAxisTickVisibility(0);
-				axes->SetXLabelFormat("%6.1f");
-				axes->SetYLabelFormat("%6.1f");
-				axes->SetZLabelFormat("%6.1f");
-				axes->SetFlyModeToStaticEdges();
-			}		
-			if(activeImageData->isVolume)
-				axes->SetBounds(activeImageData->volume->GetBounds());
-			else if(activeImageData->isPolyData)
-				axes->SetBounds(activeImageData->poly->GetBounds());
-			axes->SetCamera(renderer->GetActiveCamera());
-			axes->SetRebuildAxes(true);
-			renderer->RemoveActor(axes);
-			renderer->AddActor(axes);
-		}else{
-			renderer->RemoveActor(axes);
-		}
-
-		//SCALARBAR
-		if(settings.showScalarBar && activeImageData->isVolume){
-			scalarBarActor->SetLookupTable(activeImageData->colorFun);
-			scalarBarActor->SetTitle("Intensity");
-			scalarBarActor->SetMaximumWidthInPixels(100);
-			scalarBarActor->SetMaximumHeightInPixels(700);
-			scalarBarWidget->SetInteractor(iren);
-			scalarBarWidget->SetScalarBarActor(scalarBarActor);
-			scalarBarWidget->On();
-			renderer->AddActor(scalarBarActor);
-		}else{
-			scalarBarWidget->Off();
-			renderer->RemoveActor(scalarBarActor);
-		}
-		//DISPLAY AXES
-		orientWidget->SetOrientationMarker(axesActor);
-		orientWidget->SetInteractor(iren);
-		orientWidget->SetViewport(0.0, 0.0, 0.3, 0.3);
-		if(settings.showOrientAxes){
-			orientWidget->SetEnabled(1);
-		}else{
-			orientWidget->SetEnabled(0);
-		}
-		//RESET CAM
-		if(settings.firstFileLoaded){
-			settings.firstFileLoaded = false;
-			slotFrontZ();
-		}
-		//RENDER SCENE
-		renWin->Render();
+	viewerController->refresh(documentModel, activeImageData, settings);
+	if (settings.firstFileLoaded)
+	{
+		settings.firstFileLoaded = false;
+		slotFrontZ();
 	}
 }
 
@@ -1324,7 +747,7 @@ void OCTview3R::slotSetColormap(QString value)
 {
 	if(settings.oneFileLoaded && activeImageData->fileLoaded){
 		activeImageData->colormapName = value;
-		connectVTKPipeline();
+		refreshViewer();
 	}
 }
 void OCTview3R::slotPickVolumeColor()
@@ -1334,7 +757,7 @@ void OCTview3R::slotPickVolumeColor()
 		if(color.isValid()){
 			activeImageData->volumeColor = color;
 			this->ui->pushButton_pickVolumeColor->setStyleSheet("background-color: "+activeImageData->volumeColor.name());
-			connectVTKPipeline();
+	refreshViewer();
 		}
 	}
 }
@@ -1345,7 +768,7 @@ void OCTview3R::slotPickPolyColor()
 		if(color.isValid()){
 			activeImageData->polyColor = color;
 			this->ui->pushButton_pickPolyColor->setStyleSheet("background-color: "+activeImageData->polyColor.name());
-			connectVTKPipeline();
+	refreshViewer();
 		}
 	}
 }
@@ -1359,7 +782,7 @@ void OCTview3R::slotShowScalarBar(bool value)
 			settings.showScalarBar = false;
 			this->ui->actionScalarBar->setChecked(false);
 		}
-		connectVTKPipeline();
+		viewerController->refreshDecorations(documentModel, activeImageData, settings);
 	}
 }
 void OCTview3R::slotShowAxesTriad(bool value)
@@ -1374,7 +797,7 @@ void OCTview3R::slotShowAxesTriad(bool value)
 			settings.showAxesTriad = false;
 			this->ui->actionAxesTriad->setChecked(false);
 		}
-		connectVTKPipeline();
+		viewerController->refreshDecorations(documentModel, activeImageData, settings);
 	}
 }
 void OCTview3R::slotShowOrientAxes(bool value)
@@ -1387,7 +810,7 @@ void OCTview3R::slotShowOrientAxes(bool value)
 			settings.showOrientAxes = false;
 			this->ui->actionOrientAxes->setChecked(false);
 		}
-		connectVTKPipeline();
+		viewerController->refreshDecorations(documentModel, activeImageData, settings);
 	}
 }
 void OCTview3R::slotShowAxesBox(bool value)
@@ -1402,7 +825,7 @@ void OCTview3R::slotShowAxesBox(bool value)
 			settings.showAxesBox = false;
 			this->ui->actionAxesBox->setChecked(false);
 		}
-		connectVTKPipeline();
+		viewerController->refreshDecorations(documentModel, activeImageData, settings);
 	}
 }
 void OCTview3R::slotAdjustColormap(bool value)
@@ -1410,7 +833,7 @@ void OCTview3R::slotAdjustColormap(bool value)
 	if(settings.oneFileLoaded && activeImageData->fileLoaded){
 		activeImageData->adjustColormap = value;
 		slotSetThreshold();
-		connectVTKPipeline();
+	refreshViewer();
 	}
 }
 void OCTview3R::slotInvertColormap(bool value)
@@ -1418,7 +841,7 @@ void OCTview3R::slotInvertColormap(bool value)
 	if(settings.oneFileLoaded && activeImageData->fileLoaded){
 		activeImageData->invertColormap = value;
 		slotSetThreshold();
-		connectVTKPipeline();
+	refreshViewer();
 	}
 }
 void OCTview3R::slotMedianCheckBox(bool value)
@@ -1430,7 +853,7 @@ void OCTview3R::slotMedianCheckBox(bool value)
 		}else{
 			activeImageData->median->SetKernelSize(1,1,1);
 		}
-		connectVTKPipeline();
+	refreshViewer();
 	}
 }
 void OCTview3R::slotKernelXChanged(int value)
@@ -1460,143 +883,107 @@ void OCTview3R::slotOrientationChanged(int value)
 		activeImageData->changePlaneInput = true;
 		activeImageData->orientChanged = true;
 		activeImageData->orientIndex = value;
-		connectVTKPipeline();
+	refreshViewer();
 	}
 }
 void OCTview3R::slotGetPlaneData()
 {
 	if(settings.oneFileLoaded && activeImageData->fileLoaded){
-		double aOrigin[3]; 
-		double *origin = aOrigin; 
-		origin	= activeImageData->planeWidget->GetOrigin();
-		double aCenter[3]; 
-		double *center = aCenter; 
-		center = activeImageData->planeWidget->GetCenter();
-		double aNormal[3]; 
-		double *normal = aNormal; 
-		activeImageData->planeWidget->GetNormal(normal);
-		this->ui->planeLineEdit->setText("normal:" + QString().number(normal[0],'g',4) + ":" + QString().number(normal[1],'g',4) + ":" + QString().number(normal[2],'g',4) + 
-									  " | center:" + QString().number(center[0],'g',4) + ":" + QString().number(center[1],'g',4) + ":" + QString().number(center[2],'g',4));
+		double worldCenter[3] = {};
+		double worldNormal[3] = {};
+		activeImageData->transform->TransformPoint(
+			activeImageData->planeWidget->GetCenter(), worldCenter);
+		activeImageData->transform->TransformNormal(
+			activeImageData->planeWidget->GetNormal(), worldNormal);
+		this->ui->planeLineEdit->setText(
+			"normal:" + QString::number(worldNormal[0], 'g', 4) + ":" +
+			QString::number(worldNormal[1], 'g', 4) + ":" +
+			QString::number(worldNormal[2], 'g', 4) +
+			" | center:" + QString::number(worldCenter[0], 'g', 4) + ":" +
+			QString::number(worldCenter[1], 'g', 4) + ":" +
+			QString::number(worldCenter[2], 'g', 4));
 	}else{
 		this->ui->planeLineEdit->clear();
-	}
-}
-void OCTview3R::slotX0(double value)
-{
-	if(settings.oneFileLoaded && activeImageData->fileLoaded){
-		if(this->ui->x0DoubleSpinBox->value() < activeImageData->VOI[1]) //-1
-			activeImageData->VOI[0] = this->ui->x0DoubleSpinBox->value();
-		else{
-			QMessageBox::information(this,tr("ERROR"), tr("VOI value x_start out of bounds"));
-			this->ui->x0DoubleSpinBox->setValue(activeImageData->VOI[0]);
-		}
-
-	}
-}
-void OCTview3R::slotX1(double value)
-{
-	if(settings.oneFileLoaded && activeImageData->fileLoaded){
-		if(this->ui->x1DoubleSpinBox->value() >= activeImageData->VOI[0]) //+1
-			activeImageData->VOI[1] = this->ui->x1DoubleSpinBox->value();
-		else{ 
-			QMessageBox::information(this,tr("ERROR"), tr("VOI value x_end out of bounds"));
-			ui->x1DoubleSpinBox->setValue(activeImageData->VOI[1]);
-		}
-	}
-}
-void OCTview3R::slotY0(double value)
-{
-	if(settings.oneFileLoaded && activeImageData->fileLoaded){
-		if(this->ui->y0DoubleSpinBox->value() < activeImageData->VOI[3]) //-1
-			activeImageData->VOI[2] = this->ui->y0DoubleSpinBox->value();
-		else{
-			QMessageBox::information(this,tr("ERROR"), tr("VOI value y_start out of bounds"));
-			this->ui->y0DoubleSpinBox->setValue(activeImageData->VOI[2]);
-		}
-	}
-}
-void OCTview3R::slotY1(double value)
-{
-	if(settings.oneFileLoaded && activeImageData->fileLoaded){
-		if(this->ui->y1DoubleSpinBox->value() >= activeImageData->VOI[2]) //+1
-			activeImageData->VOI[3] = this->ui->y1DoubleSpinBox->value();
-		else{
-			QMessageBox::information(this,tr("ERROR"), tr("VOI value y_end out of bounds"));
-			this->ui->y1DoubleSpinBox->setValue(activeImageData->VOI[3]);
-		}
-	}
-}
-void OCTview3R::slotZ0(double value)
-{
-	if(settings.oneFileLoaded && activeImageData->fileLoaded){
-		if(this->ui->z0DoubleSpinBox->value() < activeImageData->VOI[5]) //-1
-			activeImageData->VOI[4] = this->ui->z0DoubleSpinBox->value();
-		else{
-			QMessageBox::information(this,tr("ERROR"), tr("VOI value z_start out of bounds"));
-			this->ui->z0DoubleSpinBox->setValue(activeImageData->VOI[4]);
-		}
-	}
-}
-void OCTview3R::slotZ1(double value)
-{
-	if(settings.oneFileLoaded && activeImageData->fileLoaded){
-		if(this->ui->z1DoubleSpinBox->value() >= activeImageData->VOI[4]) //+1
-			activeImageData->VOI[5] = this->ui->z1DoubleSpinBox->value();
-		else{
-			QMessageBox::information(this,tr("ERROR"), tr("VOI value z_end out of bounds"));
-			this->ui->z1DoubleSpinBox->setValue(activeImageData->VOI[5]);
-		}
 	}
 }
 void OCTview3R::slotRotX(double value)
 {
 	if(settings.oneFileLoaded && activeImageData->fileLoaded){
-		activeImageData->fileChanged = true;
 		activeImageData->rot[0] = value;
+	refreshViewer();
 	}
 }
 void OCTview3R::slotRotY(double value)
 {
 	if(settings.oneFileLoaded && activeImageData->fileLoaded){
-		activeImageData->fileChanged = true;
 		activeImageData->rot[1] = value;
+	refreshViewer();
 	}
 }
 void OCTview3R::slotRotZ(double value)
 {
 	if(settings.oneFileLoaded && activeImageData->fileLoaded){
-		activeImageData->fileChanged = true;
 		activeImageData->rot[2] = value;
+	refreshViewer();
 	}
 }
 void OCTview3R::slotShiftX(double value)
 {
 	if(settings.oneFileLoaded && activeImageData->fileLoaded){
-		activeImageData->fileChanged = true;
 		activeImageData->shift[0] = value;
+	refreshViewer();
 	}
 }
 void OCTview3R::slotShiftY(double value)
 {
 	if(settings.oneFileLoaded && activeImageData->fileLoaded){
-		activeImageData->fileChanged = true;
 		activeImageData->shift[1] = value;
+	refreshViewer();
 	}
 }
 void OCTview3R::slotShiftZ(double value)
 {
 	if(settings.oneFileLoaded && activeImageData->fileLoaded){
-		activeImageData->fileChanged = true;
 		activeImageData->shift[2] = value;
+	refreshViewer();
 	}
 }
-void OCTview3R::slotRenderAgain()
+void OCTview3R::slotApplyRanges()
 {
-	if(settings.oneFileLoaded && activeImageData->fileLoaded){
-		activeImageData->fileChanged = true;
-		activeImageData->changePlaneInput = true;
-		connectVTKPipeline();
+	if(!settings.oneFileLoaded || activeImageData == nullptr ||
+	   !activeImageData->fileLoaded || !activeImageData->isVolume)
+		return;
+
+	const double requestedVOI[6] = {
+		ui->x0DoubleSpinBox->value(), ui->x1DoubleSpinBox->value(),
+		ui->y0DoubleSpinBox->value(), ui->y1DoubleSpinBox->value(),
+		ui->z0DoubleSpinBox->value(), ui->z1DoubleSpinBox->value()
+	};
+	const bool ordered =
+		requestedVOI[0] < requestedVOI[1] &&
+		requestedVOI[2] < requestedVOI[3] &&
+		requestedVOI[4] < requestedVOI[5];
+	bool insideSource = true;
+	for (int i = 0; i < 6; i += 2)
+	{
+		insideSource = insideSource &&
+			requestedVOI[i] >= activeImageData->sourceVOI[i] &&
+			requestedVOI[i + 1] <= activeImageData->sourceVOI[i + 1];
 	}
+	if (!ordered || !insideSource)
+	{
+		QMessageBox::information(
+			this,
+			tr("Invalid ranges"),
+			tr("Each range start must be smaller than its end and remain inside the source extent."));
+		return;
+	}
+
+	for (int i = 0; i < 6; ++i)
+		activeImageData->VOI[i] = requestedVOI[i];
+	activeImageData->changePlaneInput = true;
+	activeImageData->orientChanged = true;
+	refreshViewer();
 }
 void OCTview3R::slotPlaneUp()
 {
@@ -1611,8 +998,7 @@ void OCTview3R::slotPlaneUp()
 		if(isOrthogonal){
 			int index = activeImageData->planeWidget->GetSliceIndex();
 			activeImageData->planeWidget->SetSliceIndex(index + 1);
-			iren->Render();
-			connectVTKPipeline();
+			refreshViewer();
 		}else{
 			QMessageBox::information(this,tr("WARNING"), tr("Plane not orthogonal to x, y or z."));	
 		}
@@ -1632,8 +1018,7 @@ void OCTview3R::slotPlaneDown()
 		if(isOrthogonal){
 			int index = activeImageData->planeWidget->GetSliceIndex();
 			activeImageData->planeWidget->SetSliceIndex(index - 1);
-			iren->Render();
-			connectVTKPipeline();
+			refreshViewer();
 		}else{
 			QMessageBox::information(this,tr("WARNING"), tr("Plane not orthogonal to x, y or z."));	
 		}
@@ -1645,7 +1030,7 @@ void OCTview3R::slotSetPointSize(int value)
 {
 	if(settings.oneFileLoaded && activeImageData->fileLoaded){
 		activeImageData->pointSize = value;
-		connectVTKPipeline();
+	refreshViewer();
 	}
 }
 
@@ -1653,7 +1038,7 @@ void OCTview3R::slotSetObjectOpacity(int value)
 {
 	if(settings.oneFileLoaded && activeImageData->fileLoaded){
 		activeImageData->objectOpacity = (double)value * 0.01;
-		connectVTKPipeline();
+	refreshViewer();
 	}
 }
 
@@ -1661,26 +1046,26 @@ void OCTview3R::slotSetBlendMode(int index)
 {
 	if(settings.oneFileLoaded && activeImageData->fileLoaded){
 		activeImageData->blendMode = index;
-		connectVTKPipeline();
+	refreshViewer();
 	}
 }
 void OCTview3R::slotSetPolyMode(int index)
 {
 	if(settings.oneFileLoaded && activeImageData->fileLoaded){
 		activeImageData->polyMode = index;
-		connectVTKPipeline();
+	refreshViewer();
 	}
 }
 void OCTview3R::slotPlaneVisibility(bool value)
 {
 	if(settings.oneFileLoaded && activeImageData->fileLoaded){
 		activeImageData->planeIsVisible = value;
-		connectVTKPipeline();
+	refreshViewer();
 	}
 }
 void OCTview3R::slotFrontX()
 {
-	cam = renderer->GetActiveCamera();
+	cam = viewerController->renderer()->GetActiveCamera();
 	cam->SetFocalPoint(0,0,0);
 	cam->SetViewUp(0,1,0);
 	cam->SetPosition(-1,0,0);
@@ -1688,7 +1073,7 @@ void OCTview3R::slotFrontX()
 }
 void OCTview3R::slotFrontY()
 {
-	cam = renderer->GetActiveCamera();
+	cam = viewerController->renderer()->GetActiveCamera();
 	cam->SetFocalPoint(0,0,0);
 	cam->SetViewUp(0,0,1);
 	cam->SetPosition(0,-1,0);
@@ -1696,7 +1081,7 @@ void OCTview3R::slotFrontY()
 }
 void OCTview3R::slotFrontZ()
 {
-	cam = renderer->GetActiveCamera();
+	cam = viewerController->renderer()->GetActiveCamera();
 	cam->SetFocalPoint(0,0,0);
 	cam->SetViewUp(1,0,0);
 	cam->SetPosition(0,0,-1);
@@ -1704,7 +1089,7 @@ void OCTview3R::slotFrontZ()
 }
 void OCTview3R::slotBackX()
 {
-	cam = renderer->GetActiveCamera();
+	cam = viewerController->renderer()->GetActiveCamera();
 	cam->SetFocalPoint(0,0,0);
 	cam->SetViewUp(0,1,0);
 	cam->SetPosition(1,0,0);
@@ -1712,7 +1097,7 @@ void OCTview3R::slotBackX()
 }
 void OCTview3R::slotBackY()
 {
-	cam = renderer->GetActiveCamera();
+	cam = viewerController->renderer()->GetActiveCamera();
 	cam->SetFocalPoint(0,0,0);	
 	cam->SetViewUp(0,0,1);
 	cam->SetPosition(0,1,0);
@@ -1720,7 +1105,7 @@ void OCTview3R::slotBackY()
 }
 void OCTview3R::slotBackZ()
 {
-	cam = renderer->GetActiveCamera();
+	cam = viewerController->renderer()->GetActiveCamera();
 	cam->SetFocalPoint(0,0,0);
 	cam->SetViewUp(1,0,0);
 	cam->SetPosition(0,0,1);
@@ -1728,7 +1113,7 @@ void OCTview3R::slotBackZ()
 }
 void OCTview3R::slotRot90()
 {
-	cam = renderer->GetActiveCamera();
+	cam = viewerController->renderer()->GetActiveCamera();
 	double roll = cam->GetRoll();
 	cam->SetRoll(roll - 90.0);
 	slotResetCam();
@@ -1736,56 +1121,74 @@ void OCTview3R::slotRot90()
 void OCTview3R::slotScaleX(double value)
 {		
 	settings.x_fac = value;
-	if(settings.oneFileLoaded && activeImageData->fileLoaded){
-		activeImageData->changePlaneInput = true;
-		connectVTKPipeline();
+	if(settings.oneFileLoaded && activeImageData != nullptr && activeImageData->fileLoaded){
+		viewerController->refreshAll(documentModel, activeImageData, settings);
 	}
 }
 void OCTview3R::slotScaleY(double value)
 {
 	settings.y_fac = value;
-	if(settings.oneFileLoaded && activeImageData->fileLoaded){
-		activeImageData->changePlaneInput = true;
-		connectVTKPipeline();
+	if(settings.oneFileLoaded && activeImageData != nullptr && activeImageData->fileLoaded){
+		viewerController->refreshAll(documentModel, activeImageData, settings);
 	}
 }
 void OCTview3R::slotScaleZ(double value)
 {
 	settings.z_fac = value;
-	if(settings.oneFileLoaded && activeImageData->fileLoaded){
-		activeImageData->changePlaneInput = true;
-		connectVTKPipeline();
+	if(settings.oneFileLoaded && activeImageData != nullptr && activeImageData->fileLoaded){
+		viewerController->refreshAll(documentModel, activeImageData, settings);
 	}
 }
 void OCTview3R::slotRotCamX(double value)
 {
 	double dx = value - settings.x_rot_cam;
 	settings.x_rot_cam = value;
+	cam = viewerController->renderer()->GetActiveCamera();
+	double focalPoint[3] = { 0.0, 0.0, 0.0 };
+	cam->GetFocalPoint(focalPoint);
 	camTrans->Identity();
+	camTrans->PreMultiply();
+	camTrans->Translate(focalPoint);
 	camTrans->RotateX(dx);
-	cam = renderer->GetActiveCamera();
+	camTrans->Translate(-focalPoint[0], -focalPoint[1], -focalPoint[2]);
 	cam->ApplyTransform(camTrans);
-	slotResetCam();
+	cam->OrthogonalizeViewUp();
+	viewerController->renderer()->ResetCameraClippingRange();
+	viewerController->render();
 }
 void OCTview3R::slotRotCamY(double value)
 {
 	double dy = value - settings.y_rot_cam;
 	settings.y_rot_cam = value;
+	cam = viewerController->renderer()->GetActiveCamera();
+	double focalPoint[3] = { 0.0, 0.0, 0.0 };
+	cam->GetFocalPoint(focalPoint);
 	camTrans->Identity();
+	camTrans->PreMultiply();
+	camTrans->Translate(focalPoint);
 	camTrans->RotateY(dy);
-	cam = renderer->GetActiveCamera();
+	camTrans->Translate(-focalPoint[0], -focalPoint[1], -focalPoint[2]);
 	cam->ApplyTransform(camTrans);
-	slotResetCam();
+	cam->OrthogonalizeViewUp();
+	viewerController->renderer()->ResetCameraClippingRange();
+	viewerController->render();
 }
 void OCTview3R::slotRotCamZ(double value)
 {
 	double dz = value - settings.z_rot_cam;
 	settings.z_rot_cam = value;
+	cam = viewerController->renderer()->GetActiveCamera();
+	double focalPoint[3] = { 0.0, 0.0, 0.0 };
+	cam->GetFocalPoint(focalPoint);
 	camTrans->Identity();
+	camTrans->PreMultiply();
+	camTrans->Translate(focalPoint);
 	camTrans->RotateZ(dz);
-	cam = renderer->GetActiveCamera();
+	camTrans->Translate(-focalPoint[0], -focalPoint[1], -focalPoint[2]);
 	cam->ApplyTransform(camTrans);
-	slotResetCam();
+	cam->OrthogonalizeViewUp();
+	viewerController->renderer()->ResetCameraClippingRange();
+	viewerController->render();
 }
 void OCTview3R::slotRotCamStepX(double value)
 {
@@ -1807,8 +1210,11 @@ void OCTview3R::slotBackground1(QString qstr)
 	settings.background_RGB1[0] = components[0].toInt();
 	settings.background_RGB1[1] = components[1].toInt();
 	settings.background_RGB1[2] = components[2].toInt();
-	renderer->SetBackground(double(settings.background_RGB1[0])/255.0, double(settings.background_RGB1[1])/255.0, double(settings.background_RGB1[2])/255.0);
-	renWin->Render();
+	viewerController->setBackground1(
+		settings.background_RGB1[0],
+		settings.background_RGB1[1],
+		settings.background_RGB1[2]);
+	viewerController->render();
 }
 void OCTview3R::slotBackground2(QString qstr)
 {
@@ -1818,14 +1224,17 @@ void OCTview3R::slotBackground2(QString qstr)
 	settings.background_RGB2[0] = components[0].toInt();
 	settings.background_RGB2[1] = components[1].toInt();
 	settings.background_RGB2[2] = components[2].toInt();
-	renderer->SetBackground2(double(settings.background_RGB2[0])/255.0, double(settings.background_RGB2[1])/255.0, double(settings.background_RGB2[2])/255.0);
-	renWin->Render();
+	viewerController->setBackground2(
+		settings.background_RGB2[0],
+		settings.background_RGB2[1],
+		settings.background_RGB2[2]);
+	viewerController->render();
 }
 void OCTview3R::slotSaveDisplay()
 {
 	auto w2i = vtkSmartPointer<vtkWindowToImageFilter>::New();
 	auto writer = vtkSmartPointer<vtkTIFFWriter>::New();
-	w2i->SetInput(renWin);
+	w2i->SetInput(viewerController->renderWindow());
 	w2i->Update();
 	writer->SetInputConnection(w2i->GetOutputPort());
 	QFileDialog getFileDialog(this, "Save display as...");
@@ -1833,7 +1242,7 @@ void OCTview3R::slotSaveDisplay()
 	getFileDialog.setAcceptMode(QFileDialog::AcceptSave);	
 	if(getFileDialog.exec() == QFileDialog::Accepted){
 		writer->SetFileName(getFileDialog.selectedFiles()[0].toStdString().c_str());
-		renWin->Render();
+		viewerController->render();
 		writer->Write();
 	}else{
 		QMessageBox::information(this,tr("WARNING"), tr("No image was saved"));	
@@ -1842,30 +1251,24 @@ void OCTview3R::slotSaveDisplay()
 void OCTview3R::slotCloseTab()
 {
 	const int index = ui->tabWidget->currentIndex();
-	if (index < 0 || index >= imageDataList.size())
+	if (index < 0 || index >= documentModel.size())
 		return;
 
-	ImageData* data = imageDataList.takeAt(index);
-	if (data->planeObserverTag != 0)
-		data->planeWidget->RemoveObserver(data->planeObserverTag);
-	data->planeWidget->Off();
-	data->planeWidget->SetInteractor(nullptr);
-	renderer->RemoveVolume(data->volume);
-	renderer->RemoveActor(data->polyActor);
+	DocumentModel::Document data = documentModel.takeAt(index);
+	viewerController->detach(*data);
 
 	QWidget* page = ui->tabWidget->widget(index);
 	ui->tabWidget->removeTab(index);
 	if (page)
 		page->deleteLater();
-	delete data;
+	settings.oneFileLoaded = !documentModel.empty();
+	activeImageData = documentModel.active();
 
-	settings.oneFileLoaded = !imageDataList.isEmpty();
-	activeImageData = nullptr;
-
-	if (imageDataList.isEmpty())
+	if (documentModel.empty())
 	{
 		ui->tabWidget->addTab(new QWidget(), tr("Open File"));
 		ui->pushButton_close->setEnabled(false);
+		ui->pushButton_render->setEnabled(false);
 		ui->groupBox_object->setEnabled(false);
 		ui->groupBox_plane->setEnabled(false);
 		ui->groupBox_threshold->setEnabled(false);
@@ -1874,17 +1277,13 @@ void OCTview3R::slotCloseTab()
 		ui->actionPlane->setCheckable(false);
 		ui->label_file->setText(tr("File:"));
 		statusLabel->setText(tr("No file loaded."));
-		renderer->RemoveActor(axes);
-		scalarBarWidget->Off();
-		orientWidget->SetEnabled(0);
-		renWin->Render();
+		viewerController->refresh(documentModel, nullptr, settings);
 		return;
 	}
 
-	const int nextIndex = qMin(index, imageDataList.size() - 1);
+	const int nextIndex = qMin(index, documentModel.size() - 1);
 	ui->tabWidget->setCurrentIndex(nextIndex);
 	slotSetImageData(nextIndex);
-	connectVTKPipeline();
 }
 
 #if 0

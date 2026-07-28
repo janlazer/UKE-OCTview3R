@@ -1,12 +1,14 @@
 #ifndef OCTVIEW3R_H
 #define OCTVIEW3R_H
 
+#include "documentModel.h"
 #include "viewerData.h"
 #include "opendata.h"
 #include "openpoly.h"
 
 #include <QList>
 #include <QMainWindow>
+#include <memory>
 
 // Forward Qt class declarations
 class Ui_OCTview3R;
@@ -14,37 +16,14 @@ class OpenData;
 class OpenPolyData;
 class QLabel;
 class QThread;
+class ViewerController;
 
 // Forward VTK class declarations
 class vtkImageData;
 class vtkPolyData;
-class vtkRenderer;
-class vtkVolume;
-class vtkRenderWindow;
 class vtkObject;
-class vtkRenderWindowInteractor;
-class vtkImageThreshold;
-class vtkImageLuminance;
-class vtkColorTransferFunction;
-class vtkPiecewiseFunction;
-class vtkVolumeProperty;
-class vtkSmartVolumeMapper;
-class vtkImagePlaneWidget;
-class vtkImageReader;
-class vtkImageResample;
-class vtkImageMedian3D;
-class vtkTIFFReader;
-class vtkJPEGReader;
-class vtkImageResliceMapper;
-class vtkImageProperty;
-class vtkImageSlice;
 class vtkCamera;
 class vtkTransform;
-class vtkScalarBarActor;
-class vtkScalarBarWidget;
-class vtkCubeAxesActor;
-class vtkOrientationMarkerWidget;
-class vtkAxesActor;
 
 class OCTview3R : public QMainWindow
 {
@@ -61,23 +40,15 @@ public slots:
 	virtual void slotExit();
 
 protected:
-	vtkSmartPointer<vtkRenderer> renderer;
-	vtkRenderWindow* renWin;
-	vtkRenderWindowInteractor* iren;
-	vtkSmartPointer<vtkScalarBarActor> scalarBarActor;
-	vtkSmartPointer<vtkScalarBarWidget> scalarBarWidget;
-	vtkSmartPointer<vtkCubeAxesActor> axes;
 	vtkCamera *cam;
 	vtkSmartPointer<vtkTransform> camTrans;
-	vtkSmartPointer<vtkAxesActor> axesActor;
-	vtkSmartPointer<vtkOrientationMarkerWidget> orientWidget;
 
 signals:
 	void signalLoadFileStarted(void);
 	void signalLoadFileFinished(void);
 
 protected slots:
-	void connectVTKPipeline(void);
+	void refreshViewer(void);
 
 	//new file
 	void slotSetImageData(ImageData*);
@@ -107,12 +78,6 @@ protected slots:
 
 	//object
 	void slotShowObject(bool);
-	void slotX0(double);
-	void slotX1(double);
-	void slotY0(double);
-	void slotY1(double);
-	void slotZ0(double);
-	void slotZ1(double);
 	void slotRotX(double);
 	void slotRotY(double);
 	void slotRotZ(double);
@@ -140,7 +105,7 @@ protected slots:
 	void slotShowAxesBox(bool);
 
 	//general slots
-	void slotRenderAgain(void);
+	void slotApplyRanges(void);
 	void slotFrontX(void);
 	void slotFrontY(void);
 	void slotFrontZ(void);
@@ -182,12 +147,12 @@ private:
 	//parameter structures
 	Settings settings;
 	ImageData* activeImageData = nullptr;
-	QList<ImageData*> imageDataList;
+	DocumentModel documentModel;
 	QList<QThread*> loadingThreads;
+	std::unique_ptr<ViewerController> viewerController;
 
 public:
 	//helper
-	ImageData* getInitializedImageData();
 	void initializeVTKPipeline();
 };
 

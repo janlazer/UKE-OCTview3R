@@ -35,6 +35,21 @@
     <ClCompile Include="openpoly.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="documentModel.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="polyPipeline.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="transformableImagePlaneWidget.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="viewerController.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="volumePipeline.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <QtMoc Include="OCTview3R.h">
@@ -74,6 +89,21 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="viewerData.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="documentModel.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="polyPipeline.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="transformableImagePlaneWidget.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="viewerController.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="volumePipeline.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

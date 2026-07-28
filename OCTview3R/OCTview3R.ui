@@ -335,27 +335,6 @@
            <string>Reset camera</string>
           </property>
          </widget>
-         <widget class="QPushButton" name="pushButton_render">
-          <property name="geometry">
-           <rect>
-            <x>390</x>
-            <y>60</y>
-            <width>121</width>
-            <height>22</height>
-           </rect>
-          </property>
-          <property name="font">
-           <font>
-            <italic>false</italic>
-           </font>
-          </property>
-          <property name="autoFillBackground">
-           <bool>false</bool>
-          </property>
-          <property name="text">
-           <string>Render again</string>
-          </property>
-         </widget>
          <widget class="QPushButton" name="pushButton_save">
           <property name="geometry">
            <rect>
@@ -1144,7 +1123,7 @@
          <property name="minimumSize">
           <size>
            <width>0</width>
-           <height>90</height>
+           <height>115</height>
           </size>
          </property>
          <property name="title">
@@ -1216,7 +1195,7 @@
            <bool>true</bool>
           </property>
           <property name="decimals">
-           <number>1</number>
+           <number>0</number>
           </property>
          </widget>
          <widget class="QLabel" name="label_21">
@@ -1274,7 +1253,7 @@
            <bool>true</bool>
           </property>
           <property name="decimals">
-           <number>1</number>
+           <number>0</number>
           </property>
          </widget>
          <widget class="QDoubleSpinBox" name="shiftZDoubleSpinBox">
@@ -1344,7 +1323,7 @@
            <bool>true</bool>
           </property>
           <property name="decimals">
-           <number>1</number>
+           <number>0</number>
           </property>
          </widget>
          <widget class="QDoubleSpinBox" name="rotZDoubleSpinBox">
@@ -1377,7 +1356,7 @@
            <rect>
             <x>170</x>
             <y>20</y>
-            <width>46</width>
+            <width>65</width>
             <height>13</height>
            </rect>
           </property>
@@ -1426,7 +1405,7 @@
            <bool>true</bool>
           </property>
           <property name="decimals">
-           <number>1</number>
+           <number>0</number>
           </property>
          </widget>
          <widget class="QLabel" name="label_22">
@@ -1493,7 +1472,7 @@
            <enum>QAbstractSpinBox::CorrectToNearestValue</enum>
           </property>
           <property name="decimals">
-           <number>1</number>
+           <number>0</number>
           </property>
          </widget>
          <widget class="QLabel" name="zLabel">
@@ -1501,7 +1480,7 @@
            <rect>
             <x>170</x>
             <y>60</y>
-            <width>46</width>
+            <width>65</width>
             <height>13</height>
            </rect>
           </property>
@@ -1552,7 +1531,7 @@
            <rect>
             <x>170</x>
             <y>40</y>
-            <width>46</width>
+            <width>65</width>
             <height>13</height>
            </rect>
           </property>
@@ -1573,7 +1552,20 @@
            <enum>QAbstractSpinBox::CorrectToNearestValue</enum>
           </property>
           <property name="decimals">
-           <number>1</number>
+           <number>0</number>
+          </property>
+         </widget>
+         <widget class="QPushButton" name="pushButton_render">
+          <property name="geometry">
+           <rect>
+            <x>60</x>
+            <y>82</y>
+            <width>101</width>
+            <height>22</height>
+           </rect>
+          </property>
+          <property name="text">
+           <string>Apply ranges</string>
           </property>
          </widget>
         </widget>

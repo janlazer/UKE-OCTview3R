@@ -25,15 +25,15 @@
 
 namespace
 {
-bool hasUsableImage(vtkImageData* image)
-{
-	return image != nullptr && image->GetNumberOfPoints() > 0;
-}
+	bool hasUsableImage(vtkImageData* image)
+	{
+		return image != nullptr && image->GetNumberOfPoints() > 0;
+	}
 
-bool hasUsablePolyData(vtkPolyData* poly)
-{
-	return poly != nullptr && poly->GetNumberOfPoints() > 0;
-}
+	bool hasUsablePolyData(vtkPolyData* poly)
+	{
+		return poly != nullptr && poly->GetNumberOfPoints() > 0;
+	}
 }
 
 loading::loading(OpenData* openData)
@@ -211,7 +211,10 @@ void loading::loadPoly()
 {
 	emit updateProgress(-1);
 
-	vtkPolyData* output = nullptr;
+	// Keep the reader output alive after leaving the individual switch case.
+	// Each reader is local to its case and would otherwise release its output
+	// before the validation and copy below.
+	vtkSmartPointer<vtkPolyData> output;
 
 	switch (m_polyFormat)
 	{

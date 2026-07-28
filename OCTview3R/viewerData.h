@@ -62,6 +62,7 @@ struct ImageData
 	int height = 0;
 	int depth = 0;
 	double VOI[6] = {};
+	double sourceVOI[6] = {};
 	double rot[3] = {};
 	double shift[3] = {};
 	double spacing[3] = { 1.0, 1.0, 1.0 };

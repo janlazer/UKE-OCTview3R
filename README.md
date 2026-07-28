@@ -87,7 +87,13 @@ $env:PATH = "C:\Programming\VTK\bin\Release;C:\Programming\Qt\5.15.2\msvc2019_64
 ```text
 OCTview3R.sln
 OCTview3R/
-  OCTview3R.cpp/.h       Main window and visualization pipeline
+  OCTview3R.cpp/.h       Main window and UI event handling
+  documentModel.cpp/.h   Data-set ownership and active-document selection
+  viewerController.cpp/.h Renderer and global viewer decorations
+  volumePipeline.cpp/.h  Volume filtering, transfer functions, and planes
+  polyPipeline.cpp/.h    Polygonal-data rendering
+  transformableImagePlaneWidget.cpp/.h
+                         Plane rendering and interaction in object space
   viewerData.h           Per-data-set viewer state and owned VTK objects
   loading.cpp/.h         Background data loading
   opendata.cpp/.h/.ui    Volume-data import dialog
@@ -105,8 +111,7 @@ above, but several areas need further work before critical use:
 
 - VTR and other scientific-data imports need broader format coverage tests.
 - Tab removal and repeated transform/render operations need regression tests.
-- The visualization pipeline is still concentrated in the main-window class
-  and would benefit from smaller, independently testable components.
+- Pipeline components do not yet have automated unit or image-regression tests.
 - A future Qt/VTK upgrade should be handled as a dedicated migration because
   both frameworks have breaking API changes beyond the reference versions.
 
