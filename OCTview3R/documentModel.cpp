@@ -19,6 +19,7 @@
 #include <vtkPlane.h>
 #include <vtkPlaneCollection.h>
 #include <vtkPolyDataMapper.h>
+#include <vtkPolyDataNormals.h>
 #include <vtkSmartVolumeMapper.h>
 #include <vtkTransform.h>
 #include <vtkVolume.h>
@@ -44,6 +45,7 @@ ImageData& DocumentModel::create()
 	document->colorMap = vtkSmartPointer<vtkImageMapToColors>::New();
 	document->volumeMapper = vtkSmartPointer<vtkSmartVolumeMapper>::New();
 	document->polyMapper = vtkSmartPointer<vtkPolyDataMapper>::New();
+	document->polyNormals = vtkSmartPointer<vtkPolyDataNormals>::New();
 	document->polyActor = vtkSmartPointer<vtkActor>::New();
 	document->polyClipBox = vtkSmartPointer<vtkBox>::New();
 	document->polyClipper = vtkSmartPointer<vtkClipPolyData>::New();

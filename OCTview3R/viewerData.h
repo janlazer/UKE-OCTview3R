@@ -23,6 +23,7 @@ class vtkPlane;
 class vtkPlaneCollection;
 class vtkPolyData;
 class vtkPolyDataMapper;
+class vtkPolyDataNormals;
 class vtkSmartVolumeMapper;
 class vtkTransform;
 class vtkVolume;
@@ -41,6 +42,7 @@ struct ImageData
 	vtkSmartPointer<vtkImageLuminance> luminance;
 	vtkSmartPointer<vtkSmartVolumeMapper> volumeMapper;
 	vtkSmartPointer<vtkPolyDataMapper> polyMapper;
+	vtkSmartPointer<vtkPolyDataNormals> polyNormals;
 	vtkSmartPointer<vtkActor> polyActor;
 	vtkSmartPointer<vtkBox> polyClipBox;
 	vtkSmartPointer<vtkClipPolyData> polyClipper;
@@ -69,6 +71,7 @@ struct ImageData
 	double sourceVOI[6] = {};
 	double rot[3] = {};
 	double shift[3] = {};
+	double scale[3] = { 1.0, 1.0, 1.0 };
 	double spacing[3] = { 1.0, 1.0, 1.0 };
 	double objectOpacity = 0.5;
 	double polyGloss = 0.1;
@@ -83,13 +86,11 @@ struct ImageData
 	QColor volumeColor = QColor(255, 0, 0);
 	int pointSize = 1;
 
-	bool changedThreshold = false;
 	int minValue = 0;
 	int maxValue = 255;
 	int currentMinThreshold = 0;
 	int currentMaxThreshold = 255;
 
-	bool initPlane = true;
 	bool showPlane = false;
 	double planeOrigin[3] = {};
 	double planeP1[3] = {};
@@ -105,12 +106,19 @@ struct ImageData
 	bool switchPlane = false;
 	bool planeIsVisible = true;
 	unsigned long planeObserverTag = 0;
+
+	// Dirty flags keep inexpensive UI changes from rebuilding the complete
+	// VTK pipeline. Each pipeline clears the flags after applying them.
+	bool transformDirty = true;
+	bool appearanceDirty = true;
+	bool dataPipelineDirty = true;
+	bool planeDirty = true;
+	bool visibilityDirty = true;
+	bool pipelineInitialized = false;
 };
 
 struct Settings
 {
-	int activeIndex = 0;
-	int numMaxIndex = 0;
 	bool oneFileLoaded = false;
 	bool firstFileLoaded = false;
 	int background_RGB1[3] = {};
@@ -119,9 +127,6 @@ struct Settings
 	bool showAxesBox = false;
 	bool showOrientAxes = false;
 	bool showScalarBar = false;
-	double x_fac = 1.0;
-	double y_fac = 1.0;
-	double z_fac = 1.0;
 	double x_rot_cam = 0.0;
 	double y_rot_cam = 0.0;
 	double z_rot_cam = 0.0;

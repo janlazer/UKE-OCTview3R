@@ -34,10 +34,6 @@ public:
 		ImageData* activeDocument,
 		const Settings& settings,
 		bool resetCamera = false);
-	void refreshAll(
-		const DocumentModel& documents,
-		ImageData* activeDocument,
-		const Settings& settings);
 	void refreshDecorations(
 		const DocumentModel& documents,
 		ImageData* activeDocument,
@@ -47,6 +43,11 @@ public:
 
 	void setBackground1(int red, int green, int blue);
 	void setBackground2(int red, int green, int blue);
+	void updateAnnotationColor();
+	void fitToDocument(const ImageData& document);
+	void fitAll();
+	void setParallelProjection(bool enabled);
+	bool parallelProjection() const;
 	void render();
 
 	vtkRenderer* renderer() const;

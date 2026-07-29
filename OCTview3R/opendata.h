@@ -25,6 +25,7 @@ public slots:
 	void doAccepted();
 	void doRejected();
 	void updateProgress(int);
+	void setFilePath(const QString& path);
 
     //GETTER
     QString getFileName();

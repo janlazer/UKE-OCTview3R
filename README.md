@@ -16,10 +16,20 @@ icons, and a collection of example data sets.
 - Threshold, opacity, color-transfer, and polygonal gloss controls
 - Per-axis range cropping for volume and polygonal data
 - Interactive image plane with optional median filtering and clipping
-- Multiple data sets in a tabbed user interface
-- Object translation, rotation, and axis scaling
-- Camera presets, orientation marker, scalar bar, and cube axes
+- Multiple data sets in closable, filename-based tabs
+- Per-object translation, rotation, and axis scaling
+- Editable transform and crop tables with full-range reset
+- Camera presets, fit-selected/all, perspective/orthographic projection,
+  orientation marker, scalar bar, and cube axes
+- System, light, and dark interface themes
+- Dataset metadata for volume dimensions, spacing, scalar type, mesh bounds,
+  and geometry counts
+- Automatic surface display and generated normals for polygonal meshes
+- Incremental VTK updates for appearance, transform, crop, and plane changes
 - TIFF export of the current render window
+
+Window layout, interface theme, viewer background, camera options, and the
+last-used volume and PolyData directories are restored on the next start.
 
 ## Requirements
 

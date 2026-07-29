@@ -7,6 +7,7 @@
 #include <vtkClipPolyData.h>
 #include <vtkPolyData.h>
 #include <vtkPolyDataMapper.h>
+#include <vtkPolyDataNormals.h>
 #include <vtkProperty.h>
 #include <vtkRenderer.h>
 #include <vtkTransform.h>
@@ -18,70 +19,116 @@ void PolyPipeline::update(
 	const Settings& settings,
 	vtkRenderer* renderer) const
 {
-	data.transform->Identity();
-	data.transform->PostMultiply();
-	data.transform->Scale(settings.x_fac, settings.y_fac, settings.z_fac);
-	data.transform->RotateX(data.rot[0]);
-	data.transform->RotateY(data.rot[1]);
-	data.transform->RotateZ(data.rot[2]);
-	data.transform->Translate(data.shift);
+	Q_UNUSED(settings);
+	const bool initialize = !data.pipelineInitialized;
 
-	bool rangeIsRestricted = false;
-	for (int i = 0; i < 6; ++i)
+	if (initialize || data.transformDirty)
 	{
-		if (std::abs(data.VOI[i] - data.sourceVOI[i]) > 1e-9)
+		data.transform->Identity();
+		data.transform->PostMultiply();
+		data.transform->Scale(data.scale);
+		data.transform->RotateX(data.rot[0]);
+		data.transform->RotateY(data.rot[1]);
+		data.transform->RotateZ(data.rot[2]);
+		data.transform->Translate(data.shift);
+		data.polyActor->SetScale(1.0, 1.0, 1.0);
+		data.polyActor->SetUserTransform(data.transform);
+	}
+
+	if (initialize || data.dataPipelineDirty)
+	{
+		bool rangeIsRestricted = false;
+		for (int i = 0; i < 6; ++i)
 		{
-			rangeIsRestricted = true;
-			break;
+			if (std::abs(data.VOI[i] - data.sourceVOI[i]) > 1e-9)
+			{
+				rangeIsRestricted = true;
+				break;
+			}
 		}
+
+		const bool hasSurfaces =
+			data.poly->GetNumberOfPolys() > 0 ||
+			data.poly->GetNumberOfStrips() > 0;
+		if (rangeIsRestricted)
+		{
+			data.polyClipBox->SetBounds(data.VOI);
+			data.polyClipper->SetInputData(data.poly);
+			data.polyClipper->SetClipFunction(data.polyClipBox);
+			data.polyClipper->InsideOutOn();
+			data.polyClipper->GenerateClippedOutputOff();
+			if (hasSurfaces)
+				data.polyNormals->SetInputConnection(
+					data.polyClipper->GetOutputPort());
+			else
+				data.polyMapper->SetInputConnection(
+					data.polyClipper->GetOutputPort());
+		}
+		else if (hasSurfaces)
+		{
+			data.polyNormals->SetInputData(data.poly);
+		}
+		else
+		{
+			data.polyMapper->SetInputData(data.poly);
+		}
+
+		if (hasSurfaces)
+		{
+			data.polyNormals->ComputePointNormalsOn();
+			data.polyNormals->ComputeCellNormalsOff();
+			data.polyNormals->ConsistencyOn();
+			data.polyNormals->AutoOrientNormalsOff();
+			data.polyNormals->SplittingOn();
+			data.polyNormals->SetFeatureAngle(60.0);
+			data.polyMapper->SetInputConnection(data.polyNormals->GetOutputPort());
+		}
+		data.polyMapper->ScalarVisibilityOff();
+		data.polyActor->SetMapper(data.polyMapper);
 	}
-	if (rangeIsRestricted)
-	{
-		data.polyClipBox->SetBounds(data.VOI);
-		data.polyClipper->SetInputData(data.poly);
-		data.polyClipper->SetClipFunction(data.polyClipBox);
-		data.polyClipper->InsideOutOn();
-		data.polyClipper->GenerateClippedOutputOff();
-		data.polyMapper->SetInputConnection(data.polyClipper->GetOutputPort());
-	}
-	else
-	{
-		data.polyMapper->SetInputData(data.poly);
-	}
-	data.polyActor->SetMapper(data.polyMapper);
-	data.polyActor->SetScale(1.0, 1.0, 1.0);
-	data.polyActor->SetUserTransform(data.transform);
+
 	// Keep the actor in one render pass across the full opacity range. Without
 	// this, VTK switches from translucent to opaque rendering at exactly 1.0.
 	data.polyActor->ForceTranslucentOn();
 
-	vtkProperty* property = data.polyActor->GetProperty();
-	switch (data.polyMode)
+	if (initialize || data.appearanceDirty)
 	{
-	case 1:
-		property->SetRepresentationToWireframe();
-		break;
-	case 2:
-		property->SetRepresentationToSurface();
-		break;
-	default:
-		property->SetRepresentationToPoints();
-		property->SetPointSize(data.pointSize);
-		break;
-	}
+		vtkProperty* property = data.polyActor->GetProperty();
+		switch (data.polyMode)
+		{
+		case 1:
+			property->SetRepresentationToWireframe();
+			break;
+		case 2:
+			property->SetRepresentationToSurface();
+			break;
+		default:
+			property->SetRepresentationToPoints();
+			property->SetPointSize(data.pointSize);
+			break;
+		}
 
-	property->SetLighting(true);
-	property->SetInterpolationToPhong();
-	property->SetAmbient(0.2);
-	property->SetDiffuse(0.8);
-	property->SetSpecular(data.polyGloss);
-	property->SetSpecularPower(20.0);
-	property->SetOpacity(data.objectOpacity);
-	property->SetColor(
-		data.polyColor.redF(),
-		data.polyColor.greenF(),
-		data.polyColor.blueF());
+		property->SetLighting(true);
+		property->SetInterpolationToPhong();
+		property->SetAmbient(0.2);
+		property->SetDiffuse(0.8);
+		property->SetSpecular(data.polyGloss);
+		property->SetSpecularPower(20.0);
+		property->SetOpacity(data.objectOpacity);
+		property->SetColor(
+			data.polyColor.redF(),
+			data.polyColor.greenF(),
+			data.polyColor.blueF());
+	}
 	if (!renderer->HasViewProp(data.polyActor))
 		renderer->AddActor(data.polyActor);
-	data.polyActor->SetVisibility(data.showObject);
+	if (initialize || data.visibilityDirty)
+		data.polyActor->SetVisibility(data.showObject);
+
+	data.transformDirty = false;
+	data.appearanceDirty = false;
+	data.dataPipelineDirty = false;
+	data.planeDirty = false;
+	data.visibilityDirty = false;
+	data.pipelineInitialized = true;
 }

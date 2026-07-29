@@ -12,9 +12,15 @@
 
 // Forward Qt class declarations
 class Ui_OCTview3R;
+class QAction;
+class QCloseEvent;
+class QComboBox;
+class QGroupBox;
 class OpenData;
 class OpenPolyData;
 class QLabel;
+class QPushButton;
+class QSpinBox;
 class QThread;
 class ViewerController;
 
@@ -32,7 +38,7 @@ class OCTview3R : public QMainWindow
 public:
 	//con-/destructor
 	OCTview3R();
-	~OCTview3R();
+	~OCTview3R() override;
 
 public slots:
 	virtual void slotProcessDataFile();
@@ -40,6 +46,7 @@ public slots:
 	virtual void slotExit();
 
 protected:
+	void closeEvent(QCloseEvent* event) override;
 	vtkCamera *cam;
 	vtkSmartPointer<vtkTransform> camTrans;
 
@@ -107,6 +114,9 @@ protected slots:
 
 	//general slots
 	void slotApplyRanges(void);
+	void slotRangesEdited(void);
+	void slotResetRanges(void);
+	void slotResetObjectTransform(void);
 	void slotFrontX(void);
 	void slotFrontY(void);
 	void slotFrontZ(void);
@@ -128,6 +138,11 @@ protected slots:
 	void slotBackground2(QString);
 	void slotSaveDisplay(void);
 	void slotCloseTab();
+	void slotCloseTab(int index);
+	void slotFitSelected(void);
+	void slotFitAll(void);
+	void slotParallelProjection(bool enabled);
+	void slotThemeChanged(const QString& theme);
 
 private:
 	static void onePlaneCallbackFunction(
@@ -137,8 +152,38 @@ private:
 		void *callData
 	);
 	bool onePlaneCallbackMutex;
+	void setupEnhancedUi();
+	void setupGeneralPanel();
+	void setupObjectPanel();
+	void setupNumericEditors();
+	void setupCameraToolbar();
+	void setupMetadataPanel();
+	void updateMetadata();
+	void updateRangePresentation();
+	void setRangesPending(bool pending);
+	void markTransformDirty();
+	void markAppearanceDirty();
+	void markDataPipelineDirty();
+	void markPlaneDirty();
+	void loadApplicationSettings();
+	void saveApplicationSettings() const;
+	void applyTheme(const QString& theme);
+	void addDocumentTab(ImageData& data);
 
 	QLabel *statusLabel;
+	QLabel *metadataLabel = nullptr;
+	QComboBox *themeComboBox = nullptr;
+	QSpinBox *opacitySpinBox = nullptr;
+	QSpinBox *glossSpinBox = nullptr;
+	QSpinBox *minThresholdSpinBox = nullptr;
+	QSpinBox *maxThresholdSpinBox = nullptr;
+	QPushButton *resetRangesButton = nullptr;
+	QPushButton *resetTransformButton = nullptr;
+	QGroupBox *rangeGroupBox = nullptr;
+	QAction *fitSelectedAction = nullptr;
+	QAction *fitAllAction = nullptr;
+	QAction *parallelProjectionAction = nullptr;
+	QString currentTheme = QStringLiteral("System");
 
 	//designer form
 	Ui_OCTview3R *ui;

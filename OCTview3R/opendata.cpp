@@ -223,6 +223,11 @@ void OpenData::updateProgress(int value)
 	}
 }
 
+void OpenData::setFilePath(const QString& path)
+{
+	m_lastPath = path;
+}
+
 void OpenData::startProcessing()
 {
 	emit signalStartProcess();

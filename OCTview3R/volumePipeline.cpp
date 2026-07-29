@@ -134,18 +134,40 @@ void VolumePipeline::update(
 	vtkRenderer* renderer,
 	vtkRenderWindowInteractor* interactor) const
 {
-	data.transform->Identity();
-	data.transform->PostMultiply();
-	data.transform->Scale(settings.x_fac, settings.y_fac, settings.z_fac);
-	data.transform->RotateX(data.rot[0]);
-	data.transform->RotateY(data.rot[1]);
-	data.transform->RotateZ(data.rot[2]);
-	data.transform->Translate(data.shift);
+	Q_UNUSED(settings);
+	const bool initialize = !data.pipelineInitialized;
+	const bool transformChanged = initialize || data.transformDirty;
+	const bool appearanceChanged = initialize || data.appearanceDirty;
+	const bool inputChanged = initialize || data.dataPipelineDirty;
+	const bool planeChanged = initialize || data.planeDirty;
+	const bool visibilityChanged = initialize || data.visibilityDirty;
 
-	updateTransferFunctions(data);
-	updateImageFilters(data);
-	updatePlane(data, interactor);
-	updateVolume(data, renderer);
+	if (transformChanged)
+	{
+		data.transform->Identity();
+		data.transform->PostMultiply();
+		data.transform->Scale(data.scale);
+		data.transform->RotateX(data.rot[0]);
+		data.transform->RotateY(data.rot[1]);
+		data.transform->RotateZ(data.rot[2]);
+		data.transform->Translate(data.shift);
+	}
+	if (appearanceChanged)
+		updateTransferFunctions(data);
+	if (inputChanged)
+		updateImageFilters(data);
+	if (transformChanged || inputChanged || planeChanged)
+		updatePlane(data, interactor);
+	if (transformChanged || appearanceChanged || inputChanged ||
+		planeChanged || visibilityChanged)
+		updateVolume(data, renderer);
+
+	data.transformDirty = false;
+	data.appearanceDirty = false;
+	data.dataPipelineDirty = false;
+	data.planeDirty = false;
+	data.visibilityDirty = false;
+	data.pipelineInitialized = true;
 }
 
 void VolumePipeline::updateTransferFunctions(ImageData& data) const

@@ -4,16 +4,20 @@
 #include "viewerData.h"
 
 #include <vtkAxesActor.h>
+#include <vtkActor.h>
+#include <vtkCamera.h>
 #include <vtkColorTransferFunction.h>
 #include <vtkCubeAxesActor.h>
 #include <vtkImagePlaneWidget.h>
 #include <vtkLight.h>
 #include <vtkOrientationMarkerWidget.h>
+#include <vtkProperty.h>
 #include <vtkRenderWindow.h>
 #include <vtkRenderWindowInteractor.h>
 #include <vtkRenderer.h>
 #include <vtkScalarBarActor.h>
 #include <vtkScalarBarWidget.h>
+#include <vtkTextProperty.h>
 #include <vtkVolume.h>
 
 ViewerController::ViewerController()
@@ -67,6 +71,7 @@ void ViewerController::initialize(
 		settings.background_RGB2[0],
 		settings.background_RGB2[1],
 		settings.background_RGB2[2]);
+	updateAnnotationColor();
 }
 
 void ViewerController::refresh(
@@ -79,20 +84,6 @@ void ViewerController::refresh(
 		updateDocument(*activeDocument, settings);
 	if (resetCamera)
 		m_renderer->ResetCamera();
-	finishRefresh(documents, activeDocument, settings);
-}
-
-void ViewerController::refreshAll(
-	const DocumentModel& documents,
-	ImageData* activeDocument,
-	const Settings& settings)
-{
-	for (const DocumentModel::Document& document : documents.documents())
-	{
-		if (!document || !document->fileLoaded)
-			continue;
-		updateDocument(*document, settings);
-	}
 	finishRefresh(documents, activeDocument, settings);
 }
 
@@ -163,6 +154,7 @@ void ViewerController::setBackground1(int red, int green, int blue)
 		static_cast<double>(red) / 255.0,
 		static_cast<double>(green) / 255.0,
 		static_cast<double>(blue) / 255.0);
+	updateAnnotationColor();
 }
 
 void ViewerController::setBackground2(int red, int green, int blue)
@@ -171,6 +163,63 @@ void ViewerController::setBackground2(int red, int green, int blue)
 		static_cast<double>(red) / 255.0,
 		static_cast<double>(green) / 255.0,
 		static_cast<double>(blue) / 255.0);
+	updateAnnotationColor();
+}
+
+void ViewerController::updateAnnotationColor()
+{
+	const double* first = m_renderer->GetBackground();
+	const double* second = m_renderer->GetBackground2();
+	const double luminance =
+		0.2126 * (first[0] + second[0]) * 0.5 +
+		0.7152 * (first[1] + second[1]) * 0.5 +
+		0.0722 * (first[2] + second[2]) * 0.5;
+	const double color = luminance < 0.5 ? 1.0 : 0.08;
+
+	for (int axis = 0; axis < 3; ++axis)
+	{
+		m_axes->GetTitleTextProperty(axis)->SetColor(color, color, color);
+		m_axes->GetLabelTextProperty(axis)->SetColor(color, color, color);
+	}
+	m_axes->GetXAxesLinesProperty()->SetColor(color, color, color);
+	m_axes->GetYAxesLinesProperty()->SetColor(color, color, color);
+	m_axes->GetZAxesLinesProperty()->SetColor(color, color, color);
+	m_scalarBarActor->GetTitleTextProperty()->SetColor(color, color, color);
+	m_scalarBarActor->GetLabelTextProperty()->SetColor(color, color, color);
+	m_scalarBarActor->GetAnnotationTextProperty()->SetColor(color, color, color);
+}
+
+void ViewerController::fitToDocument(const ImageData& document)
+{
+	double bounds[6] = {};
+	if (document.isVolume)
+		document.volume->GetBounds(bounds);
+	else if (document.isPolyData)
+		document.polyActor->GetBounds(bounds);
+	else
+		return;
+	m_renderer->ResetCamera(bounds);
+	m_renderer->ResetCameraClippingRange();
+	render();
+}
+
+void ViewerController::fitAll()
+{
+	m_renderer->ResetCamera();
+	m_renderer->ResetCameraClippingRange();
+	render();
+}
+
+void ViewerController::setParallelProjection(bool enabled)
+{
+	m_renderer->GetActiveCamera()->SetParallelProjection(enabled ? 1 : 0);
+	m_renderer->ResetCameraClippingRange();
+	render();
+}
+
+bool ViewerController::parallelProjection() const
+{
+	return m_renderer->GetActiveCamera()->GetParallelProjection() != 0;
 }
 
 void ViewerController::render()
