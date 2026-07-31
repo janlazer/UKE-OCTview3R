@@ -5,9 +5,13 @@
 
 #include <QFileInfo>
 #include <QRegularExpression>
+#include <QtGlobal>
 
+#include <vtkAlgorithm.h>
 #include <vtkBYUReader.h>
+#include <vtkCallbackCommand.h>
 #include <vtkCleanPolyData.h>
+#include <vtkCommand.h>
 #include <vtkDelaunay3D.h>
 #include <vtkGeometryFilter.h>
 #include <vtkImageReader.h>
@@ -23,8 +27,17 @@
 #include <vtkXMLPolyDataReader.h>
 #include <vtkXMLRectilinearGridReader.h>
 
+#include <algorithm>
+
 namespace
 {
+	struct ProgressContext
+	{
+		loading* worker;
+		int startProgress;
+		int endProgress;
+	};
+
 	bool hasUsableImage(vtkImageData* image)
 	{
 		return image != nullptr && image->GetNumberOfPoints() > 0;
@@ -48,14 +61,70 @@ loading::loading(OpenPoly* openPoly)
 
 void loading::reportFailure(const QString& message)
 {
-	emit updateProgress(0);
+	reportProgress(0);
 	emit failed(message);
 	emit finished();
 }
 
+void loading::reportProgress(int progress)
+{
+	const int boundedProgress = qBound(0, progress, 100);
+	if (boundedProgress == m_lastProgress)
+		return;
+
+	m_lastProgress = boundedProgress;
+	emit updateProgress(boundedProgress);
+}
+
+void loading::updateWithProgress(
+	vtkAlgorithm* algorithm,
+	int startProgress,
+	int endProgress)
+{
+	if (algorithm == nullptr)
+		return;
+
+	ProgressContext context{
+		this,
+		qBound(0, startProgress, 100),
+		qBound(0, endProgress, 100)
+	};
+	if (context.endProgress < context.startProgress)
+		std::swap(context.startProgress, context.endProgress);
+
+	auto callback = vtkSmartPointer<vtkCallbackCommand>::New();
+	callback->SetClientData(&context);
+	callback->SetCallback(&loading::vtkProgressCallback);
+	const unsigned long observerTag =
+		algorithm->AddObserver(vtkCommand::ProgressEvent, callback);
+
+	reportProgress(context.startProgress);
+	algorithm->Update();
+	reportProgress(context.endProgress);
+	algorithm->RemoveObserver(observerTag);
+}
+
+void loading::vtkProgressCallback(
+	vtkObject* caller,
+	unsigned long,
+	void* clientData,
+	void*)
+{
+	auto* context = static_cast<ProgressContext*>(clientData);
+	auto* algorithm = vtkAlgorithm::SafeDownCast(caller);
+	if (context == nullptr || context->worker == nullptr || algorithm == nullptr)
+		return;
+
+	const double vtkProgress = qBound(0.0, algorithm->GetProgress(), 1.0);
+	const int progress = context->startProgress +
+		qRound(vtkProgress * (context->endProgress - context->startProgress));
+	context->worker->reportProgress(progress);
+}
+
 void loading::loadData()
 {
-	emit updateProgress(-1);
+	m_lastProgress = -1;
+	reportProgress(0);
 
 	vtkImageData* output = nullptr;
 
@@ -90,7 +159,7 @@ void loading::loadData()
 		else
 			reader->SetDataByteOrderToLittleEndian();
 
-		reader->Update();
+		updateWithProgress(reader, 5, 99);
 		output = reader->GetOutput();
 		if (hasUsableImage(output))
 		{
@@ -103,7 +172,7 @@ void loading::loadData()
 	{
 		auto reader = vtkSmartPointer<vtkTIFFReader>::New();
 		reader->SetFileName(m_fileName.toLocal8Bit().constData());
-		reader->Update();
+		updateWithProgress(reader, 5, 99);
 		output = reader->GetOutput();
 		if (hasUsableImage(output))
 		{
@@ -122,7 +191,7 @@ void loading::loadData()
 	{
 		auto reader = vtkSmartPointer<vtkStructuredPointsReader>::New();
 		reader->SetFileName(m_fileName.toLocal8Bit().constData());
-		reader->Update();
+		updateWithProgress(reader, 5, 99);
 		output = reader->GetOutput();
 		if (hasUsableImage(output))
 		{
@@ -173,7 +242,7 @@ void loading::loadData()
 				0, depth - 1);
 		}
 
-		reader->Update();
+		updateWithProgress(reader, 5, 99);
 		output = reader->GetOutput();
 		if (hasUsableImage(output))
 		{
@@ -199,7 +268,7 @@ void loading::loadData()
 		return;
 	}
 
-	emit updateProgress(100);
+	reportProgress(100);
 	// Transfer one reference across the queued Qt connection. The GUI slot
 	// adopts it into a vtkSmartPointer and releases this transfer reference.
 	m_data->Register(nullptr);
@@ -209,7 +278,8 @@ void loading::loadData()
 
 void loading::loadPoly()
 {
-	emit updateProgress(-1);
+	m_lastProgress = -1;
+	reportProgress(0);
 
 	// Keep the reader output alive after leaving the individual switch case.
 	// Each reader is local to its case and would otherwise release its output
@@ -222,7 +292,7 @@ void loading::loadPoly()
 	{
 		auto reader = vtkSmartPointer<vtkPLYReader>::New();
 		reader->SetFileName(m_fileName.toLocal8Bit().constData());
-		reader->Update();
+		updateWithProgress(reader, 5, 99);
 		output = reader->GetOutput();
 		break;
 	}
@@ -230,7 +300,7 @@ void loading::loadPoly()
 	{
 		auto reader = vtkSmartPointer<vtkXMLPolyDataReader>::New();
 		reader->SetFileName(m_fileName.toLocal8Bit().constData());
-		reader->Update();
+		updateWithProgress(reader, 5, 99);
 		output = reader->GetOutput();
 		break;
 	}
@@ -238,7 +308,7 @@ void loading::loadPoly()
 	{
 		auto reader = vtkSmartPointer<vtkOBJReader>::New();
 		reader->SetFileName(m_fileName.toLocal8Bit().constData());
-		reader->Update();
+		updateWithProgress(reader, 5, 99);
 		output = reader->GetOutput();
 		break;
 	}
@@ -246,7 +316,7 @@ void loading::loadPoly()
 	{
 		auto reader = vtkSmartPointer<vtkSTLReader>::New();
 		reader->SetFileName(m_fileName.toLocal8Bit().constData());
-		reader->Update();
+		updateWithProgress(reader, 5, 99);
 		output = reader->GetOutput();
 		break;
 	}
@@ -254,7 +324,7 @@ void loading::loadPoly()
 	{
 		auto reader = vtkSmartPointer<vtkPolyDataReader>::New();
 		reader->SetFileName(m_fileName.toLocal8Bit().constData());
-		reader->Update();
+		updateWithProgress(reader, 5, 99);
 		output = reader->GetOutput();
 		break;
 	}
@@ -262,7 +332,7 @@ void loading::loadPoly()
 	{
 		auto reader = vtkSmartPointer<vtkBYUReader>::New();
 		reader->SetGeometryFileName(m_fileName.toLocal8Bit().constData());
-		reader->Update();
+		updateWithProgress(reader, 5, 99);
 		output = reader->GetOutput();
 		break;
 	}
@@ -272,7 +342,8 @@ void loading::loadPoly()
 		auto geometry = vtkSmartPointer<vtkGeometryFilter>::New();
 		reader->SetFileName(m_fileName.toLocal8Bit().constData());
 		geometry->SetInputConnection(reader->GetOutputPort());
-		geometry->Update();
+		updateWithProgress(reader, 5, 75);
+		updateWithProgress(geometry, 75, 99);
 		output = geometry->GetOutput();
 		break;
 	}
@@ -287,7 +358,10 @@ void loading::loadPoly()
 		clean->SetTolerance(0.005);
 		delaunay->SetInputConnection(clean->GetOutputPort());
 		geometry->SetInputConnection(delaunay->GetOutputPort());
-		geometry->Update();
+		updateWithProgress(reader, 5, 20);
+		updateWithProgress(clean, 20, 35);
+		updateWithProgress(delaunay, 35, 90);
+		updateWithProgress(geometry, 90, 99);
 		output = geometry->GetOutput();
 		break;
 	}
@@ -305,7 +379,7 @@ void loading::loadPoly()
 	m_poly = vtkSmartPointer<vtkPolyData>::New();
 	m_poly->ShallowCopy(output);
 
-	emit updateProgress(100);
+	reportProgress(100);
 	m_poly->Register(nullptr);
 	emit polyLoaded(m_poly);
 	emit finished();

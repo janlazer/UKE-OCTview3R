@@ -4,12 +4,17 @@
 #include <QCloseEvent>
 #include <QFileDialog>
 #include <QFileInfo>
+#include <QList>
+#include <QVariant>
+#include <QWidget>
+#include <QtGlobal>
 
 OpenPoly::OpenPoly(QWidget *parent)
 	: QDialog(parent),
 	  ui(nullptr),
 	  m_windowIsOpen(false),
 	  m_validData(false),
+	  m_loading(false),
 	  m_lastPath("."),
 	  m_fileName("Choose file..."),
 	  m_polyFormat(polyType::POLY_UNDEF)
@@ -24,7 +29,8 @@ OpenPoly::~OpenPoly(void)
 
 void OpenPoly::showDialog()
 {
-	emit updateProgress(0);
+	setLoading(false);
+	updateProgress(0);
 	if(!this->isWindowOpen()){
 		m_windowIsOpen = true;
 		show();
@@ -36,6 +42,12 @@ void OpenPoly::showDialog()
 
 void OpenPoly::closeEvent(QCloseEvent *event)
 {
+	if (m_loading)
+	{
+		event->ignore();
+		return;
+	}
+
 	m_windowIsOpen = false;
 	QDialog::closeEvent(event);
 }
@@ -53,7 +65,7 @@ void OpenPoly::openFile()
 		QString fileName = getFileDialog.selectedFiles().value(0);
 		fileAttributes(fileName, selectedFilter);
 		this->m_validData = !m_fileName.isEmpty() && m_polyFormat != polyType::POLY_UNDEF;
-		emit updateProgress(0);
+		updateProgress(0);
 	}else{
 		return;
 	}
@@ -94,26 +106,63 @@ void OpenPoly::fileAttributes(QString fileName, QString selectedFilter)
 }
 void OpenPoly::doAccepted()
 {
+	setLoading(false);
 	m_windowIsOpen = false;
 	accept();
 }
 void OpenPoly::doRejected()
 {
+	if (m_loading)
+		return;
+
 	m_windowIsOpen = false;
 	reject();
 }
 void OpenPoly::updateProgress(int value)
 {
-	if(value == 0){
-		ui->progressBar->setRange(0,100);
-		ui->progressBar->setValue(value);
-	}else if(value > 0){
-		ui->progressBar->setRange(0,100);
-		ui->progressBar->setValue(value);
-	}else if(value < 0){
+	if(value < 0){
 		ui->progressBar->setRange(0,0);
-		ui->progressBar->setValue(value);
+		ui->progressBar->setFormat(tr("Loading..."));
+		return;
 	}
+
+	ui->progressBar->setRange(0,100);
+	ui->progressBar->setValue(qBound(0, value, 100));
+	ui->progressBar->setFormat(value == 0 ? tr("Ready") : QStringLiteral("%p%"));
+}
+
+void OpenPoly::setLoading(bool loading)
+{
+	if (m_loading == loading)
+		return;
+
+	m_loading = loading;
+	const QList<QWidget*> controls{
+		ui->openFileButton,
+		ui->pushButton_cancel,
+		ui->pushButton_ok
+	};
+	static const char enabledProperty[] = "_octviewEnabledBeforeLoading";
+
+	for (QWidget* control : controls)
+	{
+		if (loading)
+		{
+			control->setProperty(enabledProperty, control->isEnabled());
+			control->setEnabled(false);
+		}
+		else
+		{
+			const QVariant previousState = control->property(enabledProperty);
+			if (previousState.isValid())
+			{
+				control->setEnabled(previousState.toBool());
+				control->setProperty(enabledProperty, QVariant());
+			}
+		}
+	}
+
+	ui->progressBar->setEnabled(true);
 }
 
 void OpenPoly::startProcessing()

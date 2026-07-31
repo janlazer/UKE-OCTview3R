@@ -96,6 +96,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="aboutdialog.cpp" />
     <ClCompile Include="documentModel.cpp" />
     <ClCompile Include="loading.cpp" />
     <ClCompile Include="main.cpp" />
@@ -111,6 +112,7 @@
     <QtMoc Include="OCTview3R.h" />
   </ItemGroup>
   <ItemGroup>
+    <QtUic Include="aboutdialog.ui" />
     <QtUic Include="OCTview3R.ui" />
     <QtUic Include="opendata.ui" />
     <QtUic Include="openpoly.ui" />
@@ -119,6 +121,7 @@
     <QtRcc Include="OCTview3R.qrc" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="aboutdialog.h" />
     <ClInclude Include="dataTypes.h" />
     <ClInclude Include="definitions.h" />
     <ClInclude Include="documentModel.h" />

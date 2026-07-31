@@ -127,6 +127,14 @@ an MSBuild target:
 Install it once on target systems that do not already provide the matching
 Microsoft Visual C++ runtime.
 
+## Third-party components
+
+Parts of the optional dark interface theme are adapted from
+[Qt-Frameless-Window-DarkStyle](https://github.com/Jorgen-VikingGod/Qt-Frameless-Window-DarkStyle)
+by Juergen Skrotzky and are used under the MIT License. The corresponding
+license notice is included in
+`OCTview3R/Resources/darkstyle/LICENSE.txt`.
+
 ## Project Structure
 
 ```text

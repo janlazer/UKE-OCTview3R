@@ -11,6 +11,7 @@ VTK_MODULE_INIT(vtkRenderingFreeType);
 
 #include "ui_OCTview3R.h"
 #include "OCTview3R.h"
+#include "aboutdialog.h"
 #include "Loading.h"
 #include "viewerController.h"
 
@@ -112,28 +113,23 @@ VTK_MODULE_INIT(vtkRenderingFreeType);
 #include <QAction>
 #include <QApplication>
 #include <QCloseEvent>
+#include <QFile>
 #include <QFileDialog>
 #include <QColorDialog>
 #include <QComboBox>
 #include <QDoubleSpinBox>
-#include <QFrame>
-#include <QGridLayout>
-#include <QGroupBox>
-#include <QHBoxLayout>
 #include <QLabel>
 #include <QMessageBox>
 #include <QPalette>
 #include <QPushButton>
-#include <QScrollArea>
 #include <QSettings>
 #include <QSignalBlocker>
 #include <QSlider>
 #include <QSpinBox>
 #include <QStyle>
+#include <QStyleFactory>
 #include <QTabBar>
 #include <QThread>
-#include <QToolBar>
-#include <QVBoxLayout>
 #include <QFileInfo>
 
 #include <algorithm>
@@ -199,13 +195,7 @@ OCTview3R::OCTview3R()
 	this->ui->actionOrientAxes->setCheckable(false);
 	this->ui->groupBox_colorMapping->setEnabled(false);
 	this->ui->groupBox_threshold->setEnabled(false);
-	this->ui->label_minThreshold->setText("");
-	this->ui->label_maxThreshold->setText("");
 	this->ui->planeLineEdit->setReadOnly(true);
-	this->ui->xLabel->setText("");
-	this->ui->yLabel->setText("");
-	this->ui->zLabel->setText("");
-	this->ui->label_objectOpacity->setText("");
 	this->ui->xLabel->setText("[0,0]");
 	this->ui->yLabel->setText("[0,0]");
 	this->ui->zLabel->setText("[0,0]");
@@ -213,6 +203,7 @@ OCTview3R::OCTview3R()
 	//set up action signals and slots
 	connect(this->ui->actionOpenData, SIGNAL(triggered()), this, SLOT(slotOpenDataFileDialog()));
 	connect(this->ui->actionOpenPolyData, SIGNAL(triggered()), this, SLOT(slotOpenPolyFileDialog()));
+	connect(this->ui->actionAboutOCTview3R, SIGNAL(triggered()), this, SLOT(slotShowAbout()));
 	connect(this->ui->actionExit, SIGNAL(triggered()), this, SLOT(slotExit()));
 	connect(this->ui->actionObject, SIGNAL(toggled(bool)), this, SLOT(slotShowObject(bool)));
 	connect(this->ui->actionPlane, SIGNAL(toggled(bool)), this, SLOT(slotShowPlane(bool)));
@@ -275,7 +266,6 @@ OCTview3R::OCTview3R()
 	connect(this->ui->comboBox_background1, SIGNAL(currentIndexChanged(QString)), this, SLOT(slotBackground1(QString)));
 	connect(this->ui->comboBox_background2, SIGNAL(currentIndexChanged(QString)), this, SLOT(slotBackground2(QString)));
 	connect(this->ui->tabWidget, SIGNAL(currentChanged(int)), this, SLOT(slotSetImageData(int)));
-	connect(this->ui->pushButton_close, SIGNAL(clicked()), this, SLOT(slotCloseTab()));
 
 	openData = new OpenData(this);
 	connect(openData, SIGNAL(signalStartProcess()), this, SLOT(slotProcessDataFile()));
@@ -293,10 +283,19 @@ OCTview3R::OCTview3R()
 
 void OCTview3R::setupEnhancedUi()
 {
-	ui->tabWidget->setTabsClosable(false);
-	ui->tabWidget->setElideMode(Qt::ElideMiddle);
-	ui->tabWidget->setUsesScrollButtons(true);
-	ui->pushButton_close->hide();
+	metadataLabel = ui->metadataLabel;
+	themeComboBox = ui->themeComboBox;
+	opacitySpinBox = ui->opacitySpinBox;
+	glossSpinBox = ui->glossSpinBox;
+	minThresholdSpinBox = ui->minThresholdSpinBox;
+	maxThresholdSpinBox = ui->maxThresholdSpinBox;
+	resetRangesButton = ui->resetRangesButton;
+	resetTransformButton = ui->resetTransformButton;
+	rangeGroupBox = ui->rangeGroupBox;
+	fitSelectedAction = ui->actionFitSelected;
+	fitAllAction = ui->actionFitAll;
+	parallelProjectionAction = ui->actionParallelProjection;
+
 	connect(
 		ui->tabWidget,
 		&QTabWidget::tabCloseRequested,
@@ -308,79 +307,12 @@ void OCTview3R::setupEnhancedUi()
 	setupNumericEditors();
 	setupCameraToolbar();
 	setupMetadataPanel();
-
-	// The expanded inspector remains usable on smaller displays.
-	QWidget* contents = ui->dockWidget_preferences->widget();
-	auto* scrollArea = new QScrollArea(ui->dockWidget_preferences);
-	scrollArea->setObjectName(QStringLiteral("preferencesScrollArea"));
-	scrollArea->setWidgetResizable(true);
-	scrollArea->setFrameShape(QFrame::NoFrame);
-	ui->dockWidget_preferences->setWidget(scrollArea);
-	scrollArea->setWidget(contents);
 }
 
 void OCTview3R::setupGeneralPanel()
 {
-	ui->label_12->hide();
-	ui->label_13->hide();
-	ui->label_18->hide();
-	ui->label_19->hide();
-	ui->label_26->hide();
-	ui->label_24->hide();
-	ui->label_25->hide();
-	ui->label_29->hide();
-
-	auto* layout = new QGridLayout(ui->groupBox_general);
-	layout->setContentsMargins(8, 18, 8, 8);
-	layout->setHorizontalSpacing(8);
-	layout->setVerticalSpacing(4);
-
-	auto* themeLabel = new QLabel(tr("Theme:"), ui->groupBox_general);
-	themeComboBox = new QComboBox(ui->groupBox_general);
-	themeComboBox->setObjectName(QStringLiteral("themeComboBox"));
-	themeComboBox->addItems({
-		QStringLiteral("System"),
-		QStringLiteral("Light"),
-		QStringLiteral("Dark")
-	});
-	themeComboBox->setToolTip(
-		tr("Choose the application color theme. The 3D background remains independent."));
-	layout->addWidget(themeLabel, 0, 0);
-	layout->addWidget(themeComboBox, 0, 1);
-	layout->addWidget(new QLabel(tr("Background top:"), ui->groupBox_general), 0, 2);
-	layout->addWidget(ui->comboBox_background2, 0, 3);
-	layout->addWidget(new QLabel(tr("Bottom:"), ui->groupBox_general), 0, 4);
-	layout->addWidget(ui->comboBox_background1, 0, 5);
-
-	layout->addWidget(new QLabel(tr("Camera rotation"), ui->groupBox_general), 1, 1);
-	layout->addWidget(new QLabel(tr("Step"), ui->groupBox_general), 1, 2);
-	const char* axisNames[] = { "X", "Y", "Z" };
-	QDoubleSpinBox* rotations[] = {
-		ui->rotXCamDoubleSpinBox,
-		ui->rotYCamDoubleSpinBox,
-		ui->rotZCamDoubleSpinBox
-	};
-	QDoubleSpinBox* steps[] = {
-		ui->doubleSpinBox_rotStepX,
-		ui->doubleSpinBox_rotStepY,
-		ui->doubleSpinBox_rotStepZ
-	};
-	for (int axis = 0; axis < 3; ++axis)
-	{
-		auto* label = new QLabel(QString::fromLatin1(axisNames[axis]), ui->groupBox_general);
-		label->setAlignment(Qt::AlignCenter);
-		layout->addWidget(label, axis + 2, 0);
-		layout->addWidget(rotations[axis], axis + 2, 1);
-		layout->addWidget(steps[axis], axis + 2, 2);
-	}
-	layout->addWidget(ui->pushButton_reset, 2, 3, 1, 2);
-	layout->addWidget(ui->pushButton_save, 3, 3, 1, 2);
-	layout->setColumnStretch(1, 1);
-	layout->setColumnStretch(3, 1);
-	ui->groupBox_general->setMinimumHeight(150);
-
 	connect(
-		themeComboBox,
+		ui->themeComboBox,
 		&QComboBox::currentTextChanged,
 		this,
 		&OCTview3R::slotThemeChanged);
@@ -388,73 +320,6 @@ void OCTview3R::setupGeneralPanel()
 
 void OCTview3R::setupObjectPanel()
 {
-	ui->label_5->hide();
-	ui->label_6->hide();
-	ui->label_10->hide();
-	ui->label_21->hide();
-	ui->label_20->hide();
-	ui->label_27->hide();
-	ui->label_23->hide();
-	ui->label_22->hide();
-	ui->label_28->hide();
-
-	auto* objectLayout = new QVBoxLayout(ui->groupBox_object);
-	objectLayout->setContentsMargins(8, 18, 8, 8);
-	objectLayout->setSpacing(6);
-
-	auto* transformGroup = new QGroupBox(tr("Transform"), ui->groupBox_object);
-	auto* transformLayout = new QGridLayout(transformGroup);
-	transformLayout->setContentsMargins(8, 16, 8, 8);
-	transformLayout->setHorizontalSpacing(8);
-	transformLayout->addWidget(new QLabel(tr("Axis"), transformGroup), 0, 0);
-	transformLayout->addWidget(new QLabel(tr("Rotation [deg]"), transformGroup), 0, 1);
-	transformLayout->addWidget(new QLabel(tr("Shift"), transformGroup), 0, 2);
-	transformLayout->addWidget(new QLabel(tr("Scale"), transformGroup), 0, 3);
-
-	QDoubleSpinBox* rotations[] = {
-		ui->rotXDoubleSpinBox,
-		ui->rotYDoubleSpinBox,
-		ui->rotZDoubleSpinBox
-	};
-	QDoubleSpinBox* shifts[] = {
-		ui->shiftXDoubleSpinBox,
-		ui->shiftYDoubleSpinBox,
-		ui->shiftZDoubleSpinBox
-	};
-	QDoubleSpinBox* scales[] = {
-		ui->scaleXDoubleSpinBox,
-		ui->scaleYDoubleSpinBox,
-		ui->scaleZDoubleSpinBox
-	};
-	const char* axisNames[] = { "X", "Y", "Z" };
-	const char* axisColors[] = { "#d9534f", "#35a853", "#4285f4" };
-	for (int axis = 0; axis < 3; ++axis)
-	{
-		auto* label = new QLabel(QString::fromLatin1(axisNames[axis]), transformGroup);
-		label->setAlignment(Qt::AlignCenter);
-		label->setStyleSheet(
-			QStringLiteral("font-weight: 600; color: %1;")
-				.arg(QString::fromLatin1(axisColors[axis])));
-		transformLayout->addWidget(label, axis + 1, 0);
-		transformLayout->addWidget(rotations[axis], axis + 1, 1);
-		transformLayout->addWidget(shifts[axis], axis + 1, 2);
-		transformLayout->addWidget(scales[axis], axis + 1, 3);
-	}
-	resetTransformButton = new QPushButton(tr("Reset transform"), transformGroup);
-	resetTransformButton->setObjectName(QStringLiteral("resetTransformButton"));
-	transformLayout->addWidget(resetTransformButton, 4, 1, 1, 3);
-	objectLayout->addWidget(transformGroup);
-
-	rangeGroupBox = new QGroupBox(
-		tr("Crop ranges (data coordinates)"),
-		ui->groupBox_object);
-	auto* rangeLayout = new QGridLayout(rangeGroupBox);
-	rangeLayout->setContentsMargins(8, 16, 8, 8);
-	rangeLayout->setHorizontalSpacing(8);
-	rangeLayout->addWidget(new QLabel(tr("Axis"), rangeGroupBox), 0, 0);
-	rangeLayout->addWidget(new QLabel(tr("Min"), rangeGroupBox), 0, 1);
-	rangeLayout->addWidget(new QLabel(tr("Max"), rangeGroupBox), 0, 2);
-	rangeLayout->addWidget(new QLabel(tr("Source extent"), rangeGroupBox), 0, 3);
 	QDoubleSpinBox* rangeMin[] = {
 		ui->x0DoubleSpinBox,
 		ui->y0DoubleSpinBox,
@@ -465,36 +330,16 @@ void OCTview3R::setupObjectPanel()
 		ui->y1DoubleSpinBox,
 		ui->z1DoubleSpinBox
 	};
-	QLabel* sourceLabels[] = { ui->xLabel, ui->yLabel, ui->zLabel };
-	for (int axis = 0; axis < 3; ++axis)
-	{
-		auto* label = new QLabel(QString::fromLatin1(axisNames[axis]), rangeGroupBox);
-		label->setAlignment(Qt::AlignCenter);
-		label->setStyleSheet(
-			QStringLiteral("font-weight: 600; color: %1;")
-				.arg(QString::fromLatin1(axisColors[axis])));
-		rangeLayout->addWidget(label, axis + 1, 0);
-		rangeLayout->addWidget(rangeMin[axis], axis + 1, 1);
-		rangeLayout->addWidget(rangeMax[axis], axis + 1, 2);
-		rangeLayout->addWidget(sourceLabels[axis], axis + 1, 3);
-	}
-	ui->pushButton_render->setText(tr("Apply crop"));
-	ui->pushButton_render->setToolTip(
-		tr("Apply the edited coordinate ranges to the active dataset."));
-	ui->pushButton_render->setProperty("pending", false);
-	ui->pushButton_render->setStyleSheet(
-		QStringLiteral(
-			"QPushButton[pending=\"true\"] {"
-			" font-weight: 600; border: 2px solid #d98b2b; }"));
-	resetRangesButton = new QPushButton(tr("Full range"), rangeGroupBox);
-	resetRangesButton->setObjectName(QStringLiteral("resetRangesButton"));
-	rangeLayout->addWidget(ui->pushButton_render, 4, 1, 1, 2);
-	rangeLayout->addWidget(resetRangesButton, 4, 3);
-	objectLayout->addWidget(rangeGroupBox);
-	ui->groupBox_object->setMinimumHeight(300);
-
-	connect(resetTransformButton, &QPushButton::clicked, this, &OCTview3R::slotResetObjectTransform);
-	connect(resetRangesButton, &QPushButton::clicked, this, &OCTview3R::slotResetRanges);
+	connect(
+		ui->resetTransformButton,
+		&QPushButton::clicked,
+		this,
+		&OCTview3R::slotResetObjectTransform);
+	connect(
+		ui->resetRangesButton,
+		&QPushButton::clicked,
+		this,
+		&OCTview3R::slotResetRanges);
 	for (QDoubleSpinBox* spinBox : rangeMin)
 		connect(spinBox, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this, &OCTview3R::slotRangesEdited);
 	for (QDoubleSpinBox* spinBox : rangeMax)
@@ -503,144 +348,73 @@ void OCTview3R::setupObjectPanel()
 
 void OCTview3R::setupNumericEditors()
 {
-	ui->label_objectOpacity->hide();
-	ui->label_polyGlossValue->hide();
-	auto* colorLayout = new QGridLayout(ui->groupBox_colorMapping);
-	colorLayout->setContentsMargins(8, 18, 8, 8);
-	colorLayout->setHorizontalSpacing(8);
-	colorLayout->addWidget(ui->widget_volume, 0, 0, 1, 2);
-	colorLayout->addWidget(ui->widget_poly, 0, 2, 1, 2);
-	colorLayout->addWidget(ui->label_const_opacity_2, 1, 0);
-	colorLayout->addWidget(ui->Slider_objectOpacity, 1, 1, 1, 2);
-	opacitySpinBox = new QSpinBox(ui->groupBox_colorMapping);
-	opacitySpinBox->setObjectName(QStringLiteral("opacitySpinBox"));
-	opacitySpinBox->setRange(0, 100);
-	opacitySpinBox->setSuffix(QStringLiteral(" %"));
-	colorLayout->addWidget(opacitySpinBox, 1, 3);
-	colorLayout->addWidget(ui->label_polyGloss, 2, 0);
-	colorLayout->addWidget(ui->Slider_polyGloss, 2, 1, 1, 2);
-	glossSpinBox = new QSpinBox(ui->groupBox_colorMapping);
-	glossSpinBox->setObjectName(QStringLiteral("glossSpinBox"));
-	glossSpinBox->setRange(0, 100);
-	glossSpinBox->setSuffix(QStringLiteral(" %"));
-	glossSpinBox->setEnabled(false);
-	colorLayout->addWidget(glossSpinBox, 2, 3);
-	colorLayout->setColumnStretch(1, 1);
-	ui->groupBox_colorMapping->setMinimumHeight(145);
-
 	connect(
 		ui->Slider_objectOpacity,
 		&QSlider::valueChanged,
-		opacitySpinBox,
+		ui->opacitySpinBox,
 		&QSpinBox::setValue);
 	connect(
-		opacitySpinBox,
+		ui->opacitySpinBox,
 		QOverload<int>::of(&QSpinBox::valueChanged),
 		ui->Slider_objectOpacity,
 		&QSlider::setValue);
 	connect(
 		ui->Slider_polyGloss,
 		&QSlider::valueChanged,
-		glossSpinBox,
+		ui->glossSpinBox,
 		&QSpinBox::setValue);
 	connect(
-		glossSpinBox,
+		ui->glossSpinBox,
 		QOverload<int>::of(&QSpinBox::valueChanged),
 		ui->Slider_polyGloss,
 		&QSlider::setValue);
 
-	ui->label_minThreshold->hide();
-	ui->label_maxThreshold->hide();
-	auto* thresholdLayout = new QGridLayout(ui->groupBox_threshold);
-	thresholdLayout->setContentsMargins(8, 18, 8, 8);
-	thresholdLayout->setHorizontalSpacing(8);
-	thresholdLayout->addWidget(ui->label_const_minThreshold, 0, 0);
-	thresholdLayout->addWidget(ui->Slider_minThreshold, 0, 1);
-	minThresholdSpinBox = new QSpinBox(ui->groupBox_threshold);
-	minThresholdSpinBox->setObjectName(QStringLiteral("minThresholdSpinBox"));
-	thresholdLayout->addWidget(minThresholdSpinBox, 0, 2);
-	thresholdLayout->addWidget(ui->label_const_maxThreshold, 1, 0);
-	thresholdLayout->addWidget(ui->Slider_maxThreshold, 1, 1);
-	maxThresholdSpinBox = new QSpinBox(ui->groupBox_threshold);
-	maxThresholdSpinBox->setObjectName(QStringLiteral("maxThresholdSpinBox"));
-	thresholdLayout->addWidget(maxThresholdSpinBox, 1, 2);
-	thresholdLayout->setColumnStretch(1, 1);
-	ui->groupBox_threshold->setMinimumHeight(90);
-
 	connect(
 		ui->Slider_minThreshold,
 		&QSlider::valueChanged,
-		minThresholdSpinBox,
+		ui->minThresholdSpinBox,
 		&QSpinBox::setValue);
 	connect(
-		minThresholdSpinBox,
+		ui->minThresholdSpinBox,
 		QOverload<int>::of(&QSpinBox::valueChanged),
 		ui->Slider_minThreshold,
 		&QSlider::setValue);
 	connect(
 		ui->Slider_maxThreshold,
 		&QSlider::valueChanged,
-		maxThresholdSpinBox,
+		ui->maxThresholdSpinBox,
 		&QSpinBox::setValue);
 	connect(
-		maxThresholdSpinBox,
+		ui->maxThresholdSpinBox,
 		QOverload<int>::of(&QSpinBox::valueChanged),
 		ui->Slider_maxThreshold,
 		&QSlider::setValue);
-	connect(minThresholdSpinBox, &QSpinBox::editingFinished, this, &OCTview3R::slotSetThreshold);
-	connect(maxThresholdSpinBox, &QSpinBox::editingFinished, this, &OCTview3R::slotSetThreshold);
+	connect(
+		ui->minThresholdSpinBox,
+		&QSpinBox::editingFinished,
+		this,
+		&OCTview3R::slotSetThreshold);
+	connect(
+		ui->maxThresholdSpinBox,
+		&QSpinBox::editingFinished,
+		this,
+		&OCTview3R::slotSetThreshold);
 }
 
 void OCTview3R::setupCameraToolbar()
 {
-	ui->toolBar_2->setWindowTitle(tr("Camera"));
-	ui->toolBar_2->setToolTip(tr("Camera views"));
-	QAction* cameraActions[] = {
-		ui->actionX, ui->actionXu,
-		ui->actionY, ui->actionYu,
-		ui->actionZ, ui->actionZu,
-		ui->actionRot
-	};
-	for (QAction* action : cameraActions)
-		ui->toolBar->removeAction(action);
-
-	ui->actionX->setText(QStringLiteral("-X"));
-	ui->actionXu->setText(QStringLiteral("+X"));
-	ui->actionY->setText(QStringLiteral("-Y"));
-	ui->actionYu->setText(QStringLiteral("+Y"));
-	ui->actionZ->setText(QStringLiteral("-Z"));
-	ui->actionZu->setText(QStringLiteral("+Z"));
-	ui->actionRot->setText(tr("Roll 90 deg"));
-	ui->actionX->setToolTip(tr("View from negative X"));
-	ui->actionXu->setToolTip(tr("View from positive X"));
-	ui->actionY->setToolTip(tr("View from negative Y"));
-	ui->actionYu->setToolTip(tr("View from positive Y"));
-	ui->actionZ->setToolTip(tr("View from negative Z"));
-	ui->actionZu->setToolTip(tr("View from positive Z"));
-	ui->actionRot->setToolTip(tr("Roll the camera by 90 degrees"));
-
-	ui->toolBar_2->addAction(ui->actionX);
-	ui->toolBar_2->addAction(ui->actionXu);
-	ui->toolBar_2->addAction(ui->actionY);
-	ui->toolBar_2->addAction(ui->actionYu);
-	ui->toolBar_2->addAction(ui->actionZ);
-	ui->toolBar_2->addAction(ui->actionZu);
-	ui->toolBar_2->addAction(ui->actionRot);
-	ui->toolBar_2->addSeparator();
-	fitSelectedAction = ui->toolBar_2->addAction(tr("Fit selected"));
-	fitSelectedAction->setToolTip(tr("Fit the active dataset into the view"));
-	fitSelectedAction->setEnabled(false);
-	fitAllAction = ui->toolBar_2->addAction(tr("Fit all"));
-	fitAllAction->setToolTip(tr("Fit all visible datasets into the view"));
-	fitAllAction->setEnabled(false);
-	parallelProjectionAction = ui->toolBar_2->addAction(tr("Orthographic"));
-	parallelProjectionAction->setCheckable(true);
-	parallelProjectionAction->setToolTip(
-		tr("Toggle between perspective and orthographic projection"));
-	connect(fitSelectedAction, &QAction::triggered, this, &OCTview3R::slotFitSelected);
-	connect(fitAllAction, &QAction::triggered, this, &OCTview3R::slotFitAll);
 	connect(
-		parallelProjectionAction,
+		ui->actionFitSelected,
+		&QAction::triggered,
+		this,
+		&OCTview3R::slotFitSelected);
+	connect(
+		ui->actionFitAll,
+		&QAction::triggered,
+		this,
+		&OCTview3R::slotFitAll);
+	connect(
+		ui->actionParallelProjection,
 		&QAction::toggled,
 		this,
 		&OCTview3R::slotParallelProjection);
@@ -648,16 +422,7 @@ void OCTview3R::setupCameraToolbar()
 
 void OCTview3R::setupMetadataPanel()
 {
-	auto* group = new QGroupBox(tr("Dataset information"), ui->dockWidgetContents_3);
-	group->setObjectName(QStringLiteral("datasetInformationGroup"));
-	auto* layout = new QVBoxLayout(group);
-	layout->setContentsMargins(8, 16, 8, 8);
-	metadataLabel = new QLabel(tr("No dataset selected."), group);
-	metadataLabel->setObjectName(QStringLiteral("metadataLabel"));
-	metadataLabel->setTextInteractionFlags(Qt::TextSelectableByMouse);
-	metadataLabel->setWordWrap(true);
-	layout->addWidget(metadataLabel);
-	ui->verticalLayout->insertWidget(3, group);
+	// Static layout and properties are defined in OCTview3R.ui.
 }
 
 OCTview3R::~OCTview3R()
@@ -803,22 +568,58 @@ void OCTview3R::saveApplicationSettings() const
 void OCTview3R::applyTheme(const QString& theme)
 {
 	static const QPalette systemPalette = qApp->palette();
+	static const QString systemStyleSheet = qApp->styleSheet();
+	static const QString systemStyleName = qApp->style()->objectName();
+
+	const bool useDarkTheme = theme == QStringLiteral("Dark");
+	const QString requestedStyle =
+		useDarkTheme ? QStringLiteral("Fusion") : systemStyleName;
+	if (QStyle* style = QStyleFactory::create(requestedStyle))
+		qApp->setStyle(style);
+
 	QPalette palette = systemPalette;
-	if (theme == QStringLiteral("Dark"))
+	QString styleSheet = systemStyleSheet;
+	if (useDarkTheme)
 	{
-		palette.setColor(QPalette::Window, QColor(38, 40, 43));
-		palette.setColor(QPalette::WindowText, QColor(235, 235, 235));
-		palette.setColor(QPalette::Base, QColor(27, 29, 31));
-		palette.setColor(QPalette::AlternateBase, QColor(46, 49, 52));
-		palette.setColor(QPalette::ToolTipBase, QColor(250, 250, 250));
-		palette.setColor(QPalette::ToolTipText, QColor(20, 20, 20));
-		palette.setColor(QPalette::Text, QColor(235, 235, 235));
-		palette.setColor(QPalette::Button, QColor(48, 51, 55));
-		palette.setColor(QPalette::ButtonText, QColor(235, 235, 235));
+		// Palette values and parts of the stylesheet are adapted from
+		// Qt-Frameless-Window-DarkStyle (MIT), as used by UKE-smartLab.
+		palette.setColor(QPalette::Window, QColor(53, 53, 53));
+		palette.setColor(QPalette::WindowText, Qt::white);
+		palette.setColor(
+			QPalette::Disabled, QPalette::WindowText, QColor(127, 127, 127));
+		palette.setColor(QPalette::Base, QColor(42, 42, 42));
+		palette.setColor(QPalette::AlternateBase, QColor(66, 66, 66));
+		palette.setColor(QPalette::ToolTipBase, Qt::white);
+		palette.setColor(QPalette::ToolTipText, QColor(53, 53, 53));
+		palette.setColor(QPalette::Text, Qt::white);
+		palette.setColor(
+			QPalette::Disabled, QPalette::Text, QColor(127, 127, 127));
+		palette.setColor(QPalette::Dark, QColor(35, 35, 35));
+		palette.setColor(QPalette::Shadow, QColor(20, 20, 20));
+		palette.setColor(QPalette::Mid, QColor(80, 80, 80));
+		palette.setColor(QPalette::Midlight, QColor(95, 95, 95));
+		palette.setColor(QPalette::Button, QColor(53, 53, 53));
+		palette.setColor(QPalette::ButtonText, Qt::white);
+		palette.setColor(
+			QPalette::Disabled, QPalette::ButtonText, QColor(127, 127, 127));
 		palette.setColor(QPalette::BrightText, Qt::red);
-		palette.setColor(QPalette::Highlight, QColor(40, 132, 190));
+		palette.setColor(QPalette::Link, QColor(42, 130, 218));
+		palette.setColor(QPalette::Highlight, QColor(42, 130, 218));
+		palette.setColor(
+			QPalette::Disabled, QPalette::Highlight, QColor(80, 80, 80));
 		palette.setColor(QPalette::HighlightedText, Qt::white);
-		palette.setColor(QPalette::Link, QColor(88, 166, 255));
+		palette.setColor(
+			QPalette::Disabled, QPalette::HighlightedText, QColor(127, 127, 127));
+		palette.setColor(QPalette::PlaceholderText, QColor(155, 155, 155));
+
+		QFile styleFile(
+			QStringLiteral(":/OCTview3R/Resources/darkstyle/darkstyle.qss"));
+		if (styleFile.open(QIODevice::ReadOnly | QIODevice::Text))
+		{
+			if (!styleSheet.isEmpty())
+				styleSheet += QLatin1Char('\n');
+			styleSheet += QString::fromUtf8(styleFile.readAll());
+		}
 	}
 	else if (theme == QStringLiteral("Light"))
 	{
@@ -833,6 +634,7 @@ void OCTview3R::applyTheme(const QString& theme)
 		palette.setColor(QPalette::HighlightedText, Qt::white);
 	}
 	qApp->setPalette(palette);
+	qApp->setStyleSheet(styleSheet);
 	currentTheme = theme;
 	if (viewerController)
 		viewerController->updateAnnotationColor();
@@ -1118,11 +920,9 @@ void OCTview3R::slotSetImageData(ImageData* data)
 		this->opacitySpinBox->setValue(this->ui->Slider_objectOpacity->value());
 		this->ui->Slider_polyGloss->setEnabled(activeImageData->isPolyData);
 		this->ui->label_polyGloss->setEnabled(activeImageData->isPolyData);
-		this->ui->label_polyGlossValue->setEnabled(activeImageData->isPolyData);
 		this->glossSpinBox->setEnabled(activeImageData->isPolyData);
 		this->ui->Slider_polyGloss->setValue(
 			static_cast<int>(std::round(100.0 * activeImageData->polyGloss)));
-		this->ui->label_polyGlossValue->setNum(this->ui->Slider_polyGloss->value());
 		this->glossSpinBox->setValue(this->ui->Slider_polyGloss->value());
 		this->ui->checkBox_adjustColormap->setChecked(activeImageData->adjustColormap);
 		this->ui->checkBox_invertColormap->setChecked(activeImageData->invertColormap);
@@ -1133,7 +933,6 @@ void OCTview3R::slotSetImageData(ImageData* data)
 		this->ui->Slider_minThreshold->setMaximum(activeImageData->maxValue);
 		this->ui->Slider_minThreshold->setValue(activeImageData->currentMinThreshold);
 		this->ui->Slider_minThreshold->setEnabled(activeImageData->isVolume);
-		this->ui->label_minThreshold->setNum(activeImageData->currentMinThreshold);
 		this->minThresholdSpinBox->setRange(
 			activeImageData->minValue,
 			activeImageData->maxValue);
@@ -1142,7 +941,6 @@ void OCTview3R::slotSetImageData(ImageData* data)
 		this->ui->Slider_maxThreshold->setMaximum(activeImageData->maxValue);
 		this->ui->Slider_maxThreshold->setValue(activeImageData->currentMaxThreshold);
 		this->ui->Slider_maxThreshold->setEnabled(activeImageData->isVolume);
-		this->ui->label_maxThreshold->setNum(activeImageData->currentMaxThreshold);
 		this->maxThresholdSpinBox->setRange(
 			activeImageData->minValue,
 			activeImageData->maxValue);
@@ -1171,11 +969,7 @@ void OCTview3R::slotSetImageData(ImageData* data)
 		//data infos
 		const QFileInfo activeFile(activeImageData->fileName);
 		statusLabel->setText(tr("Active dataset: ") + activeFile.fileName());
-		this->ui->label_file->setText(activeFile.fileName());
-		this->ui->label_file->setToolTip(activeImageData->fileName);
 
-		//set close button
-		this->ui->pushButton_close->setEnabled(!documentModel.empty());
 		fitSelectedAction->setEnabled(true);
 		fitAllAction->setEnabled(true);
 		updateRangePresentation();
@@ -1189,6 +983,13 @@ void OCTview3R::slotExit()
 {
 	close();
 }
+
+void OCTview3R::slotShowAbout()
+{
+	AboutDialog dialog(this);
+	dialog.exec();
+}
+
 void OCTview3R::slotShowObject(bool value)
 {
 	if(settings.oneFileLoaded && activeImageData != nullptr && activeImageData->fileLoaded){
@@ -1387,7 +1188,7 @@ void OCTview3R::slotPolyFileDialogClosed(vtkPolyData* tmpPoly)
 void OCTview3R::slotProcessDataFile()
 {
 	if(openData->isValidData()){
-		openData->setEnabled(false);
+		openData->setLoading(true);
 		loading *worker = new loading(openData);
 		QThread *thread = new QThread(this);
 		loadingThreads.append(thread);
@@ -1411,7 +1212,7 @@ void OCTview3R::slotProcessDataFile()
 void OCTview3R::slotProcessPolyFile()
 {
 	if(openPoly->isValidData()){
-		openPoly->setEnabled(false);
+		openPoly->setLoading(true);
 		loading *worker = new loading(openPoly);
 		QThread *thread = new QThread(this);
 		loadingThreads.append(thread);
@@ -1435,13 +1236,13 @@ void OCTview3R::slotProcessPolyFile()
 
 void OCTview3R::slotDataLoadFailed(const QString& message)
 {
-	openData->setEnabled(true);
+	openData->setLoading(false);
 	QMessageBox::critical(this, tr("Volume loading failed"), message);
 }
 
 void OCTview3R::slotPolyLoadFailed(const QString& message)
 {
-	openPoly->setEnabled(true);
+	openPoly->setLoading(false);
 	QMessageBox::critical(this, tr("Polygonal-data loading failed"), message);
 }
 
@@ -1859,7 +1660,6 @@ void OCTview3R::slotSetPolyGloss(int value)
 	   activeImageData->fileLoaded &&
 	   activeImageData->isPolyData){
 		activeImageData->polyGloss = static_cast<double>(value) * 0.01;
-		this->ui->label_polyGlossValue->setNum(value);
 		markAppearanceDirty();
 	refreshViewer();
 	}
@@ -2117,7 +1917,6 @@ void OCTview3R::slotCloseTab(int index)
 	{
 		ui->tabWidget->addTab(new QWidget(), tr("Open File"));
 		ui->tabWidget->setTabsClosable(false);
-		ui->pushButton_close->setEnabled(false);
 		ui->pushButton_render->setEnabled(false);
 		ui->groupBox_object->setEnabled(false);
 		ui->groupBox_plane->setEnabled(false);
@@ -2129,7 +1928,6 @@ void OCTview3R::slotCloseTab(int index)
 		ui->actionAxesBox->setCheckable(false);
 		ui->actionAxesTriad->setCheckable(false);
 		ui->actionOrientAxes->setCheckable(false);
-		ui->label_file->setText(tr("File:"));
 		statusLabel->setText(tr("No file loaded."));
 		fitSelectedAction->setEnabled(false);
 		fitAllAction->setEnabled(false);

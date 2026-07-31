@@ -25,6 +25,7 @@ public slots:
 	void doAccepted();
 	void doRejected();
 	void updateProgress(int);
+	void setLoading(bool loading);
 	void setFilePath(const QString& path);
 
     //GETTER
@@ -63,6 +64,7 @@ private:
 	Ui_OpenData *ui;
 	bool m_windowIsOpen;
 	bool m_validData;
+	bool m_loading;
 	QString m_lastPath;
     QString m_fileName;
 	bitsizeType m_bitsize;

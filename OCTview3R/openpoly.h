@@ -25,6 +25,7 @@ public slots:
 	void doAccepted();
 	void doRejected();
 	void updateProgress(int);
+	void setLoading(bool loading);
 
 	//GETTER
 	QString getFileName();
@@ -55,6 +56,7 @@ private:
 	Ui_OpenPoly *ui;
 	bool m_windowIsOpen;
 	bool m_validData;
+	bool m_loading;
 	QString m_lastPath;
 	QString m_fileName;
 	polyType m_polyFormat;

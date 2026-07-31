@@ -12,6 +12,8 @@
 
 class OpenData;
 class OpenPoly;
+class vtkAlgorithm;
+class vtkObject;
 
 Q_DECLARE_METATYPE(vtkImageData*)
 Q_DECLARE_METATYPE(vtkPolyData*)
@@ -40,6 +42,13 @@ private:
 	void setData(OpenData* openData);
 	void setPoly(OpenPoly* openPoly);
 	void reportFailure(const QString& message);
+	void reportProgress(int progress);
+	void updateWithProgress(vtkAlgorithm* algorithm, int startProgress, int endProgress);
+	static void vtkProgressCallback(
+		vtkObject* caller,
+		unsigned long eventId,
+		void* clientData,
+		void* callData);
 
 	vtkSmartPointer<vtkImageData> m_data;
 	vtkSmartPointer<vtkPolyData> m_poly;
@@ -51,4 +60,5 @@ private:
 	int m_width = 0;
 	int m_height = 0;
 	int m_depth = 0;
+	int m_lastProgress = -1;
 };

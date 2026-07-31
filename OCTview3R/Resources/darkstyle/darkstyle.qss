@@ -1,0 +1,366 @@
+/*
+ * OCTview3R dark theme.
+ *
+ * Portions of the visual language are adapted from
+ * Qt-Frameless-Window-DarkStyle by Juergen Skrotzky.
+ * Source: https://github.com/Jorgen-VikingGod/Qt-Frameless-Window-DarkStyle
+ * Licensed under the MIT License; see LICENSE.txt in this directory.
+ */
+
+QToolTip {
+    color: #ffffff;
+    background-color: palette(base);
+    border: 1px solid palette(highlight);
+    border-radius: 3px;
+    padding: 3px;
+}
+
+QMainWindow,
+QDialog {
+    background-color: palette(window);
+    color: palette(window-text);
+}
+
+QStatusBar {
+    background-color: qlineargradient(
+        x1: 0, y1: 0, x2: 0, y2: 1,
+        stop: 0 rgba(25, 25, 25, 180),
+        stop: 1 rgba(53, 53, 53, 120));
+    border-top: 1px solid palette(shadow);
+    color: palette(window-text);
+}
+
+QMenuBar {
+    background-color: qlineargradient(
+        x1: 0, y1: 0, x2: 0, y2: 1,
+        stop: 0 rgba(25, 25, 25, 180),
+        stop: 1 rgba(53, 53, 53, 120));
+    border-bottom: 1px solid palette(shadow);
+}
+
+QMenuBar::item {
+    spacing: 2px;
+    padding: 4px 7px;
+    background: transparent;
+}
+
+QMenuBar::item:selected {
+    background-color: palette(alternate-base);
+}
+
+QMenuBar::item:pressed {
+    background-color: palette(highlight);
+}
+
+QMenu {
+    background-color: palette(window);
+    border: 1px solid palette(shadow);
+}
+
+QMenu::item {
+    padding: 5px 28px 5px 24px;
+    border: 1px solid transparent;
+}
+
+QMenu::item:disabled {
+    color: rgb(127, 127, 127);
+}
+
+QMenu::item:selected {
+    border-color: rgba(147, 191, 236, 120);
+    background-color: palette(highlight);
+}
+
+QMenu::separator {
+    height: 1px;
+    margin: 4px 6px;
+    background: palette(alternate-base);
+}
+
+QToolBar {
+    spacing: 3px;
+    padding: 2px;
+    background-color: qlineargradient(
+        x1: 0, y1: 0, x2: 0, y2: 1,
+        stop: 0 rgba(25, 25, 25, 160),
+        stop: 1 rgba(53, 53, 53, 110));
+    border: 0;
+    border-bottom: 1px solid palette(shadow);
+}
+
+QToolButton {
+    min-width: 22px;
+    min-height: 22px;
+    padding: 3px;
+    border: 1px solid transparent;
+    border-radius: 3px;
+    background: transparent;
+}
+
+QToolButton:hover {
+    border-color: palette(mid);
+    background-color: palette(alternate-base);
+}
+
+QToolButton:pressed,
+QToolButton:checked {
+    border-color: palette(highlight);
+    background-color: rgba(42, 130, 218, 110);
+}
+
+QMainWindow::separator {
+    width: 5px;
+    height: 5px;
+    padding: 1px;
+    background-color: palette(dark);
+}
+
+QMainWindow::separator:hover,
+QSplitter::handle:hover {
+    background-color: palette(highlight);
+}
+
+QDockWidget {
+    background-color: palette(base);
+    border: 1px solid palette(shadow);
+}
+
+QDockWidget::title {
+    padding: 5px;
+    background-color: rgb(35, 35, 35);
+    border: 1px solid rgb(20, 20, 20);
+    border-bottom: 2px solid rgb(20, 20, 20);
+}
+
+QGroupBox {
+    margin-top: 18px;
+    padding-top: 4px;
+    border: 1px solid rgba(25, 25, 25, 190);
+    border-radius: 4px;
+    background-color: rgba(66, 66, 66, 90);
+}
+
+QGroupBox::title {
+    subcontrol-origin: margin;
+    subcontrol-position: top left;
+    left: 7px;
+    padding: 1px 5px;
+    color: palette(window-text);
+    background-color: palette(window);
+}
+
+QTabWidget::pane {
+    border: 1px solid palette(dark);
+    background-color: rgba(66, 66, 66, 70);
+}
+
+QTabBar {
+    qproperty-drawBase: 0;
+}
+
+QTabBar::tab {
+    min-width: 60px;
+    padding: 5px 8px;
+    margin-right: 1px;
+    background-color: qlineargradient(
+        x1: 0, y1: 1, x2: 0, y2: 0,
+        stop: 0 rgba(25, 25, 25, 170),
+        stop: 1 rgba(53, 53, 53, 130));
+    border: 1px solid palette(dark);
+    border-top-left-radius: 3px;
+    border-top-right-radius: 3px;
+}
+
+QTabBar::tab:selected,
+QTabBar::tab:hover {
+    background-color: palette(alternate-base);
+}
+
+QTabBar::tab:selected {
+    border-bottom: 2px solid palette(highlight);
+}
+
+QTabBar::tab:!selected {
+    margin-top: 2px;
+}
+
+QPushButton {
+    min-height: 22px;
+    padding: 3px 8px;
+    border: 1px solid palette(dark);
+    border-radius: 3px;
+    background-color: palette(button);
+    color: palette(button-text);
+}
+
+QPushButton:hover {
+    border-color: palette(highlight);
+    background-color: palette(alternate-base);
+}
+
+QPushButton:pressed,
+QPushButton:checked {
+    border-color: palette(highlight);
+    background-color: rgba(42, 130, 218, 115);
+}
+
+QPushButton:disabled {
+    color: rgb(127, 127, 127);
+    background-color: rgba(53, 53, 53, 90);
+}
+
+QLineEdit,
+QComboBox,
+QSpinBox,
+QDoubleSpinBox {
+    min-height: 21px;
+    padding: 2px 5px;
+    border: 1px solid palette(dark);
+    border-radius: 3px;
+    background-color: palette(base);
+    color: palette(text);
+    selection-background-color: palette(highlight);
+    selection-color: palette(highlighted-text);
+}
+
+QLineEdit:focus,
+QComboBox:focus,
+QSpinBox:focus,
+QDoubleSpinBox:focus {
+    border-color: palette(highlight);
+}
+
+QLineEdit:disabled,
+QComboBox:disabled,
+QSpinBox:disabled,
+QDoubleSpinBox:disabled {
+    color: rgb(127, 127, 127);
+    background-color: rgba(42, 42, 42, 125);
+}
+
+QComboBox::drop-down {
+    width: 20px;
+    border: 0;
+    border-left: 1px solid palette(dark);
+}
+
+QComboBox QAbstractItemView {
+    border: 1px solid palette(shadow);
+    background-color: palette(base);
+    color: palette(text);
+    selection-background-color: palette(highlight);
+}
+
+QProgressBar {
+    min-height: 18px;
+    border: 1px solid palette(dark);
+    border-radius: 3px;
+    background-color: palette(base);
+    color: palette(text);
+    text-align: center;
+}
+
+QProgressBar::chunk {
+    border-radius: 2px;
+    background-color: palette(highlight);
+}
+
+QSlider::groove:horizontal {
+    height: 5px;
+    border-radius: 2px;
+    background-color: palette(base);
+}
+
+QSlider::handle:horizontal {
+    width: 14px;
+    margin: -5px 0;
+    border: 1px solid rgb(25, 25, 25);
+    border-radius: 7px;
+    background-color: palette(alternate-base);
+}
+
+QSlider::handle:horizontal:hover {
+    border-color: palette(highlight);
+    background-color: palette(highlight);
+}
+
+QSlider::sub-page:horizontal {
+    border-radius: 2px;
+    background-color: palette(highlight);
+}
+
+QSlider::sub-page:horizontal:disabled {
+    background-color: rgb(80, 80, 80);
+}
+
+QScrollBar:vertical {
+    width: 14px;
+    margin: 0;
+    background: palette(base);
+}
+
+QScrollBar::handle:vertical {
+    min-height: 22px;
+    margin: 2px 3px;
+    border-radius: 3px;
+    background-color: palette(alternate-base);
+}
+
+QScrollBar::handle:vertical:hover {
+    background-color: palette(highlight);
+}
+
+QScrollBar::add-line:vertical,
+QScrollBar::sub-line:vertical {
+    height: 0;
+    background: none;
+}
+
+QScrollBar:horizontal {
+    height: 14px;
+    margin: 0;
+    background: palette(base);
+}
+
+QScrollBar::handle:horizontal {
+    min-width: 22px;
+    margin: 3px 2px;
+    border-radius: 3px;
+    background-color: palette(alternate-base);
+}
+
+QScrollBar::handle:horizontal:hover {
+    background-color: palette(highlight);
+}
+
+QScrollBar::add-line:horizontal,
+QScrollBar::sub-line:horizontal {
+    width: 0;
+    background: none;
+}
+
+QAbstractItemView,
+QTableView,
+QTreeView {
+    alternate-background-color: palette(window);
+    background-color: palette(base);
+    border: 1px solid palette(dark);
+    color: palette(text);
+    selection-background-color: palette(highlight);
+    selection-color: palette(highlighted-text);
+}
+
+QHeaderView::section {
+    padding: 4px 6px;
+    border: 0;
+    border-right: 1px solid palette(dark);
+    border-bottom: 1px solid palette(dark);
+    background-color: palette(window);
+}
+
+QLabel:disabled,
+QCheckBox:disabled,
+QRadioButton:disabled,
+QGroupBox:disabled {
+    color: rgb(127, 127, 127);
+}

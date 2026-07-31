@@ -4,6 +4,10 @@
 #include <QCloseEvent>
 #include <QFileDialog>
 #include <QFileInfo>
+#include <QList>
+#include <QVariant>
+#include <QWidget>
+#include <QtGlobal>
 
 #include <vtkSmartPointer.h>
 #include <vtkTIFFReader.h>
@@ -17,6 +21,7 @@ OpenData::OpenData(QWidget *parent)
 	  ui(nullptr),
 	  m_windowIsOpen(false),
 	  m_validData(false),
+	  m_loading(false),
 	  m_lastPath("."),
 	  m_fileName("Choose file..."),
 	  m_bitsize(bitsizeType::BIT8),
@@ -36,7 +41,8 @@ OpenData::~OpenData(void)
 
 void OpenData::showDialog()
 {
-	emit updateProgress(0);
+	setLoading(false);
+	updateProgress(0);
 	if(!this->isWindowOpen()){
 		m_windowIsOpen = true;
 		show();
@@ -48,6 +54,12 @@ void OpenData::showDialog()
 
 void OpenData::closeEvent(QCloseEvent *event)
 {
+	if (m_loading)
+	{
+		event->ignore();
+		return;
+	}
+
 	m_windowIsOpen = false;
 	QDialog::closeEvent(event);
 }
@@ -65,7 +77,7 @@ void OpenData::openFile()
 		QString fileName = getFileDialog.selectedFiles().value(0);
 		fileAttributes(fileName, selectedFilter);
 		this->m_validData = !m_fileName.isEmpty() && m_dataFormat != dataType::DATA_UNDEF;
-		emit updateProgress(0);
+		updateProgress(0);
 	}else{
 		return;
 	}
@@ -129,10 +141,11 @@ void OpenData::fileAttributes(QString fileName, QString selectedFilter)
 		m_dataFormat = dataType::DATA_JPEG;
 		auto jpeg = vtkSmartPointer<vtkJPEGReader>::New();
 		jpeg->SetFileName(fileName.toLocal8Bit());
-		jpeg->Update();
-		int *dimensions = jpeg->GetOutput()->GetDimensions();
-		setWidth(dimensions[0]);
-		setHeight(dimensions[1]);
+		jpeg->UpdateInformation();
+		int dataExt[6] = { 0, 0, 0, 0, 0, 0 };
+		jpeg->GetDataExtent(dataExt);
+		setWidth(dataExt[1] - dataExt[0] + 1);
+		setHeight(dataExt[3] - dataExt[2] + 1);
 		ui->comboBox_endian->setEnabled(true);
 		ui->label_endian->setEnabled(true);
 		ui->comboBox_bitsize->setEnabled(false);
@@ -201,26 +214,68 @@ void OpenData::fileAttributes(QString fileName, QString selectedFilter)
 }
 void OpenData::doAccepted()
 {
+	setLoading(false);
 	m_windowIsOpen = false;
 	accept();
 }
 void OpenData::doRejected()
 {
+	if (m_loading)
+		return;
+
 	m_windowIsOpen = false;
 	reject();
 }
 void OpenData::updateProgress(int value)
 {
-	if(value == 0){
-		ui->progressBar->setRange(0,100);
-		ui->progressBar->setValue(value);
-	}else if(value > 0){
-		ui->progressBar->setRange(0,100);
-		ui->progressBar->setValue(value);
-	}else if(value < 0){
+	if(value < 0){
 		ui->progressBar->setRange(0,0);
-		ui->progressBar->setValue(value);
+		ui->progressBar->setFormat(tr("Loading..."));
+		return;
 	}
+
+	ui->progressBar->setRange(0,100);
+	ui->progressBar->setValue(qBound(0, value, 100));
+	ui->progressBar->setFormat(value == 0 ? tr("Ready") : QStringLiteral("%p%"));
+}
+
+void OpenData::setLoading(bool loading)
+{
+	if (m_loading == loading)
+		return;
+
+	m_loading = loading;
+	const QList<QWidget*> controls{
+		ui->openFileButton,
+		ui->pushButton_cancel,
+		ui->pushButton_ok,
+		ui->comboBox_endian,
+		ui->comboBox_bitsize,
+		ui->spinBox_width,
+		ui->spinBox_height,
+		ui->spinBox_depth
+	};
+	static const char enabledProperty[] = "_octviewEnabledBeforeLoading";
+
+	for (QWidget* control : controls)
+	{
+		if (loading)
+		{
+			control->setProperty(enabledProperty, control->isEnabled());
+			control->setEnabled(false);
+		}
+		else
+		{
+			const QVariant previousState = control->property(enabledProperty);
+			if (previousState.isValid())
+			{
+				control->setEnabled(previousState.toBool());
+				control->setProperty(enabledProperty, QVariant());
+			}
+		}
+	}
+
+	ui->progressBar->setEnabled(true);
 }
 
 void OpenData::setFilePath(const QString& path)

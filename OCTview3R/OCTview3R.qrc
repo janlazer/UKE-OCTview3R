@@ -24,5 +24,6 @@
         <file>Resources/icons/rainbow.bmp</file>
         <file>Resources/icons/vorlage.png</file>
         <file>Resources/icons/white2.bmp</file>
+        <file>Resources/darkstyle/darkstyle.qss</file>
     </qresource>
 </RCC>
