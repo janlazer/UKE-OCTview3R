@@ -8,7 +8,7 @@ int main(int argc, char** argv )
   QApplication app(argc, argv);
   QCoreApplication::setOrganizationName(QStringLiteral("UKE"));
   QCoreApplication::setApplicationName(QStringLiteral("OCTview3R"));
-  QCoreApplication::setApplicationVersion(QStringLiteral("1.1"));
+  QCoreApplication::setApplicationVersion(QStringLiteral("1.1.0"));
   OCTview3R appOCTview3R;
   appOCTview3R.show();
   return app.exec();

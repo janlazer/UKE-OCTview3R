@@ -44,6 +44,23 @@ if (-not (Test-Path -LiteralPath $sourceExecutable -PathType Leaf)) {
 New-Item -ItemType Directory -Path $destinationDirectory -Force | Out-Null
 Copy-Item -LiteralPath $sourceExecutable -Destination $destinationExecutable -Force
 
+$releaseDocuments = @(
+    @{ Source = (Join-Path $PSScriptRoot "LICENSE"); Destination = "LICENSE.txt" },
+    @{ Source = (Join-Path $PSScriptRoot "README.md"); Destination = "README.md" },
+    @{ Source = (Join-Path $PSScriptRoot "AUTHORS.md"); Destination = "AUTHORS.md" },
+    @{ Source = (Join-Path $PSScriptRoot "CITATION.cff"); Destination = "CITATION.cff" },
+    @{ Source = (Join-Path $PSScriptRoot "THIRD_PARTY_NOTICES.md"); Destination = "THIRD_PARTY_NOTICES.md" },
+    @{ Source = (Join-Path $PSScriptRoot "OCTview3R\Resources\darkstyle\LICENSE.txt"); Destination = "DARKSTYLE_LICENSE.txt" }
+)
+foreach ($document in $releaseDocuments) {
+    if (-not (Test-Path -LiteralPath $document.Source -PathType Leaf)) {
+        throw "Required release document not found: $($document.Source)"
+    }
+    Copy-Item -LiteralPath $document.Source `
+        -Destination (Join-Path $destinationDirectory $document.Destination) `
+        -Force
+}
+
 $vtkDlls = Get-ChildItem -LiteralPath $vtkRuntimeDirectory -Filter "*.dll" -File
 if ($vtkDlls.Count -eq 0) {
     throw "No VTK runtime DLLs found in $vtkRuntimeDirectory."
@@ -80,3 +97,4 @@ if ($LASTEXITCODE -ne 0) {
 
 Write-Host "Deployment created: $destinationDirectory"
 Write-Host "Copied $($vtkDlls.Count) VTK runtime DLLs."
+Write-Host "Included application and third-party license notices."

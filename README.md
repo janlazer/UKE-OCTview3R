@@ -4,8 +4,9 @@ OCTview3R is a Windows desktop application for interactive visualization of
 volumetric image data and polygonal data sets. It is written in C++ and uses
 Qt for the user interface and VTK for data processing and 3D rendering.
 
-The repository contains the original application sources, Qt Designer forms,
-icons, and a collection of example data sets.
+The repository contains the application sources, Qt Designer forms, icons,
+and a small collection of example data sets. The included TIFF volumes are
+OCT scans of a cherry and contain no human or clinical data.
 
 ## Features
 
@@ -135,6 +136,48 @@ by Juergen Skrotzky and are used under the MIT License. The corresponding
 license notice is included in
 `OCTview3R/Resources/darkstyle/LICENSE.txt`.
 
+Qt, VTK, the Microsoft runtime, and all components redistributed with a
+binary build retain their own licenses. See
+[`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) for versions, notices, and
+source links.
+
+## Example data
+
+The TIFF stacks under `OCTview3R/ImageData` are OCT scans of a cherry. They
+are non-medical demonstration data and contain no human, patient, or animal
+subject information. Their provenance and exact file list are documented in
+[`OCTview3R/ImageData/README.md`](OCTview3R/ImageData/README.md).
+
+VTK-family example files are intentionally not distributed in this
+repository. The application continues to support VTK, VTI, VTP, and VTR
+input files supplied by users.
+
+## Authors
+
+- **Jan Hahn** — University Medical Center Hamburg-Eppendorf (UKE),
+  [ORCID 0000-0003-3416-636X](https://orcid.org/0000-0003-3416-636X)
+- **Giovanno Möbes** — Laser Zentrum Hannover e.V. (LZH; affiliation at the
+  time of contribution)
+
+OCTview3R was developed privately by its authors. The affiliations provide
+scientific context and do not designate institutional copyright ownership.
+Further information is available in [`AUTHORS.md`](AUTHORS.md).
+
+## Citation
+
+If OCTview3R contributes to published work, please cite the software version
+used. GitHub can generate a formatted citation from
+[`CITATION.cff`](CITATION.cff). A publication-specific DOI can be added after
+the first archived release.
+
+For version 1.1.0, the preferred software citation is:
+
+> Hahn, J., & Möbes, G. (2026). *OCTview3R* (Version 1.1.0)
+> [Computer software]. https://github.com/janlazer/UKE-OCTview3R
+
+Please also cite the associated scientific paper once one has been
+published and added to this section.
+
 ## Project Structure
 
 ```text
@@ -155,8 +198,15 @@ OCTview3R/
   openpoly.cpp/.h/.ui    Polygonal-data import dialog
   OCTview3R.ui           Main Qt Designer form
   Resources/             Icons and color-map resources
-  ImageData/             Example volume and geometry data
+  ImageData/             Non-medical example data and provenance notes
 ```
+
+## Versioning and releases
+
+OCTview3R follows [Semantic Versioning](https://semver.org/). The first
+public release is prepared as **v1.1.0**. Release notes are maintained in
+[`CHANGELOG.md`](CHANGELOG.md); packaged binaries should be built from the
+matching Git tag so source and executable versions remain traceable.
 
 ## Development Status
 
@@ -175,5 +225,12 @@ VTK smart pointers over additional raw-pointer ownership.
 
 ## License
 
-No license file is currently included. Add an appropriate license before
-redistributing or reusing the project outside its intended environment.
+OCTview3R is free software licensed under the
+[GNU General Public License version 3 only](LICENSE) (`GPL-3.0-only`). You may
+use, study, modify, and redistribute it under those terms. The software is
+provided without warranty.
+
+Copyright © Jan Hahn, Giovanno Möbes, and OCTview3R contributors.
+
+Files that carry a separate license notice remain governed by that notice.
+See [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) for details.

@@ -1,0 +1,27 @@
+cff-version: 1.2.0
+message: "If you use OCTview3R in research, please cite the software version and the associated paper when available."
+title: "OCTview3R"
+type: software
+authors:
+  - family-names: "Hahn"
+    given-names: "Jan"
+    orcid: "https://orcid.org/0000-0003-3416-636X"
+    affiliation: "University Medical Center Hamburg-Eppendorf (UKE)"
+  - family-names: "Möbes"
+    given-names: "Giovanno"
+    affiliation: "Laser Zentrum Hannover e.V. (LZH)"
+version: "1.1.0"
+repository-code: "https://github.com/janlazer/UKE-OCTview3R"
+url: "https://github.com/janlazer/UKE-OCTview3R"
+license: "GPL-3.0-only"
+keywords:
+  - optical coherence tomography
+  - OCT
+  - scientific visualization
+  - volume rendering
+  - PolyData
+  - VTK
+  - Qt
+abstract: >-
+  OCTview3R is a Windows desktop application for interactive visualization
+  of volumetric image data and polygonal data sets using Qt and VTK.

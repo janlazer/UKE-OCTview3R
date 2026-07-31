@@ -62,6 +62,12 @@ TestResults/
 *.cache
 ~$*
 
+# Research data exports excluded from the public example-data set
+OCTview3R/ImageData/**/*.vtk
+OCTview3R/ImageData/**/*.vti
+OCTview3R/ImageData/**/*.vtp
+OCTview3R/ImageData/**/*.vtr
+
 # OS metadata
 .DS_Store
 Thumbs.db

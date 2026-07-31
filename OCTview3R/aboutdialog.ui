@@ -6,14 +6,14 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>440</width>
-    <height>300</height>
+    <width>480</width>
+    <height>450</height>
    </rect>
   </property>
   <property name="minimumSize">
    <size>
-    <width>400</width>
-    <height>280</height>
+    <width>440</width>
+    <height>420</height>
    </size>
   </property>
   <property name="windowTitle">
@@ -82,6 +82,47 @@
      </property>
      <property name="alignment">
       <set>Qt::AlignCenter</set>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <widget class="QGroupBox" name="authorsGroup">
+     <property name="title">
+      <string>Authors</string>
+     </property>
+     <layout class="QVBoxLayout" name="authorsLayout">
+      <item>
+       <widget class="QLabel" name="authorsLabel">
+        <property name="text">
+         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p align=&quot;center&quot;&gt;Jan Hahn — UKE (&lt;a href=&quot;https://orcid.org/0000-0003-3416-636X&quot;&gt;&lt;span style=&quot; text-decoration: underline; color:#0078d4;&quot;&gt;ORCID 0000-0003-3416-636X&lt;/span&gt;&lt;/a&gt;)&lt;br/&gt;Giovanno Möbes — Laser Zentrum Hannover e.V. (LZH)&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+        </property>
+        <property name="openExternalLinks">
+         <bool>true</bool>
+        </property>
+        <property name="alignment">
+         <set>Qt::AlignCenter</set>
+        </property>
+        <property name="wordWrap">
+         <bool>true</bool>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <widget class="QLabel" name="licenseLabel">
+     <property name="text">
+      <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p align=&quot;center&quot;&gt;Copyright © Jan Hahn, Giovanno Möbes, and contributors.&lt;br/&gt;Licensed under &lt;a href=&quot;https://github.com/janlazer/UKE-OCTview3R/blob/main/LICENSE&quot;&gt;&lt;span style=&quot; text-decoration: underline; color:#0078d4;&quot;&gt;GNU GPL v3.0 only&lt;/span&gt;&lt;/a&gt;.&lt;br/&gt;This software comes with absolutely no warranty.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+     </property>
+     <property name="openExternalLinks">
+      <bool>true</bool>
+     </property>
+     <property name="alignment">
+      <set>Qt::AlignCenter</set>
+     </property>
+     <property name="wordWrap">
+      <bool>true</bool>
      </property>
     </widget>
    </item>
