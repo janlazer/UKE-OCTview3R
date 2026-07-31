@@ -8,6 +8,20 @@ The repository contains the application sources, Qt Designer forms, icons,
 and a small collection of example data sets. The included TIFF volumes are
 OCT scans of a cherry and contain no human or clinical data.
 
+## Screenshots
+
+![OCTview3R rendering a non-medical cherry OCT volume in the dark interface theme](docs/images/octview3r-cherry-volume.png)
+
+*Volume rendering of the included non-medical cherry OCT data set. The viewer
+is shown with the optional dark interface theme, dataset metadata, rendering
+controls, transform settings, and crop ranges.*
+
+<p align="center">
+  <img src="docs/images/octview3r-about.png" width="480" alt="OCTview3R About dialog showing version 1.1.0, authors, license, and acknowledgements">
+</p>
+
+<p align="center"><em>Version, authorship, licensing, and acknowledgements in the About dialog.</em></p>
+
 ## Features
 
 - Volume rendering for RAW, TIFF, JPEG stack, and legacy VTK image data
