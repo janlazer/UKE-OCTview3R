@@ -54,6 +54,8 @@ packages/
 
 # Test, coverage, and temporary output
 TestResults/
+/tmp/
+/output/
 *.opendb
 *.tmp
 *.temp
@@ -67,6 +69,12 @@ OCTview3R/ImageData/**/*.vtk
 OCTview3R/ImageData/**/*.vti
 OCTview3R/ImageData/**/*.vtp
 OCTview3R/ImageData/**/*.vtr
+
+# Local manuscript sources supplied for drafting (not for redistribution)
+/2020-04-21_TEWISS-Verlag - Dissertation - Jan Hahn_korrigiert.pdf
+/Projektarbeit 2 Giovanno Möbes.pdf
+/paper/2020-04-21_TEWISS-Verlag - Dissertation - Jan Hahn_korrigiert.pdf
+/paper/Projektarbeit 2 Giovanno Möbes.pdf
 
 # OS metadata
 .DS_Store

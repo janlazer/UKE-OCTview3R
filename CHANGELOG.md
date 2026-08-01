@@ -20,6 +20,7 @@ uses [Semantic Versioning](https://semver.org/).
 - Synchronized planes with object rotation, translation, and scaling.
 - Improved loading validation and error reporting for volume and PolyData input.
 - Standardized the application version as 1.1.0.
+- Corrected author and historical affiliation metadata.
 
 ### Removed
 

@@ -168,14 +168,17 @@ input files supplied by users.
 
 ## Authors
 
-- **Jan Hahn** — University Medical Center Hamburg-Eppendorf (UKE),
-  [ORCID 0000-0003-3416-636X](https://orcid.org/0000-0003-3416-636X)
-- **Giovanno Möbes** — Laser Zentrum Hannover e.V. (LZH; affiliation at the
-  time of contribution)
+- **Jan Hahn** — Laser Zentrum Hannover e.V. (LZH; affiliation during
+  development) and University Medical Center Hamburg-Eppendorf (UKE; current
+  affiliation), [ORCID 0000-0003-3416-636X](https://orcid.org/0000-0003-3416-636X)
+- **Giovanno Möbes** — Laser Zentrum Hannover e.V. (LZH; affiliation during
+  development)
+- **Tammo Ripken** — Laser Zentrum Hannover e.V. (LZH; affiliation during
+  development)
 
-OCTview3R was developed privately by its authors. The affiliations provide
-scientific context and do not designate institutional copyright ownership.
-Further information is available in [`AUTHORS.md`](AUTHORS.md).
+OCTview3R was developed privately. The affiliations provide scientific
+context and do not designate institutional copyright ownership. Further
+information is available in [`AUTHORS.md`](AUTHORS.md).
 
 ## Citation
 
@@ -186,7 +189,7 @@ the first archived release.
 
 For version 1.1.0, the preferred software citation is:
 
-> Hahn, J., & Möbes, G. (2026). *OCTview3R* (Version 1.1.0)
+> Hahn, J., Möbes, G., & Ripken, T. (2026). *OCTview3R* (Version 1.1.0)
 > [Computer software]. https://github.com/janlazer/UKE-OCTview3R
 
 Please also cite the associated scientific paper once one has been
@@ -244,7 +247,7 @@ OCTview3R is free software licensed under the
 use, study, modify, and redistribute it under those terms. The software is
 provided without warranty.
 
-Copyright © Jan Hahn, Giovanno Möbes, and OCTview3R contributors.
+Copyright © Jan Hahn, Giovanno Möbes, Tammo Ripken, and OCTview3R contributors.
 
 Files that carry a separate license notice remain governed by that notice.
 See [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) for details.

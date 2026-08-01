@@ -94,7 +94,7 @@
       <item>
        <widget class="QLabel" name="authorsLabel">
         <property name="text">
-         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p align=&quot;center&quot;&gt;Jan Hahn — UKE (&lt;a href=&quot;https://orcid.org/0000-0003-3416-636X&quot;&gt;&lt;span style=&quot; text-decoration: underline; color:#0078d4;&quot;&gt;ORCID 0000-0003-3416-636X&lt;/span&gt;&lt;/a&gt;)&lt;br/&gt;Giovanno Möbes — Laser Zentrum Hannover e.V. (LZH)&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p align=&quot;center&quot;&gt;Jan Hahn — LZH during development; UKE current (&lt;a href=&quot;https://orcid.org/0000-0003-3416-636X&quot;&gt;&lt;span style=&quot; text-decoration: underline; color:#0078d4;&quot;&gt;ORCID 0000-0003-3416-636X&lt;/span&gt;&lt;/a&gt;)&lt;br/&gt;Giovanno Möbes — Laser Zentrum Hannover e.V. (LZH)&lt;br/&gt;Tammo Ripken — Laser Zentrum Hannover e.V. (LZH)&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
         </property>
         <property name="openExternalLinks">
          <bool>true</bool>
@@ -113,7 +113,7 @@
    <item>
     <widget class="QLabel" name="licenseLabel">
      <property name="text">
-      <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p align=&quot;center&quot;&gt;Copyright © Jan Hahn, Giovanno Möbes, and contributors.&lt;br/&gt;Licensed under &lt;a href=&quot;https://github.com/janlazer/UKE-OCTview3R/blob/main/LICENSE&quot;&gt;&lt;span style=&quot; text-decoration: underline; color:#0078d4;&quot;&gt;GNU GPL v3.0 only&lt;/span&gt;&lt;/a&gt;.&lt;br/&gt;This software comes with absolutely no warranty.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+      <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p align=&quot;center&quot;&gt;Copyright © Jan Hahn, Giovanno Möbes, Tammo Ripken, and contributors.&lt;br/&gt;Licensed under &lt;a href=&quot;https://github.com/janlazer/UKE-OCTview3R/blob/main/LICENSE&quot;&gt;&lt;span style=&quot; text-decoration: underline; color:#0078d4;&quot;&gt;GNU GPL v3.0 only&lt;/span&gt;&lt;/a&gt;.&lt;br/&gt;This software comes with absolutely no warranty.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
      </property>
      <property name="openExternalLinks">
       <bool>true</bool>
