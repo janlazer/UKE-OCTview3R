@@ -58,8 +58,6 @@ The current project configuration targets the following toolchain:
 - VTK 8.2.0 built for x64 with Qt and OpenGL support
 
 Qt and VTK must use ABI-compatible compiler and runtime settings.
-This matches the VTK, Qt, and MSVC configuration used by the
-`OpticalSampleScannerJob` in `UKE-smartLab`.
 
 ## Building
 
