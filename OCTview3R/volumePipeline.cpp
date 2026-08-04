@@ -36,14 +36,6 @@ double clamp01(double value)
 	return std::max(0.0, std::min(1.0, value));
 }
 
-double normalizedScalar(const ImageData& data, double scalar)
-{
-	const double range = static_cast<double>(data.maxValue - data.minValue);
-	return range > 0.0
-		? clamp01((scalar - data.minValue) / range)
-		: 0.0;
-}
-
 Rgb interpolate(const Rgb& first, const Rgb& second, double factor)
 {
 	return {
@@ -126,6 +118,51 @@ void addColorPoint(ImageData& data, double scalar, double normalizedPosition)
 	const Rgb color = colorAt(data, normalizedPosition);
 	data.colorFun->AddRGBPoint(scalar, color[0], color[1], color[2]);
 }
+
+double scalarStep(const ImageData& data)
+{
+	if (data.image == nullptr)
+		return 1.0;
+	const int scalarType = data.image->GetScalarType();
+	if (scalarType != VTK_FLOAT && scalarType != VTK_DOUBLE)
+		return 1.0;
+	const double range = std::abs(
+		static_cast<double>(data.maxValue - data.minValue));
+	return std::max(1e-12, range * 1e-6);
+}
+
+void configureOpacity(
+	ImageData& data,
+	double lower,
+	double upper)
+{
+	data.opacityFun->RemoveAllPoints();
+	data.opacityFun->ClampingOff();
+	const double opacity = clamp01(data.objectOpacity);
+	const double step = scalarStep(data);
+
+	// Zero is the transparent black mask. Values surviving the threshold
+	// receive a constant opacity instead of the previous intensity-dependent
+	// ramp, which made mid-grey voxels look unintentionally translucent.
+	data.opacityFun->AddPoint(0.0, 0.0);
+	if (lower < 0.0)
+	{
+		data.opacityFun->AddPoint(lower, opacity);
+		const double negativeEnd = std::min(upper, -step);
+		if (negativeEnd > lower)
+			data.opacityFun->AddPoint(negativeEnd, opacity);
+	}
+	if (upper > 0.0)
+	{
+		const double positiveStart = std::max(lower, step);
+		if (positiveStart <= upper)
+		{
+			data.opacityFun->AddPoint(positiveStart, opacity);
+			if (upper > positiveStart)
+				data.opacityFun->AddPoint(upper, opacity);
+		}
+	}
+}
 }
 
 void VolumePipeline::update(
@@ -175,41 +212,47 @@ void VolumePipeline::updateTransferFunctions(ImageData& data) const
 	data.colorFun->RemoveAllPoints();
 	data.colorFun->SetColorSpaceToRGB();
 
-	const double lower = data.currentMinThreshold;
-	const double upper = data.currentMaxThreshold > data.currentMinThreshold
+	const double thresholdLower = data.currentMinThreshold;
+	const double thresholdUpper =
+		data.currentMaxThreshold > data.currentMinThreshold
 		? data.currentMaxThreshold
 		: data.currentMinThreshold + 1.0;
+	const double window = std::max(1, data.windowWidth);
+	const double center = static_cast<double>(data.windowLevel) - 0.5;
+	const double windowSpan = std::max(1.0, window - 1.0);
+	auto windowPosition = [center, windowSpan](double scalar) {
+		return clamp01((scalar - center) / windowSpan + 0.5);
+	};
+	auto scalarAtWindowPosition = [center, windowSpan](double position) {
+		return center + (position - 0.5) * windowSpan;
+	};
 	const std::vector<double> stops = gradientStops(data.colormapName);
 
-	if (data.adjustColormap)
+	// Window/level controls the colour mapping only; thresholding and the
+	// zero-opacity mask remain independent. Endpoints at the threshold limits
+	// keep values outside the window saturated instead of turning them black.
+	addColorPoint(data, thresholdLower, windowPosition(thresholdLower));
+	for (double stop : stops)
 	{
-		for (double stop : stops)
-			addColorPoint(data, lower + stop * (upper - lower), stop);
+		const double scalar = scalarAtWindowPosition(stop);
+		if (scalar > thresholdLower && scalar < thresholdUpper)
+			addColorPoint(data, scalar, stop);
 	}
-	else
-	{
-		addColorPoint(data, lower, normalizedScalar(data, lower));
-		const double sourceRange = static_cast<double>(data.maxValue - data.minValue);
-		for (double stop : stops)
-		{
-			if (stop <= 0.0 || stop >= 1.0 || sourceRange <= 0.0)
-				continue;
-			const double scalar = data.minValue + stop * sourceRange;
-			if (scalar > lower && scalar < upper)
-				addColorPoint(data, scalar, stop);
-		}
-		addColorPoint(data, upper, normalizedScalar(data, upper));
-	}
+	addColorPoint(data, thresholdUpper, windowPosition(thresholdUpper));
 	data.colorFun->ClampingOff();
 
-	data.opacityFun->RemoveAllPoints();
-	data.opacityFun->AddSegment(lower, 0.0, upper, data.objectOpacity);
-	data.opacityFun->ClampingOff();
+	configureOpacity(data, thresholdLower, thresholdUpper);
 }
 
 void VolumePipeline::updateImageFilters(ImageData& data) const
 {
-	if (data.dataFormat == DATA_JPEG)
+	// OCT stacks are scalar intensity volumes. Some TIFF and JPEG writers
+	// store visually greyscale data as RGB. Passing those three components
+	// directly to vtkVolume makes VTK render them independently, while the
+	// opacity transfer function below controls only the first component.
+	// Convert RGB input to one luminance component before thresholding so
+	// masked voxels are transparent instead of appearing black.
+	if (data.image->GetNumberOfScalarComponents() == 3)
 	{
 		data.luminance->SetInputData(data.image);
 		data.extractVOI->SetInputConnection(data.luminance->GetOutputPort());
@@ -227,8 +270,11 @@ void VolumePipeline::updateImageFilters(ImageData& data) const
 	data.threshold->ThresholdBetween(
 		static_cast<double>(data.currentMinThreshold),
 		static_cast<double>(data.currentMaxThreshold));
+	// Preserve every accepted source intensity so the original greyscale is
+	// rendered. Only rejected voxels are replaced by the transparent mask.
+	data.threshold->ReplaceInOff();
 	data.threshold->ReplaceOutOn();
-	data.threshold->SetOutValue(0);
+	data.threshold->SetOutValue(0.0);
 	data.threshold->Update();
 }
 
@@ -257,6 +303,10 @@ void VolumePipeline::updatePlane(
 	}
 
 	data.colorMap->SetLookupTable(data.colorFun);
+	// Planes deliberately use only the colour transfer function: black plane
+	// pixels stay opaque, independently of the volume's zero-opacity mask.
+	data.colorMap->SetOutputFormatToRGBA();
+	data.colorMap->PassAlphaToOutputOff();
 	data.planeWidget->SetColorMap(data.colorMap);
 	data.median->SetInputConnection(data.threshold->GetOutputPort());
 	data.median->SetKernelSize(

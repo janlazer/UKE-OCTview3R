@@ -73,7 +73,8 @@ struct ImageData
 	double shift[3] = {};
 	double scale[3] = { 1.0, 1.0, 1.0 };
 	double spacing[3] = { 1.0, 1.0, 1.0 };
-	double objectOpacity = 0.5;
+	unsigned int spacingInMillimetresMask = 0;
+	double objectOpacity = 1.0;
 	double polyGloss = 0.1;
 	bool showObject = false;
 
@@ -90,6 +91,8 @@ struct ImageData
 	int maxValue = 255;
 	int currentMinThreshold = 0;
 	int currentMaxThreshold = 255;
+	int windowWidth = 256;
+	int windowLevel = 128;
 
 	bool showPlane = false;
 	double planeOrigin[3] = {};

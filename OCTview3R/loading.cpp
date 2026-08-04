@@ -1,5 +1,6 @@
 #include "loading.h"
 
+#include "legacyVtkCompatibility.h"
 #include "opendata.h"
 #include "openpoly.h"
 
@@ -12,6 +13,7 @@
 #include <vtkAlgorithm.h>
 #include <vtkBYUReader.h>
 #include <vtkCallbackCommand.h>
+#include <vtkCharArray.h>
 #include <vtkCleanPolyData.h>
 #include <vtkCommand.h>
 #include <vtkDelaunay3D.h>
@@ -286,16 +288,16 @@ namespace
 		return true;
 	}
 
-	void applyTiffCalibrationInMillimetres(
+	unsigned int applyTiffCalibrationInMillimetres(
 		const QString& fileName,
 		vtkImageData* image)
 	{
 		if (image == nullptr)
-			return;
+			return 0;
 
 		TiffCalibrationTags tags;
 		if (!readTiffCalibrationTags(fileName, tags))
-			return;
+			return 0;
 
 		const double descriptionUnitToMm = millimetresPerUnit(
 			tiffMetadataValue(tags.description, QStringLiteral("unit")));
@@ -309,20 +311,20 @@ namespace
 
 		double spacing[3] = { 1.0, 1.0, 1.0 };
 		image->GetSpacing(spacing);
-		bool hasPhysicalCalibration = false;
+		unsigned int calibratedAxes = 0;
 		if (tags.hasXResolution &&
 			tags.xResolution > 0.0 &&
 			resolutionUnitToMm > 0.0)
 		{
 			spacing[0] = resolutionUnitToMm / tags.xResolution;
-			hasPhysicalCalibration = true;
+			calibratedAxes |= 1U << 0;
 		}
 		if (tags.hasYResolution &&
 			tags.yResolution > 0.0 &&
 			resolutionUnitToMm > 0.0)
 		{
 			spacing[1] = resolutionUnitToMm / tags.yResolution;
-			hasPhysicalCalibration = true;
+			calibratedAxes |= 1U << 1;
 		}
 
 		double sliceSpacing = 0.0;
@@ -334,11 +336,12 @@ namespace
 			sliceSpacing > 0.0)
 		{
 			spacing[2] = descriptionUnitToMm * sliceSpacing;
-			hasPhysicalCalibration = true;
+			calibratedAxes |= 1U << 2;
 		}
 
-		if (hasPhysicalCalibration)
+		if (calibratedAxes != 0)
 			image->SetSpacing(spacing);
+		return calibratedAxes;
 	}
 }
 
@@ -469,7 +472,8 @@ void loading::loadData()
 		output = reader->GetOutput();
 		if (hasUsableImage(output))
 		{
-			applyTiffCalibrationInMillimetres(m_fileName, output);
+			m_spacingInMillimetresMask =
+				applyTiffCalibrationInMillimetres(m_fileName, output);
 			output->SetOrigin(0.0, 0.0, 0.0);
 			m_data = vtkSmartPointer<vtkImageData>::New();
 			m_data->ShallowCopy(output);
@@ -556,7 +560,7 @@ void loading::loadData()
 	// Transfer one reference across the queued Qt connection. The GUI slot
 	// adopts it into a vtkSmartPointer and releases this transfer reference.
 	m_data->Register(nullptr);
-	emit dataLoaded(m_data);
+	emit dataLoaded(m_data, m_spacingInMillimetresMask);
 	emit finished();
 }
 
@@ -606,8 +610,29 @@ void loading::loadPoly()
 	}
 	case polyType::POLY_VTK:
 	{
+		legacyVtkCompatibility::PreparedInput prepared =
+			legacyVtkCompatibility::preparePolyDataForVtk82(m_fileName);
+		if (prepared.mode == legacyVtkCompatibility::InputMode::Error)
+		{
+			reportFailure(prepared.error);
+			return;
+		}
+
 		auto reader = vtkSmartPointer<vtkPolyDataReader>::New();
-		reader->SetFileName(m_fileName.toLocal8Bit().constData());
+		if (prepared.mode == legacyVtkCompatibility::InputMode::UseConvertedData)
+		{
+			auto inputArray = vtkSmartPointer<vtkCharArray>::New();
+			inputArray->SetArray(
+				prepared.data.data(),
+				prepared.data.size(),
+				1);
+			reader->ReadFromInputStringOn();
+			reader->SetInputArray(inputArray);
+		}
+		else
+		{
+			reader->SetFileName(m_fileName.toLocal8Bit().constData());
+		}
 		updateWithProgress(reader, 5, 99);
 		output = reader->GetOutput();
 		break;

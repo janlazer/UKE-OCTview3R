@@ -137,6 +137,71 @@ VTK_MODULE_INIT(vtkRenderingFreeType);
 #include <memory>
 #include <vector>
 
+namespace
+{
+	constexpr double micrometresPerMillimetre = 1000.0;
+
+	QString micrometreUnit()
+	{
+		return QString(QChar(0x00B5)) + QStringLiteral("m");
+	}
+
+	QString spacingDisplayValue(const ImageData& data, int axis)
+	{
+		if ((data.spacingInMillimetresMask & (1U << axis)) != 0)
+		{
+			return QStringLiteral("%1 %2/voxel")
+				.arg(micrometresPerMillimetre * data.spacing[axis], 0, 'g', 6)
+				.arg(micrometreUnit());
+		}
+		return QStringLiteral("%1 voxel unit")
+			.arg(data.spacing[axis], 0, 'g', 6);
+	}
+
+	bool cropAxisIsCalibrated(const ImageData& data, int axis)
+	{
+		return data.isVolume && axis >= 0 && axis < 3 &&
+			(data.spacingInMillimetresMask & (1U << axis)) != 0 &&
+			data.image != nullptr && data.spacing[axis] > 0.0;
+	}
+
+	double cropDisplayValue(const ImageData& data, int axis, double voxelIndex)
+	{
+		if (!cropAxisIsCalibrated(data, axis))
+			return voxelIndex;
+		double origin[3] = {};
+		data.image->GetOrigin(origin);
+		return micrometresPerMillimetre *
+			(origin[axis] + voxelIndex * data.spacing[axis]);
+	}
+
+	double cropVoxelIndex(const ImageData& data, int axis, double displayValue)
+	{
+		if (!cropAxisIsCalibrated(data, axis))
+			return displayValue;
+		double origin[3] = {};
+		data.image->GetOrigin(origin);
+		const double valueInMillimetres =
+			displayValue / micrometresPerMillimetre;
+		return std::round(
+			(valueInMillimetres - origin[axis]) / data.spacing[axis]);
+	}
+
+	double cropStep(const ImageData& data, int axis)
+	{
+		if (cropAxisIsCalibrated(data, axis))
+			return micrometresPerMillimetre * data.spacing[axis];
+		return data.isPolyData ? 0.01 : 1.0;
+	}
+
+	double cropMinimumGap(const ImageData& data, int axis)
+	{
+		if (cropAxisIsCalibrated(data, axis))
+			return micrometresPerMillimetre * data.spacing[axis];
+		return data.isPolyData ? 0.0001 : 1.0;
+	}
+}
+
 OCTview3R::OCTview3R()
 	: cam(nullptr),
 	  statusLabel(nullptr),
@@ -217,6 +282,8 @@ OCTview3R::OCTview3R()
 	connect(this->ui->Slider_minThreshold, SIGNAL(sliderReleased()), this, SLOT(slotSetThreshold()));
 	connect(this->ui->Slider_maxThreshold, SIGNAL(sliderReleased()), this, SLOT(slotSetThreshold()));
 	connect(this->ui->Slider_objectOpacity, SIGNAL(valueChanged(int)), this, SLOT(slotSetObjectOpacity(int)));
+	connect(this->ui->Slider_windowWidth, SIGNAL(valueChanged(int)), this, SLOT(slotSetWindowWidth(int)));
+	connect(this->ui->Slider_windowLevel, SIGNAL(valueChanged(int)), this, SLOT(slotSetWindowLevel(int)));
 	connect(this->ui->Slider_polyGloss, SIGNAL(valueChanged(int)), this, SLOT(slotSetPolyGloss(int)));
 	connect(this->ui->comboBox_colormapStyle, SIGNAL(currentIndexChanged(QString)), this, SLOT(slotSetColormap(QString)));
 	connect(this->ui->pushButton_pickPolyColor, SIGNAL(clicked()), this, SLOT(slotPickPolyColor()));
@@ -357,6 +424,26 @@ void OCTview3R::setupNumericEditors()
 		ui->opacitySpinBox,
 		QOverload<int>::of(&QSpinBox::valueChanged),
 		ui->Slider_objectOpacity,
+		&QSlider::setValue);
+	connect(
+		ui->Slider_windowWidth,
+		&QSlider::valueChanged,
+		ui->windowWidthSpinBox,
+		&QSpinBox::setValue);
+	connect(
+		ui->windowWidthSpinBox,
+		QOverload<int>::of(&QSpinBox::valueChanged),
+		ui->Slider_windowWidth,
+		&QSlider::setValue);
+	connect(
+		ui->Slider_windowLevel,
+		&QSlider::valueChanged,
+		ui->windowLevelSpinBox,
+		&QSpinBox::setValue);
+	connect(
+		ui->windowLevelSpinBox,
+		QOverload<int>::of(&QSpinBox::valueChanged),
+		ui->Slider_windowLevel,
 		&QSlider::setValue);
 	connect(
 		ui->Slider_polyGloss,
@@ -677,6 +764,29 @@ void OCTview3R::setRangesPending(bool pending)
 	ui->pushButton_render->update();
 }
 
+void OCTview3R::applyAutomaticWindowLevel()
+{
+	if (activeImageData == nullptr || !activeImageData->isVolume)
+		return;
+
+	activeImageData->windowWidth = std::max(
+		1,
+		activeImageData->currentMaxThreshold -
+			activeImageData->currentMinThreshold + 1);
+	activeImageData->windowLevel = static_cast<int>(std::round(
+		0.5 * (static_cast<double>(activeImageData->currentMinThreshold) +
+			activeImageData->currentMaxThreshold + 1.0)));
+
+	const QSignalBlocker blockWindowSlider(ui->Slider_windowWidth);
+	const QSignalBlocker blockWindowSpinBox(ui->windowWidthSpinBox);
+	const QSignalBlocker blockLevelSlider(ui->Slider_windowLevel);
+	const QSignalBlocker blockLevelSpinBox(ui->windowLevelSpinBox);
+	ui->Slider_windowWidth->setValue(activeImageData->windowWidth);
+	ui->windowWidthSpinBox->setValue(activeImageData->windowWidth);
+	ui->Slider_windowLevel->setValue(activeImageData->windowLevel);
+	ui->windowLevelSpinBox->setValue(activeImageData->windowLevel);
+}
+
 void OCTview3R::updateRangePresentation()
 {
 	if (!activeImageData)
@@ -684,10 +794,16 @@ void OCTview3R::updateRangePresentation()
 		rangeGroupBox->setTitle(tr("Crop ranges"));
 		return;
 	}
-	rangeGroupBox->setTitle(
-		activeImageData->isVolume
-			? tr("Crop ranges (voxel indices)")
-			: tr("Crop ranges (data coordinates)"));
+	if (activeImageData->isPolyData)
+		rangeGroupBox->setTitle(tr("Crop ranges (data coordinates)"));
+	else if (activeImageData->spacingInMillimetresMask == 0x7U)
+		rangeGroupBox->setTitle(
+			tr("Crop ranges (%1)").arg(micrometreUnit()));
+	else if (activeImageData->spacingInMillimetresMask != 0)
+		rangeGroupBox->setTitle(
+			tr("Crop ranges (%1 where calibrated)").arg(micrometreUnit()));
+	else
+		rangeGroupBox->setTitle(tr("Crop ranges (voxel indices)"));
 }
 
 void OCTview3R::updateMetadata()
@@ -714,10 +830,10 @@ void OCTview3R::updateMetadata()
 			.arg(activeImageData->width)
 			.arg(activeImageData->height)
 			.arg(activeImageData->depth);
-		text += tr("Spacing: %1, %2, %3\n")
-			.arg(activeImageData->spacing[0], 0, 'g', 6)
-			.arg(activeImageData->spacing[1], 0, 'g', 6)
-			.arg(activeImageData->spacing[2], 0, 'g', 6);
+		text += tr("Spacing: X %1, Y %2, Z %3\n")
+			.arg(spacingDisplayValue(*activeImageData, 0))
+			.arg(spacingDisplayValue(*activeImageData, 1))
+			.arg(spacingDisplayValue(*activeImageData, 2));
 		text += tr("Scalars: %1, %2 component(s), range [%3, %4]")
 			.arg(QString::fromLatin1(activeImageData->image->GetScalarTypeAsString()))
 			.arg(activeImageData->image->GetNumberOfScalarComponents())
@@ -841,55 +957,51 @@ void OCTview3R::slotSetImageData(ImageData* data)
 		this->ui->groupBox_object->setEnabled(true);
 		const bool rangesSupported =
 			activeImageData->isVolume || activeImageData->isPolyData;
-		const int rangeDecimals = activeImageData->isPolyData ? 4 : 0;
-		const double rangeStep = activeImageData->isPolyData ? 0.01 : 1.0;
-		const double minimumGap = activeImageData->isPolyData ? 0.0001 : 1.0;
-		this->ui->x0DoubleSpinBox->setDecimals(rangeDecimals);
-		this->ui->x1DoubleSpinBox->setDecimals(rangeDecimals);
-		this->ui->y0DoubleSpinBox->setDecimals(rangeDecimals);
-		this->ui->y1DoubleSpinBox->setDecimals(rangeDecimals);
-		this->ui->z0DoubleSpinBox->setDecimals(rangeDecimals);
-		this->ui->z1DoubleSpinBox->setDecimals(rangeDecimals);
-		this->ui->x0DoubleSpinBox->setSingleStep(rangeStep);
-		this->ui->x1DoubleSpinBox->setSingleStep(rangeStep);
-		this->ui->y0DoubleSpinBox->setSingleStep(rangeStep);
-		this->ui->y1DoubleSpinBox->setSingleStep(rangeStep);
-		this->ui->z0DoubleSpinBox->setSingleStep(rangeStep);
-		this->ui->z1DoubleSpinBox->setSingleStep(rangeStep);
-		this->ui->x0DoubleSpinBox->setEnabled(rangesSupported);
-		this->ui->x1DoubleSpinBox->setEnabled(rangesSupported);
-		this->ui->y0DoubleSpinBox->setEnabled(rangesSupported);
-		this->ui->y1DoubleSpinBox->setEnabled(rangesSupported);
-		this->ui->z0DoubleSpinBox->setEnabled(rangesSupported);
-		this->ui->z1DoubleSpinBox->setEnabled(rangesSupported);
+		QDoubleSpinBox* lowerRangeControls[3] = {
+			ui->x0DoubleSpinBox, ui->y0DoubleSpinBox, ui->z0DoubleSpinBox
+		};
+		QDoubleSpinBox* upperRangeControls[3] = {
+			ui->x1DoubleSpinBox, ui->y1DoubleSpinBox, ui->z1DoubleSpinBox
+		};
+		QLabel* rangeLabels[3] = { ui->xLabel, ui->yLabel, ui->zLabel };
+		for (int axis = 0; axis < 3; ++axis)
+		{
+			const int lowerIndex = 2 * axis;
+			const int upperIndex = lowerIndex + 1;
+			const int decimals = cropAxisIsCalibrated(*activeImageData, axis)
+				? 2
+				: (activeImageData->isPolyData ? 4 : 0);
+			const QString suffix = cropAxisIsCalibrated(*activeImageData, axis)
+				? QStringLiteral(" ") + micrometreUnit()
+				: QString();
+			const double step = cropStep(*activeImageData, axis);
+			const double gap = cropMinimumGap(*activeImageData, axis);
+			const double sourceLower = cropDisplayValue(
+				*activeImageData, axis, activeImageData->sourceVOI[lowerIndex]);
+			const double sourceUpper = cropDisplayValue(
+				*activeImageData, axis, activeImageData->sourceVOI[upperIndex]);
+			const double currentLower = cropDisplayValue(
+				*activeImageData, axis, activeImageData->VOI[lowerIndex]);
+			const double currentUpper = cropDisplayValue(
+				*activeImageData, axis, activeImageData->VOI[upperIndex]);
+
+			lowerRangeControls[axis]->setDecimals(decimals);
+			upperRangeControls[axis]->setDecimals(decimals);
+			lowerRangeControls[axis]->setSuffix(suffix);
+			upperRangeControls[axis]->setSuffix(suffix);
+			lowerRangeControls[axis]->setSingleStep(step);
+			upperRangeControls[axis]->setSingleStep(step);
+			lowerRangeControls[axis]->setEnabled(rangesSupported);
+			upperRangeControls[axis]->setEnabled(rangesSupported);
+			lowerRangeControls[axis]->setRange(sourceLower, sourceUpper - gap);
+			upperRangeControls[axis]->setRange(sourceLower + gap, sourceUpper);
+			lowerRangeControls[axis]->setValue(currentLower);
+			upperRangeControls[axis]->setValue(currentUpper);
+			rangeLabels[axis]->setText(
+				"[" + QString::number(sourceLower, 'f', 2) +
+				"," + QString::number(sourceUpper, 'f', 2) + "]");
+		}
 		this->ui->pushButton_render->setEnabled(rangesSupported);
-		this->ui->x0DoubleSpinBox->setMinimum(activeImageData->sourceVOI[0]);
-		this->ui->x0DoubleSpinBox->setMaximum(activeImageData->sourceVOI[1] - minimumGap);
-		this->ui->x0DoubleSpinBox->setValue(activeImageData->VOI[0]);
-		this->ui->x1DoubleSpinBox->setMinimum(activeImageData->sourceVOI[0] + minimumGap);
-		this->ui->x1DoubleSpinBox->setMaximum(activeImageData->sourceVOI[1]);
-		this->ui->x1DoubleSpinBox->setValue(activeImageData->VOI[1]);
-		this->ui->y0DoubleSpinBox->setMinimum(activeImageData->sourceVOI[2]);
-		this->ui->y0DoubleSpinBox->setMaximum(activeImageData->sourceVOI[3] - minimumGap);
-		this->ui->y0DoubleSpinBox->setValue(activeImageData->VOI[2]);
-		this->ui->y1DoubleSpinBox->setMinimum(activeImageData->sourceVOI[2] + minimumGap);
-		this->ui->y1DoubleSpinBox->setMaximum(activeImageData->sourceVOI[3]);
-		this->ui->y1DoubleSpinBox->setValue(activeImageData->VOI[3]);
-		this->ui->z0DoubleSpinBox->setMinimum(activeImageData->sourceVOI[4]);
-		this->ui->z0DoubleSpinBox->setMaximum(activeImageData->sourceVOI[5] - minimumGap);
-		this->ui->z0DoubleSpinBox->setValue(activeImageData->VOI[4]);
-		this->ui->z1DoubleSpinBox->setMinimum(activeImageData->sourceVOI[4] + minimumGap);
-		this->ui->z1DoubleSpinBox->setMaximum(activeImageData->sourceVOI[5]);
-		this->ui->z1DoubleSpinBox->setValue(activeImageData->VOI[5]);
-		this->ui->xLabel->setText(
-			"[" + QString::number(activeImageData->sourceVOI[0], 'f', 2) +
-			"," + QString::number(activeImageData->sourceVOI[1], 'f', 2) + "]");
-		this->ui->yLabel->setText(
-			"[" + QString::number(activeImageData->sourceVOI[2], 'f', 2) +
-			"," + QString::number(activeImageData->sourceVOI[3], 'f', 2) + "]");
-		this->ui->zLabel->setText(
-			"[" + QString::number(activeImageData->sourceVOI[4], 'f', 2) +
-			"," + QString::number(activeImageData->sourceVOI[5], 'f', 2) + "]");
 		{
 			const QSignalBlocker blockRotX(this->ui->rotXDoubleSpinBox);
 			const QSignalBlocker blockRotY(this->ui->rotYDoubleSpinBox);
@@ -918,6 +1030,28 @@ void OCTview3R::slotSetImageData(ImageData* data)
 		this->ui->pushButton_pickVolumeColor->setStyleSheet("background-color: "+activeImageData->volumeColor.name());
 		this->ui->Slider_objectOpacity->setValue(int(100*activeImageData->objectOpacity));
 		this->opacitySpinBox->setValue(this->ui->Slider_objectOpacity->value());
+		const bool windowLevelSupported = activeImageData->isVolume;
+		const int maximumWindow = std::max(
+			1,
+			activeImageData->maxValue - activeImageData->minValue + 1);
+		this->ui->label_windowWidth->setEnabled(windowLevelSupported);
+		this->ui->Slider_windowWidth->setEnabled(windowLevelSupported);
+		this->ui->windowWidthSpinBox->setEnabled(windowLevelSupported);
+		this->ui->label_windowLevel->setEnabled(windowLevelSupported);
+		this->ui->Slider_windowLevel->setEnabled(windowLevelSupported);
+		this->ui->windowLevelSpinBox->setEnabled(windowLevelSupported);
+		this->ui->Slider_windowWidth->setRange(1, maximumWindow);
+		this->ui->windowWidthSpinBox->setRange(1, maximumWindow);
+		this->ui->Slider_windowLevel->setRange(
+			activeImageData->minValue,
+			activeImageData->maxValue);
+		this->ui->windowLevelSpinBox->setRange(
+			activeImageData->minValue,
+			activeImageData->maxValue);
+		this->ui->Slider_windowWidth->setValue(activeImageData->windowWidth);
+		this->ui->windowWidthSpinBox->setValue(activeImageData->windowWidth);
+		this->ui->Slider_windowLevel->setValue(activeImageData->windowLevel);
+		this->ui->windowLevelSpinBox->setValue(activeImageData->windowLevel);
 		this->ui->Slider_polyGloss->setEnabled(activeImageData->isPolyData);
 		this->ui->label_polyGloss->setEnabled(activeImageData->isPolyData);
 		this->glossSpinBox->setEnabled(activeImageData->isPolyData);
@@ -1061,6 +1195,8 @@ void OCTview3R::slotSetThreshold()
 	   activeImageData->fileLoaded && activeImageData->isVolume){
 		activeImageData->currentMinThreshold = this->ui->Slider_minThreshold->value();
 		activeImageData->currentMaxThreshold = this->ui->Slider_maxThreshold->value();
+		if (activeImageData->adjustColormap)
+			applyAutomaticWindowLevel();
 		markAppearanceDirty();
 		markDataPipelineDirty();
 	refreshViewer();
@@ -1090,7 +1226,9 @@ void OCTview3R::slotOpenPolyFileDialog()
 {
 	openPoly->showDialog();
 }
-void OCTview3R::slotDataFileDialogClosed(vtkImageData* tmpData)
+void OCTview3R::slotDataFileDialogClosed(
+	vtkImageData* tmpData,
+	unsigned int spacingInMillimetresMask)
 {
 	openData->setEnabled(true);
 	if(openData->isValidData() && (tmpData != nullptr)){
@@ -1118,6 +1256,12 @@ void OCTview3R::slotDataFileDialogClosed(vtkImageData* tmpData)
 		data->maxValue		= static_cast<int>(std::ceil(scalarRange[1]));
 		data->currentMinThreshold = data->minValue;
 		data->currentMaxThreshold = data->maxValue;
+		data->windowWidth = std::max(
+			1,
+			data->maxValue - data->minValue + 1);
+		data->windowLevel = static_cast<int>(std::round(
+			0.5 * (static_cast<double>(data->minValue) +
+				data->maxValue + 1.0)));
 		data->VOI[0]		= static_cast<double>(extent[0]);
 		data->VOI[1]		= static_cast<double>(extent[1] + 1);
 		data->VOI[2]		= static_cast<double>(extent[2]);
@@ -1127,6 +1271,7 @@ void OCTview3R::slotDataFileDialogClosed(vtkImageData* tmpData)
 		for (int i = 0; i < 6; ++i)
 			data->sourceVOI[i] = data->VOI[i];
 		tmpData->GetSpacing(data->spacing);
+		data->spacingInMillimetresMask = spacingInMillimetresMask;
 		data->pointSize		= 1;
 		data->fileLoaded	= true;
 		data->poly			= nullptr;
@@ -1359,6 +1504,8 @@ void OCTview3R::slotAdjustColormap(bool value)
 {
 	if(settings.oneFileLoaded && activeImageData != nullptr && activeImageData->fileLoaded){
 		activeImageData->adjustColormap = value;
+		if (value && activeImageData->isVolume)
+			applyAutomaticWindowLevel();
 		markAppearanceDirty();
 	refreshViewer();
 	}
@@ -1489,11 +1636,19 @@ void OCTview3R::slotApplyRanges()
 	   (!activeImageData->isVolume && !activeImageData->isPolyData))
 		return;
 
-	const double requestedVOI[6] = {
+	const double requestedDisplayRange[6] = {
 		ui->x0DoubleSpinBox->value(), ui->x1DoubleSpinBox->value(),
 		ui->y0DoubleSpinBox->value(), ui->y1DoubleSpinBox->value(),
 		ui->z0DoubleSpinBox->value(), ui->z1DoubleSpinBox->value()
 	};
+	double requestedVOI[6] = {};
+	for (int axis = 0; axis < 3; ++axis)
+	{
+		requestedVOI[2 * axis] = cropVoxelIndex(
+			*activeImageData, axis, requestedDisplayRange[2 * axis]);
+		requestedVOI[2 * axis + 1] = cropVoxelIndex(
+			*activeImageData, axis, requestedDisplayRange[2 * axis + 1]);
+	}
 	const bool ordered =
 		requestedVOI[0] < requestedVOI[1] &&
 		requestedVOI[2] < requestedVOI[3] &&
@@ -1514,7 +1669,7 @@ void OCTview3R::slotApplyRanges()
 		QMessageBox::information(
 			this,
 			tr("Invalid ranges"),
-			tr("Each range start must be smaller than its end and remain inside the source extent."));
+			tr("Each range must contain at least one voxel after rounding and remain inside the source extent."));
 		return;
 	}
 
@@ -1526,6 +1681,23 @@ void OCTview3R::slotApplyRanges()
 		activeImageData->VOI[i + 1] = std::min(
 			requestedVOI[i + 1],
 			activeImageData->sourceVOI[i + 1]);
+	}
+	// Reflect the actual voxel boundaries selected after rounding back in the
+	// micrometre controls so the displayed crop always matches VTK's VOI.
+	QDoubleSpinBox* rangeControls[6] = {
+		ui->x0DoubleSpinBox, ui->x1DoubleSpinBox,
+		ui->y0DoubleSpinBox, ui->y1DoubleSpinBox,
+		ui->z0DoubleSpinBox, ui->z1DoubleSpinBox
+	};
+	std::vector<std::unique_ptr<QSignalBlocker>> rangeBlockers;
+	for (QDoubleSpinBox* control : rangeControls)
+		rangeBlockers.emplace_back(std::make_unique<QSignalBlocker>(control));
+	for (int axis = 0; axis < 3; ++axis)
+	{
+		rangeControls[2 * axis]->setValue(cropDisplayValue(
+			*activeImageData, axis, activeImageData->VOI[2 * axis]));
+		rangeControls[2 * axis + 1]->setValue(cropDisplayValue(
+			*activeImageData, axis, activeImageData->VOI[2 * axis + 1]));
 	}
 	if (activeImageData->isVolume)
 	{
@@ -1549,8 +1721,22 @@ void OCTview3R::slotRangesEdited()
 		ui->z0DoubleSpinBox->value(), ui->z1DoubleSpinBox->value()
 	};
 	bool changed = false;
-	for (int i = 0; i < 6; ++i)
-		changed = changed || std::abs(values[i] - activeImageData->VOI[i]) > 1e-9;
+	for (int axis = 0; axis < 3; ++axis)
+	{
+		for (int side = 0; side < 2; ++side)
+		{
+			const int index = 2 * axis + side;
+			const double currentDisplayValue = cropDisplayValue(
+				*activeImageData, axis, activeImageData->VOI[index]);
+			const int decimals = cropAxisIsCalibrated(*activeImageData, axis)
+				? 2
+				: (activeImageData->isPolyData ? 4 : 0);
+			const double displayTolerance =
+				0.5 * std::pow(10.0, -decimals) + 1e-12;
+			changed = changed ||
+				std::abs(values[index] - currentDisplayValue) > displayTolerance;
+		}
+	}
 	setRangesPending(changed);
 }
 
@@ -1558,12 +1744,18 @@ void OCTview3R::slotResetRanges()
 {
 	if (!activeImageData || !activeImageData->fileLoaded)
 		return;
-	ui->x0DoubleSpinBox->setValue(activeImageData->sourceVOI[0]);
-	ui->x1DoubleSpinBox->setValue(activeImageData->sourceVOI[1]);
-	ui->y0DoubleSpinBox->setValue(activeImageData->sourceVOI[2]);
-	ui->y1DoubleSpinBox->setValue(activeImageData->sourceVOI[3]);
-	ui->z0DoubleSpinBox->setValue(activeImageData->sourceVOI[4]);
-	ui->z1DoubleSpinBox->setValue(activeImageData->sourceVOI[5]);
+	QDoubleSpinBox* rangeControls[6] = {
+		ui->x0DoubleSpinBox, ui->x1DoubleSpinBox,
+		ui->y0DoubleSpinBox, ui->y1DoubleSpinBox,
+		ui->z0DoubleSpinBox, ui->z1DoubleSpinBox
+	};
+	for (int axis = 0; axis < 3; ++axis)
+	{
+		rangeControls[2 * axis]->setValue(cropDisplayValue(
+			*activeImageData, axis, activeImageData->sourceVOI[2 * axis]));
+		rangeControls[2 * axis + 1]->setValue(cropDisplayValue(
+			*activeImageData, axis, activeImageData->sourceVOI[2 * axis + 1]));
+	}
 	slotApplyRanges();
 }
 
@@ -1652,6 +1844,40 @@ void OCTview3R::slotSetObjectOpacity(int value)
 		markAppearanceDirty();
 	refreshViewer();
 	}
+}
+
+void OCTview3R::slotSetWindowWidth(int value)
+{
+	if (!settings.oneFileLoaded || activeImageData == nullptr ||
+		!activeImageData->fileLoaded || !activeImageData->isVolume)
+	{
+		return;
+	}
+	activeImageData->windowWidth = std::max(1, value);
+	activeImageData->adjustColormap = false;
+	{
+		const QSignalBlocker blocker(ui->checkBox_adjustColormap);
+		ui->checkBox_adjustColormap->setChecked(false);
+	}
+	markAppearanceDirty();
+	refreshViewer();
+}
+
+void OCTview3R::slotSetWindowLevel(int value)
+{
+	if (!settings.oneFileLoaded || activeImageData == nullptr ||
+		!activeImageData->fileLoaded || !activeImageData->isVolume)
+	{
+		return;
+	}
+	activeImageData->windowLevel = value;
+	activeImageData->adjustColormap = false;
+	{
+		const QSignalBlocker blocker(ui->checkBox_adjustColormap);
+		ui->checkBox_adjustColormap->setChecked(false);
+	}
+	markAppearanceDirty();
+	refreshViewer();
 }
 
 void OCTview3R::slotSetPolyGloss(int value)

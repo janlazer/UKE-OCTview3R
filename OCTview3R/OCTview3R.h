@@ -63,7 +63,9 @@ protected slots:
 	void slotOpenDataFileDialog(void);
 	void slotOpenPolyFileDialog(void);
 	void slotShowAbout(void);
-	void slotDataFileDialogClosed(vtkImageData*);
+	void slotDataFileDialogClosed(
+		vtkImageData*,
+		unsigned int spacingInMillimetresMask);
 	void slotPolyFileDialogClosed(vtkPolyData*);
 	void slotDataLoadFailed(const QString&);
 	void slotPolyLoadFailed(const QString&);
@@ -82,6 +84,8 @@ protected slots:
 	void slotPickVolumeColor(void);
 	void slotPickPolyColor(void);
 	void slotSetObjectOpacity(int);
+	void slotSetWindowWidth(int);
+	void slotSetWindowLevel(int);
 	void slotSetPolyGloss(int);
 	void slotSetPointSize(int);
 
@@ -162,6 +166,7 @@ private:
 	void updateMetadata();
 	void updateRangePresentation();
 	void setRangesPending(bool pending);
+	void applyAutomaticWindowLevel();
 	void markTransformDirty();
 	void markAppearanceDirty();
 	void markDataPipelineDirty();

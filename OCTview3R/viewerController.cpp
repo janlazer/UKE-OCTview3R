@@ -16,6 +16,7 @@
 #include <vtkRenderWindowInteractor.h>
 #include <vtkRenderer.h>
 #include <vtkScalarBarActor.h>
+#include <vtkScalarBarRepresentation.h>
 #include <vtkScalarBarWidget.h>
 #include <vtkTextProperty.h>
 #include <vtkVolume.h>
@@ -60,6 +61,10 @@ void ViewerController::initialize(
 	m_headlight->SetIntensity(1.0);
 	m_renderer->AddLight(m_headlight);
 	m_renderer->SetUseDepthPeeling(1);
+	// PolyData is deliberately kept in the translucent pass at every opacity.
+	// Include volumes in the same depth-peeling pass so front-to-back geometry,
+	// rather than prop insertion order or the active tab, controls occlusion.
+	m_renderer->SetUseDepthPeelingForVolumes(true);
 	m_renderer->SetMaximumNumberOfPeels(100);
 	m_renderer->SetOcclusionRatio(0.1);
 	m_renderer->GradientBackgroundOn();
@@ -277,10 +282,43 @@ void ViewerController::updateAxes(
 		m_axes->SetFlyModeToStaticEdges();
 	}
 
+	double bounds[6] = {};
 	if (activeDocument.isVolume)
-		m_axes->SetBounds(activeDocument.volume->GetBounds());
+		activeDocument.volume->GetBounds(bounds);
 	else if (activeDocument.isPolyData)
-		m_axes->SetBounds(activeDocument.polyActor->GetBounds());
+		activeDocument.polyActor->GetBounds(bounds);
+	else
+		return;
+
+	double displayedRange[6] = {};
+	for (int axis = 0; axis < 3; ++axis)
+	{
+		const bool showMicrometres = activeDocument.isVolume &&
+			(activeDocument.spacingInMillimetresMask & (1U << axis)) != 0;
+		const double factor = showMicrometres ? 1000.0 : 1.0;
+		displayedRange[2 * axis] = factor * bounds[2 * axis];
+		displayedRange[2 * axis + 1] = factor * bounds[2 * axis + 1];
+	}
+
+	// Keep the physical bounds in the renderer's internal millimetre space,
+	// but label calibrated OCT axes in micrometres.
+	m_axes->SetBounds(bounds);
+	m_axes->SetXAxisRange(displayedRange[0], displayedRange[1]);
+	m_axes->SetYAxisRange(displayedRange[2], displayedRange[3]);
+	m_axes->SetZAxisRange(displayedRange[4], displayedRange[5]);
+	const char* micrometre = "\xC2\xB5m";
+	m_axes->SetXTitle("X");
+	m_axes->SetYTitle("Y");
+	m_axes->SetZTitle("Z");
+	m_axes->SetXUnits(activeDocument.isVolume &&
+		(activeDocument.spacingInMillimetresMask & (1U << 0)) != 0
+		? micrometre : "");
+	m_axes->SetYUnits(activeDocument.isVolume &&
+		(activeDocument.spacingInMillimetresMask & (1U << 1)) != 0
+		? micrometre : "");
+	m_axes->SetZUnits(activeDocument.isVolume &&
+		(activeDocument.spacingInMillimetresMask & (1U << 2)) != 0
+		? micrometre : "");
 	m_axes->SetCamera(m_renderer->GetActiveCamera());
 	m_axes->SetRebuildAxes(true);
 	if (!m_renderer->HasViewProp(m_axes))
@@ -300,10 +338,31 @@ void ViewerController::updateScalarBar(
 
 	m_scalarBarActor->SetLookupTable(activeDocument.colorFun);
 	m_scalarBarActor->SetTitle("Intensity");
-	m_scalarBarActor->SetMaximumWidthInPixels(100);
-	m_scalarBarActor->SetMaximumHeightInPixels(700);
+	// The previous 100-pixel cap made horizontal widget resizing appear
+	// ineffective. Keep only a generous safety limit and let the interactive
+	// representation determine the actual on-screen dimensions.
+	m_scalarBarActor->SetMaximumWidthInPixels(10000);
+	m_scalarBarActor->SetMaximumHeightInPixels(10000);
 	m_scalarBarWidget->SetInteractor(m_interactor);
 	m_scalarBarWidget->SetScalarBarActor(m_scalarBarActor);
+	m_scalarBarWidget->RepositionableOn();
+	m_scalarBarWidget->CreateDefaultRepresentation();
+	if (!m_scalarBarInitialized)
+	{
+		vtkScalarBarRepresentation* representation =
+			m_scalarBarWidget->GetScalarBarRepresentation();
+		if (representation != nullptr)
+		{
+			// Start at approximately half the former default size. Turning off
+			// proportional resizing allows the left/right edges to change only
+			// the width while the user drags them.
+			representation->ProportionalResizeOff();
+			representation->SetPosition(0.90, 0.30);
+			representation->SetPosition2(0.08, 0.40);
+			representation->SetShowBorderToActive();
+			m_scalarBarInitialized = true;
+		}
+	}
 	m_scalarBarWidget->On();
 	if (!m_renderer->HasViewProp(m_scalarBarActor))
 		m_renderer->AddActor(m_scalarBarActor);

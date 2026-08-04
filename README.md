@@ -17,16 +17,16 @@ is shown with the optional dark interface theme, dataset metadata, rendering
 controls, transform settings, and crop ranges.*
 
 <p align="center">
-  <img src="docs/images/octview3r-about.png" width="480" alt="OCTview3R About dialog showing version 1.1.0, authors, license, and acknowledgements">
+  <img src="docs/images/octview3r-about.png" width="480" alt="OCTview3R About dialog showing version 1.1.0, authors, and license">
 </p>
 
-<p align="center"><em>Version, authorship, licensing, and acknowledgements in the About dialog.</em></p>
+<p align="center"><em>Version, authorship, and licensing in the About dialog.</em></p>
 
 ## Features
 
 - Volume rendering for RAW, TIFF, JPEG stack, and legacy VTK image data
 - Polygonal and point-data import for VTK, STL, PLY, VTP, OBJ, BYU (`.g`),
-  VTR, and XYZ files
+  VTR, and XYZ files; legacy VTK PolyData versions through 5.1 are accepted
 - Maximum-intensity, composite, additive, and minimum-intensity blend modes
 - Threshold, opacity, color-transfer, and polygonal gloss controls
 - Per-axis range cropping for volume and polygonal data
@@ -209,6 +209,8 @@ OCTview3R/
                          Plane rendering and interaction in object space
   viewerData.h           Per-data-set viewer state and owned VTK objects
   loading.cpp/.h         Background data loading
+  legacyVtkCompatibility.cpp/.h
+                         VTK 5.1 PolyData compatibility conversion
   opendata.cpp/.h/.ui    Volume-data import dialog
   openpoly.cpp/.h/.ui    Polygonal-data import dialog
   OCTview3R.ui           Main Qt Designer form

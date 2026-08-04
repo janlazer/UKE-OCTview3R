@@ -14,9 +14,6 @@ Co-author of OCTview3R.
 
 - Affiliation during development: Laser Zentrum Hannover e.V. (LZH)
 
-Giovanno Möbes is additionally named in the application's acknowledgements
-for his support.
-
 ## Tammo Ripken
 
 Co-author of OCTview3R.

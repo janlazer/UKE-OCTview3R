@@ -41,6 +41,9 @@
     <ClCompile Include="documentModel.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="legacyVtkCompatibility.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="polyPipeline.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -101,6 +104,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="documentModel.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="legacyVtkCompatibility.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="polyPipeline.h">

@@ -74,6 +74,7 @@ private:
 	vtkSmartPointer<vtkOrientationMarkerWidget> m_orientationWidget;
 	vtkRenderWindow* m_renderWindow = nullptr;
 	vtkRenderWindowInteractor* m_interactor = nullptr;
+	bool m_scalarBarInitialized = false;
 	VolumePipeline m_volumePipeline;
 	PolyPipeline m_polyPipeline;
 };

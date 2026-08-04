@@ -549,7 +549,7 @@
         <property name="minimumSize">
          <size>
           <width>0</width>
-          <height>145</height>
+          <height>205</height>
          </size>
         </property>
         <property name="title">
@@ -697,7 +697,7 @@
             <item row="1" column="1">
              <widget class="QCheckBox" name="checkBox_adjustColormap">
               <property name="text">
-               <string>Auto-adjust</string>
+               <string>Auto window</string>
               </property>
               <property name="checked">
                <bool>true</bool>
@@ -813,7 +813,7 @@
             <number>100</number>
            </property>
            <property name="value">
-            <number>50</number>
+            <number>100</number>
            </property>
            <property name="orientation">
             <enum>Qt::Horizontal</enum>
@@ -826,7 +826,7 @@
             <number>100</number>
            </property>
            <property name="value">
-            <number>50</number>
+            <number>100</number>
            </property>
            <property name="suffix">
             <string> %</string>
@@ -834,6 +834,72 @@
           </widget>
          </item>
          <item row="2" column="0">
+          <widget class="QLabel" name="label_windowWidth">
+           <property name="text">
+            <string>Window</string>
+           </property>
+          </widget>
+         </item>
+         <item row="2" column="1" colspan="2">
+          <widget class="QSlider" name="Slider_windowWidth">
+           <property name="minimum">
+            <number>1</number>
+           </property>
+           <property name="maximum">
+            <number>256</number>
+           </property>
+           <property name="value">
+            <number>256</number>
+           </property>
+           <property name="orientation">
+            <enum>Qt::Horizontal</enum>
+           </property>
+          </widget>
+         </item>
+         <item row="2" column="3">
+          <widget class="QSpinBox" name="windowWidthSpinBox">
+           <property name="minimum">
+            <number>1</number>
+           </property>
+           <property name="maximum">
+            <number>256</number>
+           </property>
+           <property name="value">
+            <number>256</number>
+           </property>
+          </widget>
+         </item>
+         <item row="3" column="0">
+          <widget class="QLabel" name="label_windowLevel">
+           <property name="text">
+            <string>Level</string>
+           </property>
+          </widget>
+         </item>
+         <item row="3" column="1" colspan="2">
+          <widget class="QSlider" name="Slider_windowLevel">
+           <property name="maximum">
+            <number>255</number>
+           </property>
+           <property name="value">
+            <number>128</number>
+           </property>
+           <property name="orientation">
+            <enum>Qt::Horizontal</enum>
+           </property>
+          </widget>
+         </item>
+         <item row="3" column="3">
+          <widget class="QSpinBox" name="windowLevelSpinBox">
+           <property name="maximum">
+            <number>255</number>
+           </property>
+           <property name="value">
+            <number>128</number>
+           </property>
+          </widget>
+         </item>
+         <item row="4" column="0">
           <widget class="QLabel" name="label_polyGloss">
            <property name="enabled">
             <bool>false</bool>
@@ -843,7 +909,7 @@
            </property>
           </widget>
          </item>
-         <item row="2" column="1" colspan="2">
+         <item row="4" column="1" colspan="2">
           <widget class="QSlider" name="Slider_polyGloss">
            <property name="enabled">
             <bool>false</bool>
@@ -859,7 +925,7 @@
            </property>
           </widget>
          </item>
-         <item row="2" column="3">
+         <item row="4" column="3">
           <widget class="QSpinBox" name="glossSpinBox">
            <property name="enabled">
             <bool>false</bool>

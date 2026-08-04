@@ -98,6 +98,7 @@
   <ItemGroup>
     <ClCompile Include="aboutdialog.cpp" />
     <ClCompile Include="documentModel.cpp" />
+    <ClCompile Include="legacyVtkCompatibility.cpp" />
     <ClCompile Include="loading.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="OCTview3R.cpp" />
@@ -125,6 +126,7 @@
     <ClInclude Include="dataTypes.h" />
     <ClInclude Include="definitions.h" />
     <ClInclude Include="documentModel.h" />
+    <ClInclude Include="legacyVtkCompatibility.h" />
     <ClInclude Include="polyPipeline.h" />
     <ClInclude Include="transformableImagePlaneWidget.h" />
     <ClInclude Include="viewerController.h" />

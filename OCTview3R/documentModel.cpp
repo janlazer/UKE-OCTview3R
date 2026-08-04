@@ -32,7 +32,8 @@ ImageData& DocumentModel::create()
 {
 	auto document = std::make_unique<ImageData>();
 	document->threshold = vtkSmartPointer<vtkImageThreshold>::New();
-	document->colorFun = vtkSmartPointer<vtkColorTransferFunction>::New();
+	document->colorFun =
+		vtkSmartPointer<vtkColorTransferFunction>::New();
 	document->opacityFun = vtkSmartPointer<vtkPiecewiseFunction>::New();
 	document->planeWidget =
 		vtkSmartPointer<TransformableImagePlaneWidget>::New();
