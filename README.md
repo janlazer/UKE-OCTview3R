@@ -60,8 +60,11 @@ from luminance and supplies the volume alpha mask: black and rejected voxels
 are transparent in the 3D volume, while accepted voxels retain their RGB
 values and follow the opacity control. Slice planes deliberately keep black
 image pixels opaque. Composite blending is the recommended mode for
-colour-faithful RGB visualization; the intensity-projection modes remain
-available for exploratory use.
+colour-faithful RGB visualization and is selected automatically when an RGB
+volume is first loaded; the intensity-projection modes remain available for
+exploratory use. Before switching a large RGB volume to grayscale, OCTview3R
+checks the estimated working-memory requirement and keeps RGB active with a
+warning if the conversion would be unsafe.
 
 ## Requirements
 

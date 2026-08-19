@@ -54,6 +54,15 @@ ImageData& DocumentModel::create()
 	document->rgbMask = vtkSmartPointer<vtkImageMask>::New();
 	document->rgbaVolume =
 		vtkSmartPointer<vtkImageAppendComponents>::New();
+	// RGB volumes can be substantially larger than scalar OCT stacks. Allow
+	// intermediate outputs to be released once their consumers have produced
+	// the cached mapper or plane input.
+	document->extractVOI->ReleaseDataFlagOn();
+	document->rgbComponents->ReleaseDataFlagOn();
+	document->luminance->ReleaseDataFlagOn();
+	document->rgbMaskThreshold->ReleaseDataFlagOn();
+	document->rgbWindowLevel->ReleaseDataFlagOn();
+	document->rgbMask->ReleaseDataFlagOn();
 	document->colorMap = vtkSmartPointer<vtkImageMapToColors>::New();
 	document->volumeMapper = vtkSmartPointer<vtkSmartVolumeMapper>::New();
 	document->polyMapper = vtkSmartPointer<vtkPolyDataMapper>::New();

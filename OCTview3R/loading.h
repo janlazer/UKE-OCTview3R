@@ -33,7 +33,11 @@ public slots:
 
 signals:
 	void updateProgress(int progress);
-	void dataLoaded(vtkImageData* data, unsigned int spacingInMillimetresMask);
+	void dataLoaded(
+		vtkImageData* data,
+		unsigned int spacingInMillimetresMask,
+		double displayScalarMinimum,
+		double displayScalarMaximum);
 	void polyLoaded(vtkPolyData* poly);
 	void failed(const QString& message);
 	void finished();

@@ -13,6 +13,7 @@ uses [Semantic Versioning](https://semver.org/).
 - Camera fit actions and improved object, plane, and transform interaction.
 - Configuration-aware development and deployment scripts.
 - Citation, license, third-party, and example-data documentation.
+- Native RGB volume rendering with per-dataset grayscale conversion.
 
 ### Changed
 
@@ -21,6 +22,8 @@ uses [Semantic Versioning](https://semver.org/).
 - Improved loading validation and error reporting for volume and PolyData input.
 - Standardized the application version as 1.1.0.
 - Corrected author and historical affiliation metadata.
+- Corrected RGB TIFF luminance ranges and guarded large RGB-to-grayscale
+  switches against excessive working-memory use.
 
 ### Removed
 

@@ -65,7 +65,9 @@ protected slots:
 	void slotShowAbout(void);
 	void slotDataFileDialogClosed(
 		vtkImageData*,
-		unsigned int spacingInMillimetresMask);
+		unsigned int spacingInMillimetresMask,
+		double displayScalarMinimum,
+		double displayScalarMaximum);
 	void slotPolyFileDialogClosed(vtkPolyData*);
 	void slotDataLoadFailed(const QString&);
 	void slotPolyLoadFailed(const QString&);

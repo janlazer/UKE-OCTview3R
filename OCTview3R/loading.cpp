@@ -16,12 +16,14 @@
 #include <vtkCharArray.h>
 #include <vtkCleanPolyData.h>
 #include <vtkCommand.h>
+#include <vtkDataArray.h>
 #include <vtkDelaunay3D.h>
 #include <vtkGeometryFilter.h>
 #include <vtkImageReader.h>
 #include <vtkJPEGReader.h>
 #include <vtkOBJReader.h>
 #include <vtkPLYReader.h>
+#include <vtkPointData.h>
 #include <vtkPolyDataReader.h>
 #include <vtkSimplePointsReader.h>
 #include <vtkSTLReader.h>
@@ -51,6 +53,47 @@ namespace
 	bool hasUsablePolyData(vtkPolyData* poly)
 	{
 		return poly != nullptr && poly->GetNumberOfPoints() > 0;
+	}
+
+	void displayScalarRange(vtkImageData* image, double range[2])
+	{
+		range[0] = 0.0;
+		range[1] = 0.0;
+		if (!hasUsableImage(image))
+			return;
+
+		if (image->GetNumberOfScalarComponents() < 3)
+		{
+			image->GetScalarRange(range);
+			return;
+		}
+
+		// vtkImageData::GetScalarRange() reports only the first component in
+		// VTK 8.2. RGB files whose red channel is empty would therefore be
+		// initialized with a false [0, 0] display range. Derive a conservative
+		// luminance range from the three component ranges without allocating a
+		// second full-size image during loading.
+		vtkDataArray* scalars = image->GetPointData()->GetScalars();
+		if (scalars == nullptr)
+			return;
+		constexpr double weights[3] = { 0.30, 0.59, 0.11 };
+		double luminanceMinimum = 0.0;
+		double luminanceMaximum = 0.0;
+		for (int component = 0; component < 3; ++component)
+		{
+			double componentRange[2] = {};
+			scalars->GetRange(componentRange, component);
+			luminanceMinimum += weights[component] * componentRange[0];
+			luminanceMaximum += weights[component] * componentRange[1];
+		}
+		if (image->GetScalarType() != VTK_FLOAT &&
+			image->GetScalarType() != VTK_DOUBLE)
+		{
+			luminanceMinimum = std::floor(luminanceMinimum);
+			luminanceMaximum = std::floor(luminanceMaximum);
+		}
+		range[0] = luminanceMinimum;
+		range[1] = luminanceMaximum;
 	}
 
 	QString tiffMetadataValue(const QString& description, const QString& key)
@@ -556,11 +599,17 @@ void loading::loadData()
 		return;
 	}
 
+	double scalarRange[2] = { 0.0, 0.0 };
+	displayScalarRange(m_data, scalarRange);
 	reportProgress(100);
 	// Transfer one reference across the queued Qt connection. The GUI slot
 	// adopts it into a vtkSmartPointer and releases this transfer reference.
 	m_data->Register(nullptr);
-	emit dataLoaded(m_data, m_spacingInMillimetresMask);
+	emit dataLoaded(
+		m_data,
+		m_spacingInMillimetresMask,
+		scalarRange[0],
+		scalarRange[1]);
 	emit finished();
 }
 

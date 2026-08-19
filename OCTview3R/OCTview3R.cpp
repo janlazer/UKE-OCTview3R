@@ -22,6 +22,7 @@ VTK_MODULE_INIT(vtkRenderingFreeType);
 #include <vtkCamera.h>
 #include <vtkCommand.h>
 #include <vtkColorTransferFunction.h>
+#include <vtkImageAppendComponents.h>
 #include <vtkImageData.h>
 #include <vtkImageLuminance.h>
 #include <vtkMetaImageReader.h>
@@ -134,8 +135,16 @@ VTK_MODULE_INIT(vtkRenderingFreeType);
 
 #include <algorithm>
 #include <cmath>
+#include <limits>
 #include <memory>
 #include <vector>
+
+#ifdef Q_OS_WIN
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <Windows.h>
+#endif
 
 namespace
 {
@@ -199,6 +208,86 @@ namespace
 		if (cropAxisIsCalibrated(data, axis))
 			return micrometresPerMillimetre * data.spacing[axis];
 		return data.isPolyData ? 0.0001 : 1.0;
+	}
+
+	quint64 saturatingMultiply(quint64 first, quint64 second)
+	{
+		if (first == 0 || second == 0)
+			return 0;
+		const quint64 maximum = std::numeric_limits<quint64>::max();
+		return first > maximum / second ? maximum : first * second;
+	}
+
+	quint64 saturatingAdd(quint64 first, quint64 second)
+	{
+		const quint64 maximum = std::numeric_limits<quint64>::max();
+		return second > maximum - first ? maximum : first + second;
+	}
+
+	quint64 croppedVoxelCount(const ImageData& data)
+	{
+		quint64 count = 1;
+		for (int axis = 0; axis < 3; ++axis)
+		{
+			const double length = std::max(
+				0.0,
+				data.VOI[2 * axis + 1] - data.VOI[2 * axis]);
+			count = saturatingMultiply(
+				count,
+				static_cast<quint64>(std::ceil(length)));
+		}
+		return count;
+	}
+
+	bool hasMemoryForGrayscale(const ImageData& data, QString& explanation)
+	{
+#ifdef Q_OS_WIN
+		if (data.image == nullptr)
+			return false;
+
+		MEMORYSTATUSEX memory = {};
+		memory.dwLength = sizeof(memory);
+		if (!GlobalMemoryStatusEx(&memory))
+			return true;
+
+		const quint64 voxels = croppedVoxelCount(data);
+		const quint64 scalarBytes = static_cast<quint64>(
+			std::max(1, data.image->GetScalarSize()));
+		const quint64 components = static_cast<quint64>(
+			std::max(1, data.image->GetNumberOfScalarComponents()));
+		// Peak estimate: cropped colour input, luminance, threshold, and one
+		// additional scalar working image. The cached RGBA mapper input can be
+		// reclaimed before this allocation begins.
+		const quint64 required = saturatingMultiply(
+			voxels,
+			saturatingMultiply(scalarBytes, components + 3));
+		vtkImageData* rgbaOutput = data.rgbaVolume->GetOutput();
+		const quint64 reclaimableRgba = rgbaOutput != nullptr
+			? saturatingMultiply(
+				static_cast<quint64>(rgbaOutput->GetActualMemorySize()),
+				1024)
+			: 0;
+		const quint64 effectiveAvailable = saturatingAdd(
+			static_cast<quint64>(memory.ullAvailPhys),
+			reclaimableRgba);
+		constexpr quint64 reserve = 512ULL * 1024ULL * 1024ULL;
+		const quint64 safeRequirement = saturatingAdd(required, reserve);
+		if (effectiveAvailable >= safeRequirement)
+			return true;
+
+		explanation = QStringLiteral(
+			"Grayscale needs approximately %1 GiB of working memory, while "
+			"only about %2 GiB is safely available after releasing RGB data.")
+			.arg(static_cast<double>(safeRequirement) /
+				(1024.0 * 1024.0 * 1024.0), 0, 'f', 2)
+			.arg(static_cast<double>(effectiveAvailable) /
+				(1024.0 * 1024.0 * 1024.0), 0, 'f', 2);
+		return false;
+#else
+		Q_UNUSED(data);
+		Q_UNUSED(explanation);
+		return true;
+#endif
 	}
 }
 
@@ -842,7 +931,17 @@ void OCTview3R::updateMetadata()
 	if (activeImageData->isVolume)
 	{
 		double scalarRange[2] = {};
-		activeImageData->image->GetScalarRange(scalarRange);
+		const bool colorVolume =
+			activeImageData->image->GetNumberOfScalarComponents() >= 3;
+		if (colorVolume)
+		{
+			scalarRange[0] = activeImageData->minValue;
+			scalarRange[1] = activeImageData->maxValue;
+		}
+		else
+		{
+			activeImageData->image->GetScalarRange(scalarRange);
+		}
 		text += tr("Type: Volume (%1)\n").arg(activeImageData->typeName);
 		text += tr("Dimensions: %1 x %2 x %3\n")
 			.arg(activeImageData->width)
@@ -852,9 +951,10 @@ void OCTview3R::updateMetadata()
 			.arg(spacingDisplayValue(*activeImageData, 0))
 			.arg(spacingDisplayValue(*activeImageData, 1))
 			.arg(spacingDisplayValue(*activeImageData, 2));
-		text += tr("Scalars: %1, %2 component(s), range [%3, %4]")
+		text += tr("Scalars: %1, %2 component(s), %3 range [%4, %5]")
 			.arg(QString::fromLatin1(activeImageData->image->GetScalarTypeAsString()))
 			.arg(activeImageData->image->GetNumberOfScalarComponents())
+			.arg(colorVolume ? tr("luminance") : tr("scalar"))
 			.arg(scalarRange[0], 0, 'g', 8)
 			.arg(scalarRange[1], 0, 'g', 8);
 		text += tr("\nColor mode: %1")
@@ -1249,7 +1349,9 @@ void OCTview3R::slotOpenPolyFileDialog()
 }
 void OCTview3R::slotDataFileDialogClosed(
 	vtkImageData* tmpData,
-	unsigned int spacingInMillimetresMask)
+	unsigned int spacingInMillimetresMask,
+	double displayScalarMinimum,
+	double displayScalarMaximum)
 {
 	openData->setEnabled(true);
 	if(openData->isValidData() && (tmpData != nullptr)){
@@ -1271,13 +1373,17 @@ void OCTview3R::slotDataFileDialogClosed(
 		data->depth			= dimensions[2];
 		data->bitsize		= tmpData->GetScalarSize() > 1 ? bitsizeType::BIT16 : bitsizeType::BIT8;
 		data->endian		= openData->getEndian();
-		double scalarRange[2] = { 0.0, 0.0 };
-		tmpData->GetScalarRange(scalarRange);
-		data->minValue		= static_cast<int>(std::floor(scalarRange[0]));
-		data->maxValue		= static_cast<int>(std::ceil(scalarRange[1]));
+		data->minValue = static_cast<int>(
+			std::floor(displayScalarMinimum));
+		data->maxValue = static_cast<int>(
+			std::ceil(displayScalarMaximum));
+		if (data->maxValue < data->minValue)
+			data->maxValue = data->minValue;
 		data->currentMinThreshold = data->minValue;
 		data->currentMaxThreshold = data->maxValue;
 		data->renderRgb = tmpData->GetNumberOfScalarComponents() >= 3;
+		if (data->renderRgb)
+			data->blendMode = 1; // Composite preserves dependent RGB components.
 		data->windowWidth = std::max(
 			1,
 			data->maxValue - data->minValue + 1);
@@ -1938,7 +2044,24 @@ void OCTview3R::slotSetColorMode(int index)
 
 	const bool rgbAvailable =
 		activeImageData->image->GetNumberOfScalarComponents() >= 3;
-	activeImageData->renderRgb = rgbAvailable && index == 1;
+	const bool requestedRgb = rgbAvailable && index == 1;
+	if (activeImageData->renderRgb && !requestedRgb)
+	{
+		QString memoryExplanation;
+		if (!hasMemoryForGrayscale(*activeImageData, memoryExplanation))
+		{
+			const QSignalBlocker blockColorMode(ui->comboBox_colorMode);
+			ui->comboBox_colorMode->setCurrentIndex(1);
+			QMessageBox::warning(
+				this,
+				tr("Insufficient memory"),
+				tr("The volume remains in RGB mode to avoid an out-of-memory "
+					"failure.\n\n%1")
+					.arg(memoryExplanation));
+			return;
+		}
+	}
+	activeImageData->renderRgb = requestedRgb;
 	activeImageData->changePlaneInput = true;
 	updateColorModeControls();
 	updateMetadata();

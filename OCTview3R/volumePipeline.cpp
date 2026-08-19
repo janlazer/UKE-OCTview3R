@@ -186,6 +186,17 @@ void configureRgbOpacity(ImageData& data)
 	data.opacityFun->AddPoint(1.0, opacity);
 	data.opacityFun->AddPoint(255.0, opacity);
 }
+
+void releaseRgbOutputs(ImageData& data)
+{
+	data.rgbaVolume->GetOutput()->ReleaseData();
+	data.colorMap->GetOutput()->ReleaseData();
+	data.median->GetOutput()->ReleaseData();
+	data.rgbMask->GetOutput()->ReleaseData();
+	data.rgbWindowLevel->GetOutput()->ReleaseData();
+	data.rgbMaskThreshold->GetOutput()->ReleaseData();
+	data.rgbComponents->GetOutput()->ReleaseData();
+}
 }
 
 void VolumePipeline::update(
@@ -281,9 +292,18 @@ void VolumePipeline::updateImageFilters(ImageData& data) const
 		static_cast<int>(data.VOI[4]), static_cast<int>(data.VOI[5]) - 1);
 	if (colorInput)
 	{
-		data.rgbComponents->SetInputConnection(data.extractVOI->GetOutputPort());
-		data.rgbComponents->SetComponents(0, 1, 2);
-		data.luminance->SetInputConnection(data.rgbComponents->GetOutputPort());
+		if (data.image->GetNumberOfScalarComponents() == 3)
+		{
+			data.luminance->SetInputConnection(data.extractVOI->GetOutputPort());
+		}
+		else
+		{
+			data.rgbComponents->SetInputConnection(
+				data.extractVOI->GetOutputPort());
+			data.rgbComponents->SetComponents(0, 1, 2);
+			data.luminance->SetInputConnection(
+				data.rgbComponents->GetOutputPort());
+		}
 		data.threshold->SetInputConnection(data.luminance->GetOutputPort());
 	}
 	else
@@ -298,9 +318,19 @@ void VolumePipeline::updateImageFilters(ImageData& data) const
 	data.threshold->ReplaceInOff();
 	data.threshold->ReplaceOutOn();
 	data.threshold->SetOutValue(0.0);
-	data.threshold->Update();
+	if (colorInput && !usesRgbRendering(data))
+	{
+		// Free the old RGB working set before allocating/updating the scalar
+		// luminance output. This avoids the peak-memory spike during a mode
+		// change on large stacks.
+		releaseRgbOutputs(data);
+	}
+	if (!colorInput || !usesRgbRendering(data))
+		data.threshold->Update();
 
 	if (!colorInput)
+		return;
+	if (!usesRgbRendering(data))
 		return;
 
 	// An RGB volume needs a fourth component in VTK 8.2. Build RGBA from the
@@ -327,7 +357,9 @@ void VolumePipeline::updateImageFilters(ImageData& data) const
 	const double center = static_cast<double>(data.windowLevel) - 0.5;
 	const double windowLower = center - 0.5 * windowSpan;
 	data.rgbWindowLevel->SetInputConnection(
-		data.rgbComponents->GetOutputPort());
+		data.image->GetNumberOfScalarComponents() == 3
+			? data.extractVOI->GetOutputPort()
+			: data.rgbComponents->GetOutputPort());
 	data.rgbWindowLevel->SetShift(-windowLower);
 	data.rgbWindowLevel->SetScale(255.0 / windowSpan);
 	data.rgbWindowLevel->SetOutputScalarTypeToUnsignedChar();
@@ -343,7 +375,11 @@ void VolumePipeline::updateImageFilters(ImageData& data) const
 	data.rgbMask->NotMaskOff();
 
 	data.rgbaVolume->RemoveAllInputConnections(0);
-	data.rgbaVolume->SetInputConnection(0, data.rgbMask->GetOutputPort());
+	// For volume rendering the alpha component alone hides rejected voxels.
+	// The masked RGB copy remains dedicated to the opaque-black slice plane.
+	data.rgbaVolume->SetInputConnection(
+		0,
+		data.rgbWindowLevel->GetOutputPort());
 	data.rgbaVolume->AddInputConnection(
 		0,
 		data.rgbMaskThreshold->GetOutputPort());
@@ -395,7 +431,14 @@ void VolumePipeline::updatePlane(
 	{
 		data.orientChanged = false;
 		data.planeWidget->SetPlaneOrientation(data.orientIndex);
-		const int* extent = data.threshold->GetOutput()->GetExtent();
+		const int extent[6] = {
+			static_cast<int>(data.VOI[0]),
+			static_cast<int>(data.VOI[1]) - 1,
+			static_cast<int>(data.VOI[2]),
+			static_cast<int>(data.VOI[3]) - 1,
+			static_cast<int>(data.VOI[4]),
+			static_cast<int>(data.VOI[5]) - 1
+		};
 		const int axis = data.orientIndex;
 		data.planeWidget->SetSliceIndex(
 			(extent[2 * axis] + extent[2 * axis + 1]) / 2);
@@ -421,6 +464,12 @@ void VolumePipeline::updateVolume(
 	data.volumeMapper->RemoveAllClippingPlanes();
 	data.fileChanged = false;
 	const bool showRgb = usesRgbRendering(data);
+	// Replace the mapper input before toggling dependent components so a mode
+	// change never exposes a transient scalar-as-RGBA or RGBA-as-scalar state.
+	data.volumeMapper->SetInputConnection(
+		showRgb
+			? data.rgbaVolume->GetOutputPort()
+			: data.threshold->GetOutputPort());
 	data.volume->GetProperty()->SetIndependentComponents(showRgb ? 0 : 1);
 	data.volume->GetProperty()->SetColor(data.colorFun);
 	data.volume->GetProperty()->SetScalarOpacity(data.opacityFun);
@@ -465,10 +514,6 @@ void VolumePipeline::updateVolume(
 		break;
 	}
 
-	data.volumeMapper->SetInputConnection(
-		showRgb
-			? data.rgbaVolume->GetOutputPort()
-			: data.threshold->GetOutputPort());
 	data.volume->SetMapper(data.volumeMapper);
 	data.volume->SetScale(1.0, 1.0, 1.0);
 	data.volume->SetUserTransform(data.transform);
