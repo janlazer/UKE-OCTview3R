@@ -549,7 +549,7 @@
         <property name="minimumSize">
          <size>
           <width>0</width>
-          <height>205</height>
+          <height>230</height>
          </size>
         </property>
         <property name="title">
@@ -709,6 +709,27 @@
               <property name="text">
                <string>Inverted</string>
               </property>
+             </widget>
+            </item>
+            <item row="2" column="0">
+             <widget class="QLabel" name="colorModeLabel">
+              <property name="text">
+               <string>Color mode:</string>
+              </property>
+             </widget>
+            </item>
+            <item row="2" column="1" colspan="2">
+             <widget class="QComboBox" name="comboBox_colorMode">
+              <item>
+               <property name="text">
+                <string>Grayscale</string>
+               </property>
+              </item>
+              <item>
+               <property name="text">
+                <string>RGB</string>
+               </property>
+              </item>
              </widget>
             </item>
            </layout>

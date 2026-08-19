@@ -24,11 +24,12 @@ controls, transform settings, and crop ranges.*
 
 ## Features
 
-- Volume rendering for RAW, TIFF, JPEG stack, and legacy VTK image data
+- Volume rendering for RAW, TIFF, JPEG stack, and legacy VTK image data,
+  including grayscale and RGB image stacks
 - Polygonal and point-data import for VTK, STL, PLY, VTP, OBJ, BYU (`.g`),
   VTR, and XYZ files; legacy VTK PolyData versions through 5.1 are accepted
 - Maximum-intensity, composite, additive, and minimum-intensity blend modes
-- Threshold, opacity, color-transfer, and polygonal gloss controls
+- Threshold, opacity, window/level, color-transfer, and polygonal gloss controls
 - Per-axis range cropping for volume and polygonal data
 - Interactive image plane with optional median filtering and clipping
 - Multiple data sets in closable, filename-based tabs
@@ -45,6 +46,22 @@ controls, transform settings, and crop ranges.*
 
 Window layout, interface theme, viewer background, camera options, and the
 last-used volume and PolyData directories are restored on the next start.
+
+### Grayscale and RGB volumes
+
+OCTview3R automatically selects RGB rendering when a loaded volume contains at
+least three scalar components. The **Color mode** control can switch such a
+data set between its original RGB colours and a luminance-derived grayscale
+view. Single-component data remains in grayscale mode.
+
+In RGB mode, window and level are applied uniformly to the red, green, and blue
+channels so that colour relationships are retained. Thresholding is evaluated
+from luminance and supplies the volume alpha mask: black and rejected voxels
+are transparent in the 3D volume, while accepted voxels retain their RGB
+values and follow the opacity control. Slice planes deliberately keep black
+image pixels opaque. Composite blending is the recommended mode for
+colour-faithful RGB visualization; the intensity-projection modes remain
+available for exploratory use.
 
 ## Requirements
 

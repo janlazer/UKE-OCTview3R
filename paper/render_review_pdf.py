@@ -292,7 +292,7 @@ def build_pdf() -> None:
         Paragraph(
             "<super>1</super> University Medical Center Hamburg-Eppendorf (UKE), Hamburg, Germany<br/>"
             "<super>2</super> Laser Zentrum Hannover e.V. (LZH), Hannover, Germany<br/>"
-            "Draft dated 31 July 2026",
+            "Draft dated 19 August 2026",
             styles["Affiliations"],
         ),
         Paragraph(

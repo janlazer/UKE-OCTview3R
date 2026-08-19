@@ -79,6 +79,7 @@ protected slots:
 	void slotSetColormap(QString);
 	void slotAdjustColormap(bool);
 	void slotSetBlendMode(int);
+	void slotSetColorMode(int);
 	void slotSetPolyMode(int);
 	void slotInvertColormap(bool);
 	void slotPickVolumeColor(void);
@@ -163,6 +164,7 @@ private:
 	void setupNumericEditors();
 	void setupCameraToolbar();
 	void setupMetadataPanel();
+	void updateColorModeControls();
 	void updateMetadata();
 	void updateRangePresentation();
 	void setRangesPending(bool pending);

@@ -20,7 +20,7 @@ affiliations:
     name: University Medical Center Hamburg-Eppendorf (UKE), Hamburg, Germany
   - index: 2
     name: Laser Zentrum Hannover e.V. (LZH), Hannover, Germany
-date: 31 July 2026
+date: 19 August 2026
 bibliography: paper.bib
 ---
 
@@ -43,9 +43,11 @@ Multiple datasets are placed in a shared three-dimensional scene so that, for
 example, a TIFF stack containing OCT intensities can be overlaid with anterior
 and posterior surfaces exported by a segmentation workflow. Users can adjust
 visibility, colour, opacity, thresholds, crop ranges, and object transforms, and
-can inspect the volume with an interactive slice plane. The software does not
-perform segmentation; it is a focused viewer for evaluating and communicating
-the outputs of image-analysis workflows.
+can inspect the volume with an interactive slice plane. Single-component and
+RGB stacks are supported, allowing scalar OCT data and colour-coded volumetric
+results to be examined in the same application. The software does not perform
+segmentation; it is a focused viewer for evaluating and communicating the
+outputs of image-analysis workflows.
 
 ![OCTview3R 1.1.0 displaying a non-medical OCT volume of a cherry. The dark
 theme is optional; the left-hand controls expose dataset metadata, rendering
@@ -73,6 +75,15 @@ small alignment differences to be explored interactively. These capabilities
 make the application useful for quality control, figure preparation, and
 discussion of segmentation results without requiring users to construct a
 general-purpose visualization pipeline.
+
+Multi-component image data is detected automatically and can be displayed as
+RGB or as luminance-derived grayscale. In RGB mode, one window/level adjustment
+is applied consistently to all three colour channels. A luminance-derived mask
+drives thresholding and volume opacity, making black and rejected voxels
+transparent without replacing the colours of accepted voxels. The interactive
+slice plane retains opaque black pixels so that it remains a faithful image
+view. Composite blending is recommended when preservation of the original RGB
+appearance is more important than intensity projection.
 
 # State of the field
 
@@ -115,6 +126,13 @@ box. A common object transform is applied to the rendered volume or polygonal
 actor, and the interactive image plane is transformed in the same object space;
 this keeps volume, plane, and derived geometry spatially coherent during
 rotation, translation, and anisotropic scaling.
+
+The scalar-volume path applies thresholding before transfer-function mapping.
+The RGB path extracts the first three components, derives luminance for its
+binary alpha mask, applies a shared window/level mapping to the colour channels,
+and assembles an RGBA volume for VTK's dependent-component rendering. Both
+paths use the same crop, transform, plane, and renderer infrastructure, and the
+selected colour mode is stored per dataset.
 
 ![Volumetric OCT and independently generated segmentation geometry pass
 through dedicated pipelines and enter one VTK renderer. Shared object-space

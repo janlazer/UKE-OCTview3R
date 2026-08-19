@@ -8,11 +8,15 @@
 #include <vtkClipPolyData.h>
 #include <vtkColorTransferFunction.h>
 #include <vtkExtractVOI.h>
+#include <vtkImageAppendComponents.h>
 #include <vtkImageData.h>
+#include <vtkImageExtractComponents.h>
 #include <vtkImageLuminance.h>
 #include <vtkImageMapToColors.h>
+#include <vtkImageMask.h>
 #include <vtkImageMedian3D.h>
 #include <vtkImagePlaneWidget.h>
+#include <vtkImageShiftScale.h>
 #include <vtkImageThreshold.h>
 #include <vtkImplicitPlaneWidget.h>
 #include <vtkPiecewiseFunction.h>
@@ -39,10 +43,17 @@ ImageData& DocumentModel::create()
 		vtkSmartPointer<TransformableImagePlaneWidget>::New();
 	document->median = vtkSmartPointer<vtkImageMedian3D>::New();
 	document->extractVOI = vtkSmartPointer<vtkExtractVOI>::New();
+	document->rgbComponents =
+		vtkSmartPointer<vtkImageExtractComponents>::New();
 	document->volume = vtkSmartPointer<vtkVolume>::New();
 	document->actor = vtkSmartPointer<vtkActor>::New();
 	document->transform = vtkSmartPointer<vtkTransform>::New();
 	document->luminance = vtkSmartPointer<vtkImageLuminance>::New();
+	document->rgbMaskThreshold = vtkSmartPointer<vtkImageThreshold>::New();
+	document->rgbWindowLevel = vtkSmartPointer<vtkImageShiftScale>::New();
+	document->rgbMask = vtkSmartPointer<vtkImageMask>::New();
+	document->rgbaVolume =
+		vtkSmartPointer<vtkImageAppendComponents>::New();
 	document->colorMap = vtkSmartPointer<vtkImageMapToColors>::New();
 	document->volumeMapper = vtkSmartPointer<vtkSmartVolumeMapper>::New();
 	document->polyMapper = vtkSmartPointer<vtkPolyDataMapper>::New();

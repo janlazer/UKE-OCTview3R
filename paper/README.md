@@ -35,6 +35,8 @@ The review PDF is only a layout aid. The authoritative submission source is
   (VTK)*. It documents the original Qt/VTK architecture, OCT motivation, volume
   rendering, variable planes, thresholds, and colour maps.
 - The current OCTview3R 1.1.0 implementation and repository documentation.
+  This includes the grayscale/RGB volume paths, luminance-derived RGB alpha
+  masking, and shared window/level mapping documented in the manuscript.
 - The current JOSS paper, review, AI-disclosure, and pre-submission criteria.
 
 The two source PDFs are not versioned or redistributed with the repository.

@@ -144,15 +144,20 @@ def overlay_pipeline() -> None:
         draw,
         (70, 105, 530, 425),
         STEEL_BLUE,
-        "Volumetric OCT",
-        ["RAW, TIFF, JPEG stack", "legacy VTK image data"],
+        "Volumetric image",
+        ["RAW, TIFF, JPEG stack", "scalar or RGB; legacy VTK"],
     )
     technical_box(
         draw,
         (680, 105, 1190, 425),
         STEEL_BLUE,
         "Volume pipeline",
-        ["threshold + transfer function", "VOI crop + image plane"],
+        [
+            "grayscale transfer",
+            "RGB + luminance alpha",
+            "threshold + window / level",
+            "VOI crop + image plane",
+        ],
     )
     technical_box(
         draw,

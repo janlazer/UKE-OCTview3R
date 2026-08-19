@@ -5,11 +5,15 @@
 
 #include <vtkColorTransferFunction.h>
 #include <vtkExtractVOI.h>
+#include <vtkImageAppendComponents.h>
 #include <vtkImageData.h>
+#include <vtkImageExtractComponents.h>
 #include <vtkImageLuminance.h>
 #include <vtkImageMapToColors.h>
+#include <vtkImageMask.h>
 #include <vtkImageMedian3D.h>
 #include <vtkImagePlaneWidget.h>
+#include <vtkImageShiftScale.h>
 #include <vtkImageThreshold.h>
 #include <vtkPiecewiseFunction.h>
 #include <vtkPlane.h>
@@ -104,6 +108,12 @@ Rgb colorAt(const ImageData& data, double value)
 	return { t, t, t };
 }
 
+bool usesRgbRendering(const ImageData& data)
+{
+	return data.renderRgb && data.image != nullptr &&
+		data.image->GetNumberOfScalarComponents() >= 3;
+}
+
 std::vector<double> gradientStops(const QString& name)
 {
 	if (name == "Rainbow")
@@ -162,6 +172,19 @@ void configureOpacity(
 				data.opacityFun->AddPoint(upper, opacity);
 		}
 	}
+}
+
+void configureRgbOpacity(ImageData& data)
+{
+	data.opacityFun->RemoveAllPoints();
+	data.opacityFun->ClampingOff();
+	const double opacity = clamp01(data.objectOpacity);
+	// RGB volume input uses a binary luminance mask as its fourth component.
+	// Keep original black voxels transparent and every accepted voxel at the
+	// user-selected object opacity.
+	data.opacityFun->AddPoint(0.0, 0.0);
+	data.opacityFun->AddPoint(1.0, opacity);
+	data.opacityFun->AddPoint(255.0, opacity);
 }
 }
 
@@ -241,32 +264,32 @@ void VolumePipeline::updateTransferFunctions(ImageData& data) const
 	addColorPoint(data, thresholdUpper, windowPosition(thresholdUpper));
 	data.colorFun->ClampingOff();
 
-	configureOpacity(data, thresholdLower, thresholdUpper);
+	if (usesRgbRendering(data))
+		configureRgbOpacity(data);
+	else
+		configureOpacity(data, thresholdLower, thresholdUpper);
 }
 
 void VolumePipeline::updateImageFilters(ImageData& data) const
 {
-	// OCT stacks are scalar intensity volumes. Some TIFF and JPEG writers
-	// store visually greyscale data as RGB. Passing those three components
-	// directly to vtkVolume makes VTK render them independently, while the
-	// opacity transfer function below controls only the first component.
-	// Convert RGB input to one luminance component before thresholding so
-	// masked voxels are transparent instead of appearing black.
-	if (data.image->GetNumberOfScalarComponents() == 3)
-	{
-		data.luminance->SetInputData(data.image);
-		data.extractVOI->SetInputConnection(data.luminance->GetOutputPort());
-	}
-	else
-	{
-		data.extractVOI->SetInputData(data.image);
-	}
-
+	const bool colorInput =
+		data.image->GetNumberOfScalarComponents() >= 3;
+	data.extractVOI->SetInputData(data.image);
 	data.extractVOI->SetVOI(
 		static_cast<int>(data.VOI[0]), static_cast<int>(data.VOI[1]) - 1,
 		static_cast<int>(data.VOI[2]), static_cast<int>(data.VOI[3]) - 1,
 		static_cast<int>(data.VOI[4]), static_cast<int>(data.VOI[5]) - 1);
-	data.threshold->SetInputConnection(data.extractVOI->GetOutputPort());
+	if (colorInput)
+	{
+		data.rgbComponents->SetInputConnection(data.extractVOI->GetOutputPort());
+		data.rgbComponents->SetComponents(0, 1, 2);
+		data.luminance->SetInputConnection(data.rgbComponents->GetOutputPort());
+		data.threshold->SetInputConnection(data.luminance->GetOutputPort());
+	}
+	else
+	{
+		data.threshold->SetInputConnection(data.extractVOI->GetOutputPort());
+	}
 	data.threshold->ThresholdBetween(
 		static_cast<double>(data.currentMinThreshold),
 		static_cast<double>(data.currentMaxThreshold));
@@ -276,6 +299,54 @@ void VolumePipeline::updateImageFilters(ImageData& data) const
 	data.threshold->ReplaceOutOn();
 	data.threshold->SetOutValue(0.0);
 	data.threshold->Update();
+
+	if (!colorInput)
+		return;
+
+	// An RGB volume needs a fourth component in VTK 8.2. Build RGBA from the
+	// original RGB channels plus a binary alpha mask derived from luminance.
+	// Thus hue is preserved, thresholding remains intensity-based, and source
+	// black is transparent in 3D even when the lower threshold includes zero.
+	const double alphaLower = std::max(
+		static_cast<double>(data.currentMinThreshold),
+		scalarStep(data));
+	data.rgbMaskThreshold->SetInputConnection(
+		data.luminance->GetOutputPort());
+	data.rgbMaskThreshold->ThresholdBetween(
+		alphaLower,
+		static_cast<double>(data.currentMaxThreshold));
+	data.rgbMaskThreshold->ReplaceInOn();
+	data.rgbMaskThreshold->SetInValue(255.0);
+	data.rgbMaskThreshold->ReplaceOutOn();
+	data.rgbMaskThreshold->SetOutValue(0.0);
+	data.rgbMaskThreshold->SetOutputScalarTypeToUnsignedChar();
+
+	const double windowSpan = std::max(
+		1.0,
+		static_cast<double>(data.windowWidth) - 1.0);
+	const double center = static_cast<double>(data.windowLevel) - 0.5;
+	const double windowLower = center - 0.5 * windowSpan;
+	data.rgbWindowLevel->SetInputConnection(
+		data.rgbComponents->GetOutputPort());
+	data.rgbWindowLevel->SetShift(-windowLower);
+	data.rgbWindowLevel->SetScale(255.0 / windowSpan);
+	data.rgbWindowLevel->SetOutputScalarTypeToUnsignedChar();
+	data.rgbWindowLevel->ClampOverflowOn();
+
+	data.rgbMask->SetInputConnection(
+		0,
+		data.rgbWindowLevel->GetOutputPort());
+	data.rgbMask->SetInputConnection(
+		1,
+		data.rgbMaskThreshold->GetOutputPort());
+	data.rgbMask->SetMaskedOutputValue(0.0, 0.0, 0.0);
+	data.rgbMask->NotMaskOff();
+
+	data.rgbaVolume->RemoveAllInputConnections(0);
+	data.rgbaVolume->SetInputConnection(0, data.rgbMask->GetOutputPort());
+	data.rgbaVolume->AddInputConnection(
+		0,
+		data.rgbMaskThreshold->GetOutputPort());
 }
 
 void VolumePipeline::updatePlane(
@@ -302,13 +373,18 @@ void VolumePipeline::updatePlane(
 		return;
 	}
 
-	data.colorMap->SetLookupTable(data.colorFun);
-	// Planes deliberately use only the colour transfer function: black plane
-	// pixels stay opaque, independently of the volume's zero-opacity mask.
+	const bool showRgb = usesRgbRendering(data);
+	data.colorMap->SetLookupTable(showRgb ? nullptr : data.colorFun.GetPointer());
+	// RGB passes through directly; grayscale uses the selected colour transfer
+	// function. In both modes the plane output remains opaque, so black pixels
+	// stay visible instead of adopting the volume's zero-opacity mask.
 	data.colorMap->SetOutputFormatToRGBA();
 	data.colorMap->PassAlphaToOutputOff();
 	data.planeWidget->SetColorMap(data.colorMap);
-	data.median->SetInputConnection(data.threshold->GetOutputPort());
+	data.median->SetInputConnection(
+		showRgb
+			? data.rgbMask->GetOutputPort()
+			: data.threshold->GetOutputPort());
 	data.median->SetKernelSize(
 		data.checkMedian ? data.medianKernelX : 1,
 		data.checkMedian ? data.medianKernelY : 1,
@@ -343,13 +419,12 @@ void VolumePipeline::updateVolume(
 	vtkRenderer* renderer) const
 {
 	data.volumeMapper->RemoveAllClippingPlanes();
-	if (data.fileChanged)
-	{
-		data.fileChanged = false;
-		data.volume->GetProperty()->SetColor(data.colorFun);
-		data.volume->GetProperty()->SetScalarOpacity(data.opacityFun);
-		data.volume->GetProperty()->SetInterpolationTypeToLinear();
-	}
+	data.fileChanged = false;
+	const bool showRgb = usesRgbRendering(data);
+	data.volume->GetProperty()->SetIndependentComponents(showRgb ? 0 : 1);
+	data.volume->GetProperty()->SetColor(data.colorFun);
+	data.volume->GetProperty()->SetScalarOpacity(data.opacityFun);
+	data.volume->GetProperty()->SetInterpolationTypeToLinear();
 
 	if (data.showPlane)
 	{
@@ -390,7 +465,10 @@ void VolumePipeline::updateVolume(
 		break;
 	}
 
-	data.volumeMapper->SetInputConnection(data.threshold->GetOutputPort());
+	data.volumeMapper->SetInputConnection(
+		showRgb
+			? data.rgbaVolume->GetOutputPort()
+			: data.threshold->GetOutputPort());
 	data.volume->SetMapper(data.volumeMapper);
 	data.volume->SetScale(1.0, 1.0, 1.0);
 	data.volume->SetUserTransform(data.transform);

@@ -311,6 +311,7 @@ OCTview3R::OCTview3R()
 	connect(this->ui->downPushButton, SIGNAL(clicked()), this, SLOT(slotPlaneDown())); 
 	connect(this->ui->pushButton_save, SIGNAL(clicked()), this, SLOT(slotSaveDisplay()));
 	connect(this->ui->comboBox_blendMode, SIGNAL(currentIndexChanged(int)), this, SLOT(slotSetBlendMode(int)));
+	connect(this->ui->comboBox_colorMode, SIGNAL(currentIndexChanged(int)), this, SLOT(slotSetColorMode(int)));
 	connect(this->ui->comboBox_polyMode, SIGNAL(currentIndexChanged(int)), this, SLOT(slotSetPolyMode(int)));
 	connect(this->ui->checkBox_flipPlane, SIGNAL(clicked(bool)), this, SLOT(slotCheckFlipPlane(bool)));
 	connect(this->ui->scaleXDoubleSpinBox, SIGNAL(valueChanged(double)), this, SLOT(slotScaleX(double)));
@@ -806,6 +807,23 @@ void OCTview3R::updateRangePresentation()
 		rangeGroupBox->setTitle(tr("Crop ranges (voxel indices)"));
 }
 
+void OCTview3R::updateColorModeControls()
+{
+	const bool isVolume = activeImageData != nullptr &&
+		activeImageData->fileLoaded && activeImageData->isVolume;
+	const bool rgbAvailable = isVolume && activeImageData->image != nullptr &&
+		activeImageData->image->GetNumberOfScalarComponents() >= 3;
+	const bool showRgb = rgbAvailable && activeImageData->renderRgb;
+
+	ui->colorModeLabel->setEnabled(rgbAvailable);
+	ui->comboBox_colorMode->setEnabled(rgbAvailable);
+	ui->comboBox_colorMode->setCurrentIndex(showRgb ? 1 : 0);
+	ui->colormapOptionsLabel->setEnabled(isVolume && !showRgb);
+	ui->comboBox_colormapStyle->setEnabled(isVolume && !showRgb);
+	ui->checkBox_invertColormap->setEnabled(isVolume && !showRgb);
+	ui->pushButton_pickVolumeColor->setEnabled(isVolume && !showRgb);
+}
+
 void OCTview3R::updateMetadata()
 {
 	if (!metadataLabel || !activeImageData || !activeImageData->fileLoaded)
@@ -839,6 +857,8 @@ void OCTview3R::updateMetadata()
 			.arg(activeImageData->image->GetNumberOfScalarComponents())
 			.arg(scalarRange[0], 0, 'g', 8)
 			.arg(scalarRange[1], 0, 'g', 8);
+		text += tr("\nColor mode: %1")
+			.arg(activeImageData->renderRgb ? tr("RGB") : tr("Grayscale"));
 	}
 	else
 	{
@@ -1060,6 +1080,7 @@ void OCTview3R::slotSetImageData(ImageData* data)
 		this->glossSpinBox->setValue(this->ui->Slider_polyGloss->value());
 		this->ui->checkBox_adjustColormap->setChecked(activeImageData->adjustColormap);
 		this->ui->checkBox_invertColormap->setChecked(activeImageData->invertColormap);
+		updateColorModeControls();
 
 		//Set threshold values
 		this->ui->groupBox_threshold->setEnabled(activeImageData->isVolume);
@@ -1256,6 +1277,7 @@ void OCTview3R::slotDataFileDialogClosed(
 		data->maxValue		= static_cast<int>(std::ceil(scalarRange[1]));
 		data->currentMinThreshold = data->minValue;
 		data->currentMaxThreshold = data->maxValue;
+		data->renderRgb = tmpData->GetNumberOfScalarComponents() >= 3;
 		data->windowWidth = std::max(
 			1,
 			data->maxValue - data->minValue + 1);
@@ -1507,6 +1529,8 @@ void OCTview3R::slotAdjustColormap(bool value)
 		if (value && activeImageData->isVolume)
 			applyAutomaticWindowLevel();
 		markAppearanceDirty();
+		if (activeImageData->renderRgb)
+			markDataPipelineDirty();
 	refreshViewer();
 	}
 }
@@ -1860,6 +1884,8 @@ void OCTview3R::slotSetWindowWidth(int value)
 		ui->checkBox_adjustColormap->setChecked(false);
 	}
 	markAppearanceDirty();
+	if (activeImageData->renderRgb)
+		markDataPipelineDirty();
 	refreshViewer();
 }
 
@@ -1877,6 +1903,8 @@ void OCTview3R::slotSetWindowLevel(int value)
 		ui->checkBox_adjustColormap->setChecked(false);
 	}
 	markAppearanceDirty();
+	if (activeImageData->renderRgb)
+		markDataPipelineDirty();
 	refreshViewer();
 }
 
@@ -1898,6 +1926,26 @@ void OCTview3R::slotSetBlendMode(int index)
 		markAppearanceDirty();
 	refreshViewer();
 	}
+}
+void OCTview3R::slotSetColorMode(int index)
+{
+	if (!settings.oneFileLoaded || activeImageData == nullptr ||
+		!activeImageData->fileLoaded || !activeImageData->isVolume ||
+		activeImageData->image == nullptr)
+	{
+		return;
+	}
+
+	const bool rgbAvailable =
+		activeImageData->image->GetNumberOfScalarComponents() >= 3;
+	activeImageData->renderRgb = rgbAvailable && index == 1;
+	activeImageData->changePlaneInput = true;
+	updateColorModeControls();
+	updateMetadata();
+	markAppearanceDirty();
+	markDataPipelineDirty();
+	markPlaneDirty();
+	refreshViewer();
 }
 void OCTview3R::slotSetPolyMode(int index)
 {
