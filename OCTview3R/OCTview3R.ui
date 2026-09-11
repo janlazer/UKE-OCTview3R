@@ -19,6 +19,10 @@
   <property name="windowTitle">
    <string>OCTview3R</string>
   </property>
+  <property name="windowIcon">
+   <iconset resource="OCTview3R.qrc">
+    <normaloff>:/OCTview3R/Resources/branding/octview3r-ui.png</normaloff>:/OCTview3R/Resources/branding/octview3r-ui.png</iconset>
+  </property>
   <widget class="QWidget" name="centralwidget">
    <property name="maximumSize">
     <size>
@@ -1678,6 +1682,40 @@
    </attribute>
    <widget class="QWidget" name="dockWidgetContents">
     <layout class="QVBoxLayout" name="visualizationLayout">
+     <property name="spacing"><number>6</number></property>
+     <item>
+      <widget class="QWidget" name="viewerBrandHeader" native="true">
+       <layout class="QHBoxLayout" name="viewerBrandLayout">
+        <property name="leftMargin"><number>10</number></property>
+        <property name="topMargin"><number>2</number></property>
+        <property name="rightMargin"><number>8</number></property>
+        <property name="bottomMargin"><number>2</number></property>
+        <item>
+         <spacer name="viewerBrandSpacer">
+          <property name="orientation"><enum>Qt::Horizontal</enum></property>
+          <property name="sizeHint" stdset="0"><size><width>20</width><height>20</height></size></property>
+         </spacer>
+        </item>
+        <item>
+         <widget class="QLabel" name="viewerBrandName">
+          <property name="font"><font><family>Segoe UI</family><pointsize>12</pointsize><bold>true</bold></font></property>
+          <property name="text"><string>OCTview3R</string></property>
+          <property name="alignment"><set>Qt::AlignRight|Qt::AlignVCenter</set></property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QLabel" name="viewerBrandLogo">
+          <property name="minimumSize"><size><width>48</width><height>48</height></size></property>
+          <property name="maximumSize"><size><width>48</width><height>48</height></size></property>
+          <property name="accessibleName"><string>OCTview3R logo</string></property>
+          <property name="toolTip"><string>OCT volumes and segmented surfaces in a shared 3D space</string></property>
+          <property name="pixmap"><pixmap resource="OCTview3R.qrc">:/OCTview3R/Resources/branding/octview3r-ui.png</pixmap></property>
+          <property name="scaledContents"><bool>true</bool></property>
+         </widget>
+        </item>
+       </layout>
+      </widget>
+     </item>
      <item>
       <widget class="QVTKOpenGLWidget" name="qvtkWidget" native="true">
        <property name="sizePolicy">

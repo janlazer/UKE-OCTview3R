@@ -1,5 +1,16 @@
 <RCC>
     <qresource prefix="/OCTview3R">
+        <file>Resources/branding/octview3r-ui.png</file>
+        <file>Resources/darkstyle/chevron-down.svg</file>
+        <file>Resources/darkstyle/chevron-up.svg</file>
+        <file>Resources/darkstyle/check.svg</file>
+        <file>Resources/darkstyle/view-x.svg</file>
+        <file>Resources/darkstyle/view-xu.svg</file>
+        <file>Resources/darkstyle/view-y.svg</file>
+        <file>Resources/darkstyle/view-yu.svg</file>
+        <file>Resources/darkstyle/view-z.svg</file>
+        <file>Resources/darkstyle/view-zu.svg</file>
+        <file>Resources/darkstyle/rotate.svg</file>
         <file>Resources/icons/bullet_arrow_down.png</file>
         <file>Resources/icons/bullet_arrow_up.png</file>
         <file>Resources/icons/transform_rotate_90.png</file>

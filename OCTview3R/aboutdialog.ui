@@ -6,23 +6,28 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>480</width>
-    <height>360</height>
+    <width>520</width>
+    <height>540</height>
    </rect>
   </property>
   <property name="minimumSize">
    <size>
     <width>440</width>
-    <height>340</height>
+    <height>520</height>
    </size>
   </property>
   <property name="windowTitle">
    <string>About OCTview3R</string>
   </property>
+  <property name="windowIcon">
+   <iconset resource="OCTview3R.qrc">
+    <normaloff>:/OCTview3R/Resources/branding/octview3r-ui.png</normaloff>:/OCTview3R/Resources/branding/octview3r-ui.png</iconset>
+  </property>
   <property name="modal">
    <bool>true</bool>
   </property>
   <layout class="QVBoxLayout" name="verticalLayout">
+   <property name="spacing"><number>10</number></property>
    <property name="leftMargin">
     <number>24</number>
    </property>
@@ -35,10 +40,20 @@
    <property name="bottomMargin">
     <number>16</number>
    </property>
+   <item alignment="Qt::AlignHCenter">
+    <widget class="QLabel" name="aboutLogoLabel">
+     <property name="minimumSize"><size><width>176</width><height>176</height></size></property>
+     <property name="maximumSize"><size><width>176</width><height>176</height></size></property>
+     <property name="accessibleName"><string>OCTview3R logo: OCT layers and a segmented surface</string></property>
+     <property name="pixmap"><pixmap resource="OCTview3R.qrc">:/OCTview3R/Resources/branding/octview3r-ui.png</pixmap></property>
+     <property name="scaledContents"><bool>true</bool></property>
+    </widget>
+   </item>
    <item>
     <widget class="QLabel" name="applicationNameLabel">
      <property name="font">
       <font>
+       <family>Segoe UI</family>
        <pointsize>18</pointsize>
        <weight>75</weight>
        <bold>true</bold>
@@ -151,7 +166,9 @@
    </item>
   </layout>
  </widget>
- <resources/>
+ <resources>
+  <include location="OCTview3R.qrc"/>
+ </resources>
  <connections>
   <connection>
    <sender>buttonBox</sender>

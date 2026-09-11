@@ -1,0 +1,2 @@
+// Windows Explorer and taskbar icon (all sizes embedded in the executable).
+1 ICON "Resources/branding/octview3r.ico"

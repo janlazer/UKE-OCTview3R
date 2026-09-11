@@ -122,6 +122,11 @@
     <QtRcc Include="OCTview3R.qrc" />
   </ItemGroup>
   <ItemGroup>
+    <ResourceCompile Include="application.rc" />
+    <Image Include="Resources\branding\octview3r.ico" />
+    <Image Include="Resources\branding\octview3r-ui.png" />
+  </ItemGroup>
+  <ItemGroup>
     <ClInclude Include="aboutdialog.h" />
     <ClInclude Include="dataTypes.h" />
     <ClInclude Include="definitions.h" />

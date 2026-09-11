@@ -91,6 +91,17 @@
     </QtRcc>
   </ItemGroup>
   <ItemGroup>
+    <ResourceCompile Include="application.rc">
+      <Filter>Resource Files</Filter>
+    </ResourceCompile>
+    <Image Include="Resources\branding\octview3r.ico">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="Resources\branding\octview3r-ui.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+  </ItemGroup>
+  <ItemGroup>
     <ClInclude Include="aboutdialog.h">
       <Filter>Header Files</Filter>
     </ClInclude>

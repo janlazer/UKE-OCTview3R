@@ -7,6 +7,8 @@ uses [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- Cyan OCT-volume logo, embedded Windows application icon, and branding in
+  the main window and About dialog.
 - PolyData range cropping with floating-point bounds.
 - PolyData gloss control and improved initial lighting.
 - Dataset metadata, loading progress, application themes, and an About dialog.
@@ -17,6 +19,8 @@ uses [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- Refreshed the dark theme with graphite panels, cyan accents, clearer
+  control states, and visible spin-box and combo-box arrows.
 - Refined the Qt Designer forms and reorganized the controls for clearer use.
 - Synchronized planes with object rotation, translation, and scaling.
 - Improved loading validation and error reporting for volume and PolyData input.

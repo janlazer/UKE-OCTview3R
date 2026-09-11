@@ -758,36 +758,41 @@ void OCTview3R::applyTheme(const QString& theme)
 	QString styleSheet = systemStyleSheet;
 	if (useDarkTheme)
 	{
-		// Palette values and parts of the stylesheet are adapted from
-		// Qt-Frameless-Window-DarkStyle (MIT), as used by UKE-smartLab.
-		palette.setColor(QPalette::Window, QColor(53, 53, 53));
-		palette.setColor(QPalette::WindowText, Qt::white);
+		// Graphite surfaces and cyan accents echo the OCT volume logo.
+		// Stylesheet foundations: Qt-Frameless-Window-DarkStyle (MIT).
+		const QColor text(225, 235, 240);
+		const QColor disabledText(123, 141, 153);
+		const QColor accent(64, 199, 219);
+		palette.setColor(QPalette::Window, QColor(25, 33, 41));
+		palette.setColor(QPalette::WindowText, text);
 		palette.setColor(
-			QPalette::Disabled, QPalette::WindowText, QColor(127, 127, 127));
-		palette.setColor(QPalette::Base, QColor(42, 42, 42));
-		palette.setColor(QPalette::AlternateBase, QColor(66, 66, 66));
-		palette.setColor(QPalette::ToolTipBase, Qt::white);
-		palette.setColor(QPalette::ToolTipText, QColor(53, 53, 53));
-		palette.setColor(QPalette::Text, Qt::white);
+			QPalette::Disabled, QPalette::WindowText, disabledText);
+		palette.setColor(QPalette::Base, QColor(17, 24, 31));
+		palette.setColor(QPalette::AlternateBase, QColor(38, 51, 63));
+		palette.setColor(QPalette::ToolTipBase, QColor(31, 45, 56));
+		palette.setColor(QPalette::ToolTipText, text);
+		palette.setColor(QPalette::Text, text);
 		palette.setColor(
-			QPalette::Disabled, QPalette::Text, QColor(127, 127, 127));
-		palette.setColor(QPalette::Dark, QColor(35, 35, 35));
-		palette.setColor(QPalette::Shadow, QColor(20, 20, 20));
-		palette.setColor(QPalette::Mid, QColor(80, 80, 80));
-		palette.setColor(QPalette::Midlight, QColor(95, 95, 95));
-		palette.setColor(QPalette::Button, QColor(53, 53, 53));
-		palette.setColor(QPalette::ButtonText, Qt::white);
+			QPalette::Disabled, QPalette::Text, disabledText);
+		palette.setColor(QPalette::Dark, QColor(46, 62, 74));
+		palette.setColor(QPalette::Shadow, QColor(11, 17, 23));
+		palette.setColor(QPalette::Mid, QColor(67, 87, 102));
+		palette.setColor(QPalette::Midlight, QColor(100, 124, 141));
+		palette.setColor(QPalette::Light, QColor(123, 146, 160));
+		palette.setColor(QPalette::Button, QColor(34, 47, 59));
+		palette.setColor(QPalette::ButtonText, text);
 		palette.setColor(
-			QPalette::Disabled, QPalette::ButtonText, QColor(127, 127, 127));
+			QPalette::Disabled, QPalette::ButtonText, disabledText);
 		palette.setColor(QPalette::BrightText, Qt::red);
-		palette.setColor(QPalette::Link, QColor(42, 130, 218));
-		palette.setColor(QPalette::Highlight, QColor(42, 130, 218));
+		palette.setColor(QPalette::Link, accent);
+		palette.setColor(QPalette::LinkVisited, QColor(157, 180, 237));
+		palette.setColor(QPalette::Highlight, accent);
 		palette.setColor(
-			QPalette::Disabled, QPalette::Highlight, QColor(80, 80, 80));
-		palette.setColor(QPalette::HighlightedText, Qt::white);
+			QPalette::Disabled, QPalette::Highlight, QColor(56, 74, 87));
+		palette.setColor(QPalette::HighlightedText, QColor(13, 30, 38));
 		palette.setColor(
-			QPalette::Disabled, QPalette::HighlightedText, QColor(127, 127, 127));
-		palette.setColor(QPalette::PlaceholderText, QColor(155, 155, 155));
+			QPalette::Disabled, QPalette::HighlightedText, disabledText);
+		palette.setColor(QPalette::PlaceholderText, QColor(146, 166, 179));
 
 		QFile styleFile(
 			QStringLiteral(":/OCTview3R/Resources/darkstyle/darkstyle.qss"));
@@ -807,11 +812,30 @@ void OCTview3R::applyTheme(const QString& theme)
 		palette.setColor(QPalette::Text, QColor(28, 30, 33));
 		palette.setColor(QPalette::Button, QColor(239, 241, 244));
 		palette.setColor(QPalette::ButtonText, QColor(28, 30, 33));
+		palette.setColor(QPalette::Link, QColor(0, 100, 148));
+		palette.setColor(QPalette::LinkVisited, QColor(99, 65, 143));
 		palette.setColor(QPalette::Highlight, QColor(33, 118, 174));
 		palette.setColor(QPalette::HighlightedText, Qt::white);
 	}
 	qApp->setPalette(palette);
 	qApp->setStyleSheet(styleSheet);
+	// Camera direction cues stay legible against the dark toolbar.
+	const auto setCameraIcon = [useDarkTheme](QAction* action, const char* name)
+	{
+		const QString resource = useDarkTheme
+			? QStringLiteral(":/OCTview3R/Resources/darkstyle/view-%1.svg")
+			: QStringLiteral(":/OCTview3R/Resources/icons/%1.png");
+		action->setIcon(QIcon(resource.arg(QString::fromLatin1(name))));
+	};
+	setCameraIcon(ui->actionX, "x");
+	setCameraIcon(ui->actionXu, "xu");
+	setCameraIcon(ui->actionY, "y");
+	setCameraIcon(ui->actionYu, "yu");
+	setCameraIcon(ui->actionZ, "z");
+	setCameraIcon(ui->actionZu, "zu");
+	ui->actionRot->setIcon(QIcon(useDarkTheme
+		? QStringLiteral(":/OCTview3R/Resources/darkstyle/rotate.svg")
+		: QStringLiteral(":/OCTview3R/Resources/icons/transform_rotate_90.png")));
 	currentTheme = theme;
 	if (viewerController)
 		viewerController->updateAnnotationColor();
