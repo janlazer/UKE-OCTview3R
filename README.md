@@ -40,10 +40,10 @@ independent palette autoscaling and window/level controls, object transforms,
 and crop ranges.*
 
 <p align="center">
-  <img src="docs/images/octview3r-about.png" width="480" alt="OCTview3R About dialog showing version 1.1.0, authors, and license">
+  <img src="docs/images/octview3r-about.png" width="520" alt="OCTview3R About dialog in the dark theme with the cyan OCT-volume logo, version 1.1.0, authors, acknowledgements, and license">
 </p>
 
-<p align="center"><em>Version, authorship, and licensing in the About dialog.</em></p>
+<p align="center"><em>The current About dialog with the OCT-volume logo, version, authors, acknowledgements, and licensing.</em></p>
 
 ## Features
 
