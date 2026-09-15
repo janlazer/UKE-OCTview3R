@@ -700,8 +700,11 @@
             </item>
             <item row="1" column="1">
              <widget class="QCheckBox" name="checkBox_adjustColormap">
+              <property name="toolTip">
+               <string>Stretch the palette across the selected Min/Max thresholds. Off: keep the full dataset range. Window/Level and volume transparency remain independent. Grayscale only.</string>
+              </property>
               <property name="text">
-               <string>Auto window</string>
+               <string>Autoscale palette</string>
               </property>
               <property name="checked">
                <bool>true</bool>
@@ -858,6 +861,19 @@
            </property>
           </widget>
          </item>
+         <item row="4" column="1" colspan="3">
+          <widget class="QCheckBox" name="checkBox_autoWindow">
+           <property name="toolTip">
+            <string>Set Window/Level to the full dataset intensity range (neutral brightness and contrast). Manual Window/Level edits turn off only this option. With Autoscale palette enabled, Window/Level acts after palette normalization; thresholds do not change these values.</string>
+           </property>
+           <property name="text">
+            <string>Auto window (full data range)</string>
+           </property>
+           <property name="checked">
+            <bool>true</bool>
+           </property>
+          </widget>
+         </item>
          <item row="2" column="0">
           <widget class="QLabel" name="label_windowWidth">
            <property name="text">
@@ -924,7 +940,7 @@
            </property>
           </widget>
          </item>
-         <item row="4" column="0">
+         <item row="5" column="0">
           <widget class="QLabel" name="label_polyGloss">
            <property name="enabled">
             <bool>false</bool>
@@ -934,7 +950,7 @@
            </property>
           </widget>
          </item>
-         <item row="4" column="1" colspan="2">
+         <item row="5" column="1" colspan="2">
           <widget class="QSlider" name="Slider_polyGloss">
            <property name="enabled">
             <bool>false</bool>
@@ -950,7 +966,7 @@
            </property>
           </widget>
          </item>
-         <item row="4" column="3">
+         <item row="5" column="3">
           <widget class="QSpinBox" name="glossSpinBox">
            <property name="enabled">
             <bool>false</bool>
@@ -1649,6 +1665,19 @@
          </item>
          <item row="1" column="2">
           <widget class="QSpinBox" name="maxThresholdSpinBox"/>
+         </item>
+         <item row="2" column="1" colspan="2">
+          <widget class="QCheckBox" name="checkBox_smoothOpacity">
+           <property name="toolTip">
+            <string>Grayscale volumes: fade linearly from transparent at Min to the selected opacity at Max. Off: use uniform opacity with a hard cutoff. Source zero stays transparent in 3D; slice planes keep opaque black pixels. RGB keeps its luminance mask.</string>
+           </property>
+           <property name="text">
+            <string>Smooth opacity (Min to Max)</string>
+           </property>
+           <property name="checked">
+            <bool>true</bool>
+           </property>
+          </widget>
          </item>
         </layout>
        </widget>

@@ -1,0 +1,31 @@
+OCTview3R - Windows package
+==================================
+
+If you used the installer, start OCTview3R from the Windows Start menu.
+See INSTALLATION.txt for installation and uninstall information when supplied.
+
+If you downloaded the portable ZIP:
+1. Extract the entire ZIP to a local folder.
+2. Open the extracted OCTview3R (or _standalone) folder.
+3. Double-click OCTview3R.exe.
+
+Keep the executable, all DLLs, and the plugin subfolders together.
+Do not run the executable from inside the ZIP viewer.
+
+Requirements: Windows 10/11 (64-bit), a working OpenGL graphics driver,
+and enough memory for the datasets you want to display.
+Qt, VTK, and Visual Studio do not need to be installed separately.
+The Visual C++ runtime is included beside the executable. The additional
+vc_redist.x64.exe installer is normally not needed for this package.
+
+Use File / Open Volume or Open PolyData to load your own data.
+The interface theme can be changed under General / Theme.
+Version and authorship are shown in About.
+
+Program settings are stored per Windows user. This package contains no
+research datasets. Read README.md for supported formats and usage details.
+
+License and attribution: LICENSE.txt, AUTHORS.md, THIRD_PARTY_NOTICES.md,
+DARKSTYLE_LICENSE.txt, and licenses/qt-distribution/ (when supplied).
+Source repository: https://github.com/janlazer/UKE-OCTview3R
+Access to a private source repository requires a separate GitHub invitation.

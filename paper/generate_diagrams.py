@@ -180,7 +180,7 @@ def overlay_pipeline() -> None:
         "Shared VTK renderer",
         [
             "common 3D coordinates",
-            "rotation / shift / scale",
+            "per-dataset transforms",
             "opacity and colour",
             "co-moving slice plane",
         ],
@@ -218,7 +218,7 @@ def organoid_workflow() -> None:
     technical_box(draw, (65, top_y0, 465, top_y1), STEEL_BLUE, "Organoid culture", ["organoids embedded", "in Matrigel"])
     technical_box(draw, (570, top_y0, 970, top_y1), STEEL_BLUE, "3D OCT", ["volumetric acquisition", "repeated time points"])
     technical_box(draw, (1075, top_y0, 1535, top_y1), COPPER, "Segmentation", ["individual organoids", "size + 3D position"])
-    technical_box(draw, (1660, top_y0, 2160, top_y1), CHARCOAL, "OCTview3R overlay", ["OCT intensity + PolyData", "visual validation"])
+    technical_box(draw, (1660, top_y0, 2160, top_y1), CHARCOAL, "OCTview3R overlay", ["OCT intensity + PolyData", "visual inspection"])
 
     arrow(draw, (465, 363), (570, 363), STEEL_BLUE)
     arrow(draw, (970, 363), (1075, 363), STEEL_BLUE)
@@ -246,8 +246,8 @@ def organoid_workflow() -> None:
     arrow(draw, (1910, 510), (1795, 775), CHARCOAL)
     arrow(draw, (770, 510), (590, 775), STEEL_BLUE, dashed=True)
 
-    draw.text((850, 640), "TIME-RESOLVED DISPLACEMENT", font=FONT_SMALL, fill=STEEL_BLUE, anchor="mm")
-    draw.text((1715, 635), "VERIFIED TARGET CONTEXT", font=FONT_SMALL, fill=CHARCOAL, anchor="mm")
+    draw.text((355, 590), "REPEATED ACQUISITIONS", font=FONT_SMALL, fill=STEEL_BLUE, anchor="mm")
+    draw.text((1715, 600), "TARGET CONTEXT", font=FONT_SMALL, fill=CHARCOAL, anchor="mm")
 
     save(image, "organoid-study-workflow.png")
 

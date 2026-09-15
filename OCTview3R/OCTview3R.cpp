@@ -113,6 +113,7 @@ VTK_MODULE_INIT(vtkRenderingFreeType);
 //QT
 #include <QAction>
 #include <QApplication>
+#include <QCheckBox>
 #include <QCloseEvent>
 #include <QFile>
 #include <QFileDialog>
@@ -378,6 +379,8 @@ OCTview3R::OCTview3R()
 	connect(this->ui->pushButton_pickPolyColor, SIGNAL(clicked()), this, SLOT(slotPickPolyColor()));
 	connect(this->ui->pushButton_pickVolumeColor, SIGNAL(clicked()), this, SLOT(slotPickVolumeColor()));
 	connect(this->ui->checkBox_adjustColormap, SIGNAL(clicked(bool)), this, SLOT(slotAdjustColormap(bool)));
+	connect(ui->checkBox_autoWindow, &QCheckBox::clicked, this, &OCTview3R::slotAutoWindow);
+	connect(ui->checkBox_smoothOpacity, &QCheckBox::clicked, this, &OCTview3R::slotSmoothOpacity);
 	connect(this->ui->checkBox_invertColormap, SIGNAL(clicked(bool)), this, SLOT(slotInvertColormap(bool)));
 	connect(this->ui->spinBox_pointSize, SIGNAL(valueChanged(int)), this, SLOT(slotSetPointSize(int)));
 	connect(this->ui->groupBox_object, SIGNAL(clicked(bool)), this, SLOT(slotShowObject(bool)));
@@ -885,11 +888,10 @@ void OCTview3R::applyAutomaticWindowLevel()
 
 	activeImageData->windowWidth = std::max(
 		1,
-		activeImageData->currentMaxThreshold -
-			activeImageData->currentMinThreshold + 1);
+		activeImageData->maxValue - activeImageData->minValue + 1);
 	activeImageData->windowLevel = static_cast<int>(std::round(
-		0.5 * (static_cast<double>(activeImageData->currentMinThreshold) +
-			activeImageData->currentMaxThreshold + 1.0)));
+		0.5 * (static_cast<double>(activeImageData->minValue) +
+			activeImageData->maxValue + 1.0)));
 
 	const QSignalBlocker blockWindowSlider(ui->Slider_windowWidth);
 	const QSignalBlocker blockWindowSpinBox(ui->windowWidthSpinBox);
@@ -934,6 +936,9 @@ void OCTview3R::updateColorModeControls()
 	ui->colormapOptionsLabel->setEnabled(isVolume && !showRgb);
 	ui->comboBox_colormapStyle->setEnabled(isVolume && !showRgb);
 	ui->checkBox_invertColormap->setEnabled(isVolume && !showRgb);
+	ui->checkBox_adjustColormap->setEnabled(isVolume && !showRgb);
+	ui->checkBox_smoothOpacity->setEnabled(isVolume && !showRgb);
+	ui->checkBox_autoWindow->setEnabled(isVolume);
 	ui->pushButton_pickVolumeColor->setEnabled(isVolume && !showRgb);
 }
 
@@ -1203,6 +1208,8 @@ void OCTview3R::slotSetImageData(ImageData* data)
 			static_cast<int>(std::round(100.0 * activeImageData->polyGloss)));
 		this->glossSpinBox->setValue(this->ui->Slider_polyGloss->value());
 		this->ui->checkBox_adjustColormap->setChecked(activeImageData->adjustColormap);
+		ui->checkBox_autoWindow->setChecked(activeImageData->autoWindow);
+		ui->checkBox_smoothOpacity->setChecked(activeImageData->smoothOpacity);
 		this->ui->checkBox_invertColormap->setChecked(activeImageData->invertColormap);
 		updateColorModeControls();
 
@@ -1340,8 +1347,12 @@ void OCTview3R::slotSetThreshold()
 	   activeImageData->fileLoaded && activeImageData->isVolume){
 		activeImageData->currentMinThreshold = this->ui->Slider_minThreshold->value();
 		activeImageData->currentMaxThreshold = this->ui->Slider_maxThreshold->value();
-		if (activeImageData->adjustColormap)
-			applyAutomaticWindowLevel();
+		// Spin-box edits can cross the other endpoint without a sliderMoved
+		// signal. Keep the interval valid for both input methods.
+		activeImageData->currentMinThreshold = std::min(
+			activeImageData->currentMinThreshold, activeImageData->currentMaxThreshold);
+		ui->Slider_minThreshold->setValue(activeImageData->currentMinThreshold);
+		ui->minThresholdSpinBox->setValue(activeImageData->currentMinThreshold);
 		markAppearanceDirty();
 		markDataPipelineDirty();
 	refreshViewer();
@@ -1656,12 +1667,31 @@ void OCTview3R::slotAdjustColormap(bool value)
 {
 	if(settings.oneFileLoaded && activeImageData != nullptr && activeImageData->fileLoaded){
 		activeImageData->adjustColormap = value;
-		if (value && activeImageData->isVolume)
+		markAppearanceDirty();
+		refreshViewer();
+	}
+}
+
+void OCTview3R::slotAutoWindow(bool value)
+{
+	if (activeImageData && activeImageData->fileLoaded && activeImageData->isVolume) {
+		activeImageData->autoWindow = value;
+		if (value)
 			applyAutomaticWindowLevel();
 		markAppearanceDirty();
 		if (activeImageData->renderRgb)
 			markDataPipelineDirty();
-	refreshViewer();
+		refreshViewer();
+	}
+}
+
+void OCTview3R::slotSmoothOpacity(bool value)
+{
+	if (activeImageData && activeImageData->fileLoaded &&
+		activeImageData->isVolume && !activeImageData->renderRgb) {
+		activeImageData->smoothOpacity = value;
+		markAppearanceDirty();
+		refreshViewer();
 	}
 }
 void OCTview3R::slotInvertColormap(bool value)
@@ -2008,10 +2038,10 @@ void OCTview3R::slotSetWindowWidth(int value)
 		return;
 	}
 	activeImageData->windowWidth = std::max(1, value);
-	activeImageData->adjustColormap = false;
+	activeImageData->autoWindow = false;
 	{
-		const QSignalBlocker blocker(ui->checkBox_adjustColormap);
-		ui->checkBox_adjustColormap->setChecked(false);
+		const QSignalBlocker blocker(ui->checkBox_autoWindow);
+		ui->checkBox_autoWindow->setChecked(false);
 	}
 	markAppearanceDirty();
 	if (activeImageData->renderRgb)
@@ -2027,10 +2057,10 @@ void OCTview3R::slotSetWindowLevel(int value)
 		return;
 	}
 	activeImageData->windowLevel = value;
-	activeImageData->adjustColormap = false;
+	activeImageData->autoWindow = false;
 	{
-		const QSignalBlocker blocker(ui->checkBox_adjustColormap);
-		ui->checkBox_adjustColormap->setChecked(false);
+		const QSignalBlocker blocker(ui->checkBox_autoWindow);
+		ui->checkBox_autoWindow->setChecked(false);
 	}
 	markAppearanceDirty();
 	if (activeImageData->renderRgb)

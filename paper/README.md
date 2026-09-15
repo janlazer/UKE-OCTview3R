@@ -9,7 +9,10 @@ OCTproZ JOSS paper.
 
 - `paper.md`: manuscript source
 - `paper.bib`: BibTeX references
-- `figures/octview3r-interface.png`: current application screenshot
+- `../docs/architecture.md`: implementation-level companion covering ownership,
+  filter chains, units, transparency, memory handling, and verification limits
+- `figures/octview3r-interface.png`: current application screenshot, shared
+  with the repository README so both use the same image
 - `figures/overlay-pipeline.png`: OCT/PolyData rendering architecture
 - `figures/lens-oct-polydata-overlay.png`: historical lens application from
   Figure 10.6 of Jan Hahn's dissertation
@@ -36,12 +39,26 @@ The review PDF is only a layout aid. The authoritative submission source is
   rendering, variable planes, thresholds, and colour maps.
 - The current OCTview3R 1.1.0 implementation and repository documentation.
   This includes the grayscale/RGB volume paths, luminance-derived RGB alpha
-  masking, and shared window/level mapping documented in the manuscript.
+  masking, independent palette autoscaling and window/level controls, smooth
+  scalar opacity, coordinate conventions, and the existing regression harness.
+- Eight additional references checked on 14 September 2026: direct volume
+  rendering (Levoy, 1988), mixed polygon/volume rendering (Levoy, 1990), transfer
+  functions (Kindlmann and Durkin, 1998), OCT speckle (Schmitt et al., 1999),
+  Fiji (Schindelin et al., 2012), organoid OCT morphology (Zhang et al., 2023),
+  longitudinal organoid imaging (Monfort et al., 2023), and scientific colour
+  mapping (Crameri et al., 2020). The bibliography now contains 17 cited works;
+  DOI metadata and primary author/publisher records were used to check them.
+  The organoid references provide background, not evidence that those groups
+  used OCTview3R.
 - The current JOSS paper, review, AI-disclosure, and pre-submission criteria.
 
 The two source PDFs are not versioned or redistributed with the repository.
 
 ## Items to resolve before submission
+
+See [SUBMISSION_CHECKLIST.md](SUBMISSION_CHECKLIST.md) for the dated readiness
+assessment, author decisions, public-development requirement, and submission
+route. A prepared GitHub software release is not a JOSS submission.
 
 - Confirm the author order and each author's current submission affiliation.
 - Add ORCIDs for Giovanno Möbes and Tammo Ripken if available.
@@ -56,12 +73,24 @@ The two source PDFs are not versioned or redistributed with the repository.
 - Confirm that the selected dissertation figure may be reproduced under the
   publication agreement with TEWISS Verlag; Jan Hahn has approved its use as
   the dissertation author.
-- Add automated tests and CI, document an active public development history,
-  and demonstrate continued research use before JOSS submission.
+- Expand the existing automated regression tests and add CI. The current
+  numerical/UI checks do not replace rendered-image comparisons or benchmarks.
+- Plan for the public development history required by
+  [JOSS's submission criteria](https://joss.readthedocs.io/en/latest/submitting.html):
+  software developed privately needs at least six months of public development
+  history before submission. Changing repository visibility is a separate
+  author decision; this manuscript update does not publish the repository.
+- Demonstrate continued research use before JOSS submission.
 - At the end of review, tag the accepted release and archive it with Zenodo or
   another long-term repository to obtain a software DOI.
 
 ## Official build
+
+The `JOSS paper draft` GitHub Actions workflow runs manuscript consistency
+checks and the official Open Journals PDF generator. It is also available via
+**Actions > JOSS paper draft > Run workflow**. Download the resulting
+`octview3r-joss-paper` artifact and inspect its PDF. This workflow is paper CI,
+not a Windows C++/Qt/VTK test runner, and never submits the paper to JOSS.
 
 Use the JOSS `inara` toolchain described in the JOSS documentation when Docker
 or the required container runtime is available. The local review renderer can
@@ -70,3 +99,10 @@ be run with the bundled Python environment:
 ```powershell
 python .\paper\render_review_pdf.py
 ```
+
+The local renderer supports the manuscript's technical subsections, linked
+architecture note, and author-year citations, checks for missing citation keys,
+and sorts the reference list alphabetically. It is not a general BibTeX parser:
+reference fields should remain single-line, brace-delimited values. The main
+text remains within the [JOSS paper length guidance](https://joss.readthedocs.io/en/latest/paper.html);
+longer implementation details belong in the architecture companion.

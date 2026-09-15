@@ -19,6 +19,8 @@ x86/
 [Bb]in/
 [Oo]bj/
 dist/
+/OCTview3R/_standalone/
+/OCTview3R/_standalone.zip
 ipch/
 *.obj
 *.iobj
@@ -56,6 +58,8 @@ packages/
 TestResults/
 /tmp/
 /output/
+/paper/paper.pdf
+__pycache__/
 *.opendb
 *.tmp
 *.temp

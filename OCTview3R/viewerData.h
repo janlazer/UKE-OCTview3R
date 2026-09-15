@@ -89,6 +89,8 @@ struct ImageData
 
 	QString colormapName = "Greyscale";
 	bool adjustColormap = true;
+	bool autoWindow = true;
+	bool smoothOpacity = true;
 	bool invertColormap = false;
 	bool renderRgb = false;
 	int blendMode = 0;

@@ -1,0 +1,46 @@
+name: JOSS paper draft
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'paper/paper.md'
+      - 'paper/paper.bib'
+      - 'paper/figures/**'
+      - 'tests/check-paper.py'
+      - '.github/workflows/joss-paper.yml'
+  pull_request:
+    paths:
+      - 'paper/paper.md'
+      - 'paper/paper.bib'
+      - 'paper/figures/**'
+      - 'tests/check-paper.py'
+      - '.github/workflows/joss-paper.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  paper:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out manuscript and sources
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Validate manuscript references and files
+        run: python3 -B tests/check-paper.py
+      - name: Build with the official Open Journals toolchain
+        uses: openjournals/openjournals-draft-action@85a18372e48f551d8af9ddb7a747de685fbbb01c
+        with:
+          journal: joss
+          paper-path: paper/paper.md
+      - name: Upload JOSS-format PDF for author review
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: octview3r-joss-paper
+          path: paper/paper.pdf
+          if-no-files-found: error
+          retention-days: 30

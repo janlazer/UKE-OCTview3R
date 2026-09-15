@@ -151,25 +151,31 @@ void configureOpacity(
 	const double opacity = clamp01(data.objectOpacity);
 	const double step = scalarStep(data);
 
-	// Zero is the transparent black mask. Values surviving the threshold
-	// receive a constant opacity instead of the previous intensity-dependent
-	// ramp, which made mid-grey voxels look unintentionally translucent.
+	// Smooth mode restores the original intensity-dependent transparency:
+	// Min is transparent, Max reaches the selected object opacity. Uniform
+	// mode retains the hard-cutoff appearance. Neither depends on the palette
+	// or window/level, and the zero-valued background mask is always invisible.
+	const auto opacityAt = [&](double scalar) {
+		return data.smoothOpacity && upper > lower
+			? opacity * clamp01((scalar - lower) / (upper - lower))
+			: opacity;
+	};
 	data.opacityFun->AddPoint(0.0, 0.0);
 	if (lower < 0.0)
 	{
-		data.opacityFun->AddPoint(lower, opacity);
+		data.opacityFun->AddPoint(lower, opacityAt(lower));
 		const double negativeEnd = std::min(upper, -step);
 		if (negativeEnd > lower)
-			data.opacityFun->AddPoint(negativeEnd, opacity);
+			data.opacityFun->AddPoint(negativeEnd, opacityAt(negativeEnd));
 	}
 	if (upper > 0.0)
 	{
 		const double positiveStart = std::max(lower, step);
 		if (positiveStart <= upper)
 		{
-			data.opacityFun->AddPoint(positiveStart, opacity);
+			data.opacityFun->AddPoint(positiveStart, opacityAt(positiveStart));
 			if (upper > positiveStart)
-				data.opacityFun->AddPoint(upper, opacity);
+				data.opacityFun->AddPoint(upper, opacityAt(upper));
 		}
 	}
 }
@@ -251,14 +257,28 @@ void VolumePipeline::updateTransferFunctions(ImageData& data) const
 		data.currentMaxThreshold > data.currentMinThreshold
 		? data.currentMaxThreshold
 		: data.currentMinThreshold + 1.0;
-	const double window = std::max(1, data.windowWidth);
-	const double center = static_cast<double>(data.windowLevel) - 0.5;
-	const double windowSpan = std::max(1.0, window - 1.0);
-	auto windowPosition = [center, windowSpan](double scalar) {
-		return clamp01((scalar - center) / windowSpan + 0.5);
+	const double sourceLower = data.minValue;
+	const double sourceSpan = std::max(1.0, data.maxValue - sourceLower);
+	const double paletteLower = data.adjustColormap ? thresholdLower : sourceLower;
+	const double paletteSpan = data.adjustColormap
+		? thresholdUpper - thresholdLower : sourceSpan;
+	const double center = data.autoWindow
+		? sourceLower + 0.5 * sourceSpan
+		: static_cast<double>(data.windowLevel) - 0.5;
+	const double windowSpan = data.autoWindow ? sourceSpan
+		: std::max(1.0, static_cast<double>(data.windowWidth) - 1.0);
+	// First select the palette domain (thresholds or source range), then apply
+	// window/level as an independent contrast/brightness adjustment. Window
+	// values use source-range units after palette normalization. Auto window
+	// is neutral, so Auto palette alone reproduces the original LUT scaling.
+	auto windowPosition = [=](double scalar) {
+		const double mapped = sourceLower +
+			(scalar - paletteLower) * sourceSpan / paletteSpan;
+		return clamp01((mapped - center) / windowSpan + 0.5);
 	};
-	auto scalarAtWindowPosition = [center, windowSpan](double position) {
-		return center + (position - 0.5) * windowSpan;
+	auto scalarAtWindowPosition = [=](double position) {
+		const double mapped = center + (position - 0.5) * windowSpan;
+		return paletteLower + (mapped - sourceLower) * paletteSpan / sourceSpan;
 	};
 	const std::vector<double> stops = gradientStops(data.colormapName);
 
@@ -268,6 +288,8 @@ void VolumePipeline::updateTransferFunctions(ImageData& data) const
 	addColorPoint(data, thresholdLower, windowPosition(thresholdLower));
 	for (double stop : stops)
 	{
+		if (data.invertColormap)
+			stop = 1.0 - stop;
 		const double scalar = scalarAtWindowPosition(stop);
 		if (scalar > thresholdLower && scalar < thresholdUpper)
 			addColorPoint(data, scalar, stop);
@@ -278,7 +300,7 @@ void VolumePipeline::updateTransferFunctions(ImageData& data) const
 	if (usesRgbRendering(data))
 		configureRgbOpacity(data);
 	else
-		configureOpacity(data, thresholdLower, thresholdUpper);
+		configureOpacity(data, thresholdLower, data.currentMaxThreshold);
 }
 
 void VolumePipeline::updateImageFilters(ImageData& data) const
@@ -351,10 +373,12 @@ void VolumePipeline::updateImageFilters(ImageData& data) const
 	data.rgbMaskThreshold->SetOutValue(0.0);
 	data.rgbMaskThreshold->SetOutputScalarTypeToUnsignedChar();
 
-	const double windowSpan = std::max(
-		1.0,
-		static_cast<double>(data.windowWidth) - 1.0);
-	const double center = static_cast<double>(data.windowLevel) - 0.5;
+	const double windowSpan = data.autoWindow
+		? std::max(1.0, static_cast<double>(data.maxValue) - data.minValue)
+		: std::max(1.0, static_cast<double>(data.windowWidth) - 1.0);
+	const double center = data.autoWindow
+		? data.minValue + 0.5 * windowSpan
+		: static_cast<double>(data.windowLevel) - 0.5;
 	const double windowLower = center - 0.5 * windowSpan;
 	data.rgbWindowLevel->SetInputConnection(
 		data.image->GetNumberOfScalarComponents() == 3

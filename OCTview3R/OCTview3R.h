@@ -80,6 +80,8 @@ protected slots:
 	//color mapping
 	void slotSetColormap(QString);
 	void slotAdjustColormap(bool);
+	void slotAutoWindow(bool);
+	void slotSmoothOpacity(bool);
 	void slotSetBlendMode(int);
 	void slotSetColorMode(int);
 	void slotSetPolyMode(int);

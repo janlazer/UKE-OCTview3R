@@ -20,153 +20,162 @@ affiliations:
     name: University Medical Center Hamburg-Eppendorf (UKE), Hamburg, Germany
   - index: 2
     name: Laser Zentrum Hannover e.V. (LZH), Hannover, Germany
-date: 19 August 2026
+date: 14 September 2026
 bibliography: paper.bib
 ---
 
 # Summary
 
 Optical coherence tomography (OCT) provides micrometre-scale cross-sectional
-images from optically scattering samples [@huang1991]. Three-dimensional OCT
-studies commonly produce two complementary kinds of data: volumetric image
-stacks that retain the measured intensities and geometric representations such
-as point clouds or surface meshes obtained by segmentation. Inspecting either
-representation alone can conceal segmentation errors, registration offsets, or
-the spatial relationship between an identified structure and the surrounding
-signal.
+images of scattering samples [@huang1991]. Three-dimensional studies produce
+both intensity volumes and derived geometry, including segmented points and
+surfaces. Viewing geometry without the source signal can conceal misplaced
+boundaries or registration offsets.
 
-`OCTview3R` is a graphical Windows application for interactive, offline
-visualization of volumetric image data together with polygonal or point data. It
-is written in C++, uses Qt for its user interface, and builds its rendering
-pipelines with the Visualization Toolkit (VTK) [@schroeder1996; @vtkbook2006].
-Multiple datasets are placed in a shared three-dimensional scene so that, for
-example, a TIFF stack containing OCT intensities can be overlaid with anterior
-and posterior surfaces exported by a segmentation workflow. Users can adjust
-visibility, colour, opacity, thresholds, crop ranges, and object transforms, and
-can inspect the volume with an interactive slice plane. Single-component and
-RGB stacks are supported, allowing scalar OCT data and colour-coded volumetric
-results to be examined in the same application. The software does not perform
-segmentation; it is a focused viewer for evaluating and communicating the
-outputs of image-analysis workflows.
+`OCTview3R` is a C++/Qt Windows application for interactive, offline inspection
+of these complementary representations. Dedicated pipelines built with the
+Visualization Toolkit (VTK) place scalar or RGB image stacks and independently
+generated geometry in one spatial scene [@schroeder1996; @vtkbook2006].
+Per-dataset appearance controls, cropping, transforms, and an interactive slice
+plane support segmentation quality control and figure preparation. The
+contribution is a focused research interface and maintainable integration of
+established visualization methods, not a new reconstruction, segmentation, or
+registration algorithm.
 
-![OCTview3R 1.1.0 displaying a non-medical OCT volume of a cherry. The dark
-theme is optional; the left-hand controls expose dataset metadata, rendering
-parameters, transforms, and crop ranges.](figures/octview3r-interface.png){ width=100% }
+![OCTview3R 1.1.0 displaying the non-medical cherry OCT example using composite
+volume rendering and the Rainbow palette. The optional dark theme shows
+dataset metadata, independent palette autoscaling and window/level controls,
+object transforms, and crop ranges.](figures/octview3r-interface.png){ width=100% }
 
 # Statement of need
 
-Researchers developing OCT analysis pipelines need a rapid visual check between
-the original volume and derived geometry. A list of segmented coordinates may
-be numerically valid but displaced, mirrored, truncated, or fitted poorly near a
-boundary. A conventional two-dimensional slice viewer makes these defects hard
-to assess across the full acquisition, while a surface-only view removes the
-intensity context needed to judge the segmentation. `OCTview3R` addresses this
-gap by displaying both representations in one manipulable scene.
+Researchers exchanging OCT volumes and segmentation results through files need
+to check whether derived structures coincide with the measured signal. A
+coordinate list may be numerically valid yet mirrored, truncated, or displaced.
+Joint volume/surface inspection provides context that neither isolated slices
+nor surface-only views provide readily. OCT speckle also carries structural
+information while affecting image interpretation [@schmitt1999]; changing a
+display threshold must therefore not be confused with establishing a biological
+boundary.
 
-The intended users are researchers and engineers who work with OCT or similar
-three-dimensional image stacks and exchange intermediate results through files.
-The viewer accepts RAW data with explicit dimensions, TIFF and JPEG stacks, and
-legacy VTK image data. Geometry can be loaded from VTK PolyData, STL, PLY, VTP,
-OBJ, BYU, VTR, and XYZ files. Volumes support composite, additive, minimum-
-intensity, and maximum-intensity rendering. Geometry can be shown as points,
-wireframes, or surfaces. Per-dataset translation, rotation, axis scaling,
-opacity, colour, and spatial cropping allow pre-registered data to be checked or
-small alignment differences to be explored interactively. These capabilities
-make the application useful for quality control, figure preparation, and
-discussion of segmentation results without requiring users to construct a
-general-purpose visualization pipeline.
-
-Multi-component image data is detected automatically and can be displayed as
-RGB or as luminance-derived grayscale. In RGB mode, one window/level adjustment
-is applied consistently to all three colour channels. A luminance-derived mask
-drives thresholding and volume opacity, making black and rejected voxels
-transparent without replacing the colours of accepted voxels. The interactive
-slice plane retains opaque black pixels so that it remains a faithful image
-view. Composite blending is recommended when preservation of the original RGB
-appearance is more important than intensity projection.
+The intended users are researchers and engineers inspecting stored image
+stacks, fitted surfaces, and segmented regions. RAW, TIFF, JPEG, and VTK-family
+image inputs can be combined with geometry formats including VTK PolyData,
+VTP, STL, PLY, OBJ, and XYZ. Direct controls expose volume blending, geometric
+representation, opacity, colour, and spatial alignment without requiring users
+to assemble a visualization pipeline. The practical objective is traceable
+visual comparison, not automated segmentation validation. Consistent input
+coordinates and independent quantitative checks remain the user's
+responsibility.
 
 # State of the field
 
-Several established open-source tools cover adjacent needs. `OCTproZ` performs
-live OCT acquisition, GPU signal processing, and visualization, and exposes a
-plug-in system for hardware and processing extensions [@zabic2020]. In contrast,
-`OCTview3R` starts after acquisition and processing; its contribution is the
-lightweight joint inspection of stored volumes and independently generated
-geometric data. ParaView provides a broad, scalable environment for scientific
-visualization [@ahrens2005], while 3D Slicer and ITK-SNAP provide comprehensive
-medical-image computing and segmentation environments [@fedorov2012;
-@yushkevich2006]. These packages are appropriate when users need extensible
-analysis pipelines, DICOM-centred workflows, distributed rendering, or
-segmentation algorithms.
+Direct volume rendering separates intensity-dependent appearance and opacity
+from explicit surface extraction [@levoy1988]. Combining volumes with polygonal
+geometry likewise has a long history [@levoy1990]. `OCTview3R` applies these
+established ideas through VTK rather than introducing a competing renderer.
 
-`OCTview3R` deliberately occupies a narrower role. It exposes the parameters
-needed for an OCT volume/segmentation comparison directly in a compact desktop
-interface and preserves interoperability through common image and geometry
-formats. Extending a large platform or an acquisition application would have
-coupled this small post-processing task to substantially broader workflows.
-The focused design trades scripting, automated registration, and distributed
-processing for a short path from files to an interactive overlay. It therefore
-complements rather than replaces the general and modality-specific tools above.
+Among open-source applications, `OCTproZ` addresses live OCT acquisition, GPU
+signal processing, and visualization through an extensible plug-in architecture
+[@zabic2020]. ParaView provides broad scientific-visualization workflows
+[@ahrens2005]; 3D Slicer supports medical-image computing [@fedorov2012];
+ITK-SNAP emphasizes anatomical segmentation [@yushkevich2006]; and Fiji provides
+an extensible platform for biological-image analysis [@schindelin2012]. These
+systems offer substantially broader acquisition or analysis capabilities.
+
+`OCTview3R` instead starts with processed files and concentrates the controls
+needed for volume/geometry comparison in a desktop interface. Its separate
+application design avoids requiring an acquisition system or a larger analysis
+environment for this narrow inspection task. The trade-off is reduced scope:
+there is no scripting interface, automated registration, distributed processing,
+or embedded segmentation. The viewer complements these platforms; no comparative
+performance or usability advantage is claimed.
 
 # Software design
 
-The current architecture separates dataset ownership, VTK processing, and user
-interaction. A `DocumentModel` owns one state object per loaded volume or
-geometric dataset. A `ViewerController` maintains a single VTK renderer and
-dispatches updates to dedicated `VolumePipeline` and `PolyPipeline` components.
-Because all dataset actors and volumes enter the same renderer, any number of
-loaded segmentations can be viewed against one or more intensity volumes.
+## Ownership and update flow
 
-Each state object owns its VTK resources through smart pointers and records
-appearance, transform, crop, and plane settings. Dirty flags distinguish data-
-pipeline changes from inexpensive appearance or transform updates, avoiding a
-complete pipeline reconstruction after every user-interface event. Volume
-cropping uses a volume of interest, whereas polygonal cropping uses a clipping
-box. A common object transform is applied to the rendered volume or polygonal
-actor, and the interactive image plane is transformed in the same object space;
-this keeps volume, plane, and derived geometry spatially coherent during
-rotation, translation, and anisotropic scaling.
+`DocumentModel` owns an `ImageData` state object for each dataset, including VTK
+smart pointers, appearance settings, and spatial bounds. `ViewerController`
+coordinates the renderer and delegates processing to `VolumePipeline` and
+`PolyPipeline`. Dirty flags distinguish data filtering, appearance, transforms,
+plane updates, and visibility, so an appearance change need not reconstruct the
+entire pipeline. Qt Designer forms define the principal interface; background
+loading reports reader progress when available and returns results to the main
+thread for scene updates.
 
-The scalar-volume path applies thresholding before transfer-function mapping.
-The RGB path extracts the first three components, derives luminance for its
-binary alpha mask, applies a shared window/level mapping to the colour channels,
-and assembles an RGBA volume for VTK's dependent-component rendering. Both
-paths use the same crop, transform, plane, and renderer infrastructure, and the
-selected colour mode is stored per dataset.
+## Intensity, colour, and opacity
 
-![Volumetric OCT and independently generated segmentation geometry pass
-through dedicated pipelines and enter one VTK renderer. Shared object-space
-transforms keep the volume, interactive plane, and PolyData spatially coherent
-for overlay inspection.](figures/overlay-pipeline.png){ width=100% }
+The scalar pipeline extracts a volume of interest, thresholds source values,
+and uses colour and opacity transfer functions for rendering. Transfer-function
+design determines which structures become visible [@kindlmann1998]. Accordingly,
+threshold limits, palette autoscaling, window/level, and opacity are separate
+controls. The default smooth opacity increases across the accepted intensity
+interval; a uniform-opacity alternative retains a hard threshold. Zero-valued
+voxels remain transparent. Palette autoscaling maps the selected interval onto
+the colour map, while automatic windowing supplies a neutral full-source-range
+brightness mapping. Manual window/level changes do not redefine the threshold.
+These are display operations, not source-data edits.
 
-Data loading is separated from the main interface and reports progress for
-readers that expose it. Qt Designer forms define the principal dialogs and make
-the visual layout inspectable without running the application. System, light,
-and dark themes, camera presets, orthographic projection, orientation aids, and
-numeric controls support both exploratory use and consistent figure framing.
-The current version targets Qt 5.15.2 and VTK 8.2 on Windows x64. This choice
-matches the surrounding laboratory software environment, but it is also a
-current limitation: portability, session serialization, and automated image-
-regression testing remain future work.
+For RGB input, the first three components supply colour and luminance supplies
+a binary threshold mask. A common window/level mapping adjusts all channels
+before RGBA assembly; existing input alpha is not preserved. Scalar and RGB
+slice planes retain opaque black pixels, unlike the transparent background of
+the volume. Composite, additive, and intensity-projection modes are available.
+False-colour palettes aid exploration but can introduce perceptual emphasis
+[@crameri2020]; the Rainbow screenshot illustrates interface functionality, not
+a quantitative colour scale.
+
+## Coordinates and joint rendering
+
+TIFF calibration is imported when supported resolution and spacing metadata
+provide units. Calibrated spacing is stored in millimetres and displayed in
+micrometres; uncalibrated axes are not assigned invented physical units. TIFF
+volumes retain a zero origin instead of being centred. Physical crop limits
+are rounded to voxel indices, whereas PolyData clipping uses floating-point
+data coordinates.
+
+Each dataset has its own translation, rotation, and anisotropic scaling. Its
+associated slice plane follows that transform; independently imported geometry
+does not automatically inherit another dataset's transform. Users must provide
+compatible units and registration. PolyData supports points, wireframes, and
+surfaces, with clipping, normals, and adjustable specular reflection. Volumes
+and geometry share one renderer, which requests depth peeling including volumes
+to support spatial occlusion rather than selection-based foreground ordering.
+Transparency behaviour remains dependent on the VTK/OpenGL configuration.
+
+![Separate volume and geometry pipelines feed one spatial scene. Each dataset
+retains its own transform; an image plane follows its parent volume. Compatible
+coordinates must be supplied by the analysis workflow.](figures/overlay-pipeline.png){ width=100% }
+
+## Verification and limitations
+
+A synthetic regression harness exercises the production pipelines and Qt
+controls with 8-bit, 16-bit, and RGB volumes. Its 269 checks cover transfer
+functions, threshold behaviour, black-pixel handling, colour-mode transitions,
+and per-dataset state. This is numerical and interface regression coverage,
+not a benchmark or rendered-image validation study. Windows memory checks can
+reject an RGB-to-grayscale conversion whose estimated working set exceeds
+available memory, but processing remains in-memory.
+
+The current target is Windows x64 with Qt 5.15.2 and VTK 8.2. Portability,
+out-of-core data handling, full scene serialization, and automated image
+comparisons remain limitations. A repository
+[architecture note](https://github.com/janlazer/UKE-OCTview3R/blob/main/docs/architecture.md)
+documents filter chains, coordinate conventions, and test boundaries in detail.
 
 # Research impact statement
 
-The software lineage began in the Image-Guided Laser Surgery group at LZH. A
-2014 project thesis by Möbes, supervised by Hahn, implemented a C++/Qt/VTK
-volume-rendering application for OCT data and established the interactive
-volume, slice, threshold, and colour-mapping workflow [@moebes2014]. This work
-was subsequently integrated into the computational analysis environment used
-for Hahn's doctoral research.
-
-In that research, the viewer was applied to ex vivo crystalline-lens OCT data
-acquired under simulated accommodation [@hahn2020, Sections 7.5 and 10.1.3].
-Anterior and posterior lens surfaces were extracted as segmented point lists
-and fitted ellipsoids. Overlaying these data in different colours with the OCT
-stack made it possible to inspect the fit near the lens boundary, switch between
-points, meshes, and closed surfaces, and compare accommodated and
-de-accommodated states. The published dissertation therefore documents a
-realized scientific use of the viewer's central concept: interpreting segmented
-three-dimensional regions in the context of the underlying OCT signal.
+The software originated in the Image-Guided Laser Surgery group at LZH. Möbes'
+2014 project thesis, supervised by Hahn, established the C++/Qt/VTK volume,
+slice, and colour-mapping workflow [@moebes2014]. Its integration into Hahn's
+doctoral analysis environment provides documented research use: ex vivo
+crystalline lenses imaged under simulated accommodation were displayed with
+segmented anterior/posterior points, surfaces, and fitted ellipsoids
+[@hahn2020, Sections 7.5 and 10.1.3]. These overlays supported visual inspection
+of fitted geometry against the OCT signal. This historical application supports
+the viewer's central concept, not validation of every feature in the current
+version.
 
 ![Historical application to ex vivo crystalline-lens OCT. The original volume
 is shown alone (a), with segmented anterior and posterior surface points (b),
@@ -175,20 +184,19 @@ as points or a closed surface (e-f). Red and blue encode the anterior and
 posterior lens surfaces. Reproduced from Figure 10.6 of [@hahn2020] by the
 dissertation author.](figures/lens-oct-polydata-overlay.png){ width=100% }
 
-An ongoing organoid study provides a second application domain. Three-
-dimensional OCT volumes are acquired from organoids embedded in Matrigel, and
-individual organoids are segmented to determine their size and position and to
-analyse the motion of neighbouring organoids across repeated acquisitions.
-Overlaying these segmentations as PolyData with the OCT intensities provides a
-direct visual check of object identity and spatial context. The same context is
-used when selecting individual organoids for laser ablation, targeted sampling,
-and subsequent proteomic analysis. The block diagram below separates these two
-linked outcomes without implying that OCTview3R itself performs segmentation,
-motion estimation, ablation, or proteomics.
+Organoid imaging motivates a further application. Published OCT work includes
+morphological assessment of patient-derived organoids [@zhang2023] and
+longitudinal imaging of retinal organoids with dynamic full-field OCT
+[@monfort2023]. These studies establish application context, not adoption of
+`OCTview3R`. In the authors' ongoing study, OCT images of organoids in Matrigel
+are combined with independently segmented geometry to inspect size, position,
+and motion of surrounding organoids. Individual organoids are laser-ablated
+and sampled for proteomic analysis. The proposed overlay documents spatial
+context; segmentation, tracking, intervention, and proteomics remain external.
 
 ![Schematic workflow for the ongoing organoid study. Repeated OCT acquisition
-and segmentation feed an OCTview3R overlay for visual validation. The derived
-geometry supports spatial characterization and supplies verified target context
+and segmentation feed an OCTview3R overlay for visual inspection. The derived
+geometry supports spatial characterization and supplies target context
 for laser ablation, targeted sampling, and proteomics. The diagram shows the
 workflow rather than quantitative results.](figures/organoid-study-workflow.png){ width=100% }
 
@@ -196,18 +204,15 @@ workflow rather than quantitative results.](figures/organoid-study-workflow.png)
 from the Organoid Paper and cite that manuscript when a stable bibliographic
 record is available. -->
 
-Version 1.1.0 turns this research-specific lineage into a documented,
-versioned, GPL-3.0-licensed application prepared for public release. Its main
-near-term role is visual quality control for studies in which segmented
-structures must remain traceable to their source volume, including planned
-applications that combine OCT data with independently segmented tissue regions.
+Version 1.1.0 packages this research lineage as a documented, versioned,
+GPL-3.0-licensed application prepared for public release. The organoid workflow
+remains an ongoing application, without quantitative results claimed here.
 
 # AI usage disclosure
 
-OpenAI Codex using GPT-5 assisted with refactoring and review of parts of the
-software, preparation of repository documentation, literature organization,
-and initial drafting and formatting of this manuscript. Architectural and
-scientific decisions remained with the human authors. Before submission, the
+OpenAI Codex (including GPT-5) assisted with software refactoring and review, repository
+documentation, literature discovery and organization, and manuscript drafting
+and formatting. Before submission, the
 authors will review, modify where necessary, and validate all AI-assisted code,
 documentation, claims, citations, and manuscript text, and will assume full
 responsibility for the submitted work.

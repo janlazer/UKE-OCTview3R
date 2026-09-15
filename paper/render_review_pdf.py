@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import html
 import re
+import unicodedata
 from pathlib import Path
 
 from reportlab.lib import colors
@@ -58,7 +59,12 @@ def parse_bibliography(text: str) -> dict[str, dict[str, str]]:
 def author_year(entry: dict[str, str]) -> str:
     authors = entry.get("author", "Unknown").split(" and ")
     first = authors[0].split(",", 1)[0]
-    author_text = first if len(authors) == 1 else f"{first} et al."
+    if len(authors) == 1:
+        author_text = first
+    elif len(authors) == 2:
+        author_text = f"{first} & {authors[1].split(',', 1)[0]}"
+    else:
+        author_text = f"{first} et al."
     year = entry.get("year", entry.get("date", "n.d.")[:4])
     return f"{author_text}, {year}"
 
@@ -69,7 +75,10 @@ def replace_citations(text: str, entries: dict[str, dict[str, str]]) -> str:
         for item in match.group(1).split(";"):
             item = item.strip().lstrip("@")
             key, separator, locator = item.partition(",")
-            citation = author_year(entries.get(key.strip(), {}))
+            key = key.strip()
+            if key not in entries:
+                raise ValueError(f"Missing bibliography entry: {key}")
+            citation = author_year(entries[key])
             if separator:
                 citation += f",{locator}"
             parts.append(citation)
@@ -82,6 +91,17 @@ def inline_markup(text: str, entries: dict[str, dict[str, str]]) -> str:
     text = replace_citations(text, entries)
     text = html.escape(text, quote=False)
     text = re.sub(r"`([^`]+)`", r'<font name="Courier">\1</font>', text)
+    text = re.sub(
+        r"\[([^\]]+)\]\((https?://[^\s)]+)\)",
+        lambda match: (
+            '<link href="'
+            + html.escape(html.unescape(match.group(2)), quote=True)
+            + '" color="#17365d">'
+            + match.group(1)
+            + '</link>'
+        ),
+        text,
+    )
     return text
 
 
@@ -136,12 +156,17 @@ def format_reference(entry: dict[str, str]) -> str:
         institution = entry.get("institution", entry.get("school", ""))
         pieces.append(f"{kind}, {institution}.")
 
+    # BibTeX braces protect capitalization; they are not visible punctuation.
+    reference_text = " ".join(part for part in pieces if part and part != ".")
+    reference_text = reference_text.replace("{", "").replace("}", "").replace("--", "-")
+    reference_text = html.escape(reference_text, quote=False)
     doi = entry.get("doi")
     if doi:
-        pieces.append(f'<link href="https://doi.org/{doi}">https://doi.org/{doi}</link>.')
+        url = html.escape(f"https://doi.org/{doi}", quote=True)
+        reference_text += f' <link href="{url}">{url}</link>.'
     elif entry.get("isbn"):
-        pieces.append(f"ISBN {entry['isbn']}.")
-    return " ".join(part for part in pieces if part and part != ".")
+        reference_text += f" ISBN {html.escape(entry['isbn'])}."
+    return reference_text
 
 
 def footer(canvas, document) -> None:
@@ -155,11 +180,21 @@ def footer(canvas, document) -> None:
     canvas.restoreState()
 
 
+def reference_sort_key(entry: dict[str, str]) -> tuple[str, str]:
+    surname = entry.get("author", "").split(",", 1)[0]
+    surname = "".join(
+        char for char in unicodedata.normalize("NFKD", surname)
+        if not unicodedata.combining(char)
+    )
+    return surname.casefold(), entry.get("year", entry.get("date", ""))
+
+
 def build_pdf() -> None:
     source = PAPER_PATH.read_text(encoding="utf-8")
     bibliography = parse_bibliography(BIB_PATH.read_text(encoding="utf-8"))
     _, _, body = source.partition("---\n")
     _, _, body = body.partition("---\n")
+    body = re.sub(r"<!--.*?-->", "", body, flags=re.DOTALL)
     body = body.replace("# References\n", "")
 
     image_pattern = re.compile(r"!\[(.*?)\]\((.*?)\)\{[^}]*\}", re.DOTALL)
@@ -218,6 +253,17 @@ def build_pdf() -> None:
             textColor=colors.HexColor("#17365d"),
             spaceBefore=10,
             spaceAfter=5,
+            keepWithNext=True,
+        )
+    )
+    styles.add(
+        ParagraphStyle(
+            name="SubsectionHeading",
+            parent=styles["SectionHeading"],
+            fontSize=10,
+            leading=12.5,
+            spaceBefore=8,
+            spaceAfter=4,
         )
     )
     styles.add(
@@ -292,7 +338,7 @@ def build_pdf() -> None:
         Paragraph(
             "<super>1</super> University Medical Center Hamburg-Eppendorf (UKE), Hamburg, Germany<br/>"
             "<super>2</super> Laser Zentrum Hannover e.V. (LZH), Hannover, Germany<br/>"
-            "Draft dated 19 August 2026",
+            "Draft dated 14 September 2026",
             styles["Affiliations"],
         ),
         Paragraph(
@@ -329,14 +375,19 @@ def build_pdf() -> None:
                 )
             )
             continue
-        if block.startswith("# "):
-            story.append(Paragraph(html.escape(block[2:].strip()), styles["SectionHeading"]))
+        heading = re.fullmatch(r"(#{1,2})\s+(.+)", block)
+        if heading:
+            style = "SectionHeading" if len(heading.group(1)) == 1 else "SubsectionHeading"
+            story.append(Paragraph(html.escape(heading.group(2)), styles[style]))
             continue
         paragraph = " ".join(line.strip() for line in block.splitlines())
         story.append(Paragraph(inline_markup(paragraph, bibliography), styles["BodyTextReview"]))
 
     story.extend([PageBreak(), Paragraph("References", styles["SectionHeading"])])
-    for entry in bibliography.values():
+    for entry in sorted(
+        bibliography.values(),
+        key=reference_sort_key,
+    ):
         story.append(
             Paragraph(
                 format_reference(entry),

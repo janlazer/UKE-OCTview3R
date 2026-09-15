@@ -8,13 +8,34 @@ The repository contains the application sources, Qt Designer forms, icons,
 and a small collection of example data sets. The included TIFF volumes are
 OCT scans of a cherry and contain no human or clinical data.
 
+## Download for Windows
+
+For use without setting up Qt, VTK, or Visual Studio, open
+[GitHub Releases](https://github.com/janlazer/UKE-OCTview3R/releases) and download
+`OCTview3R-1.1.0-windows-x64-setup.exe`. The installer includes the required
+runtime libraries and Qt plugins. It installs for the current user, provides a
+Start menu entry and optional desktop shortcut, and supports uninstalling through
+Windows Settings. Administrator rights are normally not required.
+
+Alternatively, extract the complete `OCTview3R-1.1.0-windows-x64-portable.zip`
+and run `OCTview3R.exe` from its `OCTview3R` folder. Both downloads require
+Windows 10/11 x64, a suitable OpenGL graphics driver, and sufficient memory.
+They contain no research datasets and do not change your global PATH.
+
+The installer is currently unsigned; Windows may show a SmartScreen or
+unknown-publisher warning. Use only the official release and compare its
+SHA-256 checksum with `SHA256SUMS.txt`. Follow your institution's IT policy;
+do not disable Windows security. While this repository is private, only
+invited collaborators can access releases.
+
 ## Screenshots
 
-![OCTview3R rendering a non-medical cherry OCT volume in the dark interface theme](docs/images/octview3r-cherry-volume.png)
+![OCTview3R displaying the non-medical cherry OCT example with composite volume rendering and the Rainbow palette in the dark theme](paper/figures/octview3r-interface.png)
 
-*Volume rendering of the included non-medical cherry OCT data set. The viewer
-is shown with the optional dark interface theme, dataset metadata, rendering
-controls, transform settings, and crop ranges.*
+*Composite volume rendering of the included non-medical cherry OCT data set
+with the Rainbow palette. The dark interface shows dataset metadata,
+independent palette autoscaling and window/level controls, object transforms,
+and crop ranges.*
 
 <p align="center">
   <img src="docs/images/octview3r-about.png" width="480" alt="OCTview3R About dialog showing version 1.1.0, authors, and license">
@@ -65,6 +86,30 @@ volume is first loaded; the intensity-projection modes remain available for
 exploratory use. Before switching a large RGB volume to grayscale, OCTview3R
 checks the estimated working-memory requirement and keeps RGB active with a
 warning if the conversion would be unsafe.
+
+### Threshold, palette scaling, and window/level
+
+These controls are independent and stored per dataset:
+
+- **Smooth opacity (Min to Max)** restores intensity-dependent transparency for
+  grayscale volumes: opacity rises linearly from zero at Min to the selected
+  object opacity at Max. Disable it for uniform opacity and a hard cutoff.
+  Source-zero and rejected voxels remain transparent in either mode. This does
+  not make slice planes transparent, and RGB retains its binary luminance mask.
+- **Autoscale palette** stretches the grayscale or false-colour palette across
+  the selected threshold interval. Disable it to keep the full source range as
+  the palette reference. This changes colours, not opacity.
+- **Auto window (full data range)** sets neutral brightness/contrast using the
+  full dataset intensity range. Manual **Window** (contrast) or **Level**
+  (brightness) edits disable only Auto window, not Autoscale palette. With
+  Autoscale palette enabled, Window/Level acts on the normalized intensities,
+  expressed in source-range units; with it disabled, it acts on raw intensities.
+  Threshold edits no longer overwrite Window/Level values.
+
+For the earlier soft OCT appearance, enable Smooth opacity, Autoscale palette,
+and Auto window. These are the defaults for new grayscale datasets. The
+transparency ramp is not spatial smoothing or a segmentation operation: the
+threshold interval still excludes values outside Min/Max.
 
 ## Requirements
 
@@ -137,6 +182,25 @@ The launcher prepends `VTKBIN\<Configuration>` and the Qt DLL directory only
 for the child process.
 
 ## Deployment
+
+For maintainers: [packaging/README.md](packaging/README.md) documents building,
+testing, and publishing the Windows installer and portable release artifacts.
+
+For a portable Release package that can be sent to a colleague as a ZIP, build
+Release first, then run:
+
+```powershell
+.\deploy-runtime.ps1 -Configuration Release -Standalone
+```
+
+This creates `OCTview3R\_standalone` and `OCTview3R\_standalone.zip`, containing
+the executable, Qt plugins, VTK DLLs, application-local Visual C++/OpenMP
+runtime DLLs, and license notices. Extract the entire archive and start
+`OCTview3R.exe`; no separate Qt, VTK, or Visual Studio installation is needed
+on Windows 10/11 x64. A suitable graphics driver is still required.
+The package contains no research datasets. Generated packages are ignored
+by Git. To rebuild, move the previous folder and ZIP first, or supply a fresh
+parent directory with `-DestinationRoot`.
 
 Create a deployable runtime directory with Qt plugins and the matching VTK
 DLLs:
@@ -215,6 +279,11 @@ published and added to this section.
 
 ## Project Structure
 
+See the [architecture and rendering conventions](docs/architecture.md) for the
+dataset model, VTK filter chains, coordinate units, transparency rules, and
+current test coverage. The [JOSS draft](paper/paper.md) places these design
+choices in the scientific literature.
+
 ```text
 OCTview3R.sln
 run-viewer.ps1             Configuration-safe development launcher
@@ -247,13 +316,21 @@ matching Git tag so source and executable versions remain traceable.
 
 ## Development Status
 
-This is a legacy research codebase and currently has no automated test suite.
-The application builds successfully with the reference dependency versions
-above, but several areas need further work before critical use:
+This is a legacy research codebase with targeted automated pipeline and Qt UI
+regression tests. With the build prerequisites above configured, run:
+
+```powershell
+.\tests\run-threshold-regression.ps1
+```
+
+The tests use synthetic 8-bit, 16-bit, and RGB volumes, check transfer functions
+and per-dataset UI state, and save control snapshots under
+`tmp/threshold-regression/`. They use separate settings and do not change user
+datasets or preferences. Several areas still need broader coverage:
 
 - VTR and other scientific-data imports need broader format coverage tests.
 - Tab removal and repeated transform/render operations need regression tests.
-- Pipeline components do not yet have automated unit or image-regression tests.
+- Automated visual comparisons of full rendered volumes are not yet covered.
 - A future Qt/VTK upgrade should be handled as a dedicated migration because
   both frameworks have breaking API changes beyond the reference versions.
 

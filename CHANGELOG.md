@@ -7,6 +7,9 @@ uses [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- Self-contained Windows x64 installer with per-user installation, Start menu
+  and optional desktop shortcuts, uninstall support, portable ZIP, build
+  manifests, and SHA-256 download checksums.
 - Cyan OCT-volume logo, embedded Windows application icon, and branding in
   the main window and About dialog.
 - PolyData range cropping with floating-point bounds.
@@ -19,6 +22,12 @@ uses [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- Restored smooth intensity-dependent opacity for grayscale volumes, with an
+  optional uniform-opacity mode retaining the hard threshold appearance.
+- Separated threshold-based palette autoscaling from automatic and manual
+  window/level adjustments; threshold edits no longer overwrite window/level.
+- Added synthetic pipeline and Qt-control regression tests for threshold,
+  palette, window/level, opaque-black planes, and RGB behavior.
 - Refreshed the dark theme with graphite panels, cyan accents, clearer
   control states, and visible spin-box and combo-box arrows.
 - Refined the Qt Designer forms and reorganized the controls for clearer use.
