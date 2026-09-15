@@ -313,7 +313,7 @@ OCTview3R/
   openpoly.cpp/.h/.ui    Polygonal-data import dialog
   OCTview3R.ui           Main Qt Designer form
   Resources/             Icons and color-map resources
-  ImageData/             Example data and legacy reference files; see provenance notes
+  ImageData/             Market-cherry TIFF/RAW examples and provenance notes
 ```
 
 ## Versioning and releases

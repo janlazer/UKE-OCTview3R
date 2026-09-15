@@ -20,9 +20,8 @@ the rewritten branch/tag history. Their private local backup is not part of
 the repository or release packages. The application still accepts users' own
 VTK, VTI, VTP and VTR inputs.
 
-## Reference files still awaiting a decision
-
-`A03-R-039.pdf`, `ReadAllPolyDataDemo.pdf`, `file-formats.pdf` and
-`Example_CutMesh.txt` remain reference material, not cherry data. Their
-redistribution review is still open; do not infer permission from the image-data
-provenance. See [public-release checks](../../docs/public-release-checklist.md).
+The former PDF/text reference material has also been removed from the working
+tree, rewritten branch/tag history and refreshed release archives at Jan Hahn's
+request. Only the three image files above and this README remain in ImageData.
+Private backups are not distributed. See
+[public-release checks](../../docs/public-release-checklist.md).

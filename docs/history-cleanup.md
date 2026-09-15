@@ -8,8 +8,10 @@ v1.1.0 release were still private/draft.
 - Remove previously deleted VTK/VTI/VTP/VTR examples from all locally published
   branch/tag histories, including earlier names and locations.
 - Remove obsolete ImageData paths deleted during the author's example cleanup.
-  Keep the current cherry TIFF/RAW files, their README and reference files still
-  awaiting an explicit decision.
+  Keep only the current cherry TIFF/RAW files and their README in ImageData.
+- At Jan Hahn's subsequent request, also remove the three PDF references and
+  the text example from the working tree, branch/tag history and release source
+  archive. The exact four original files remain in a verified private backup.
 - Replace four obsolete personal computer paths in historical source text with
   relative `ImageData/` examples. Retain ordinary Windows/Qt/VTK build examples.
 - Preserve the original commit sequence, authors, messages and timestamps;

@@ -18,6 +18,10 @@ that every file is cleared. Publication is a separate author decision.
       See [history-cleanup scope](history-cleanup.md).
 - [x] Miroslav Zabic is acknowledged for publication advice in the About dialog,
       README and manuscript. His planned release test is not claimed as complete.
+- [x] At Jan Hahn's request, remove `A03-R-039.pdf`, `ReadAllPolyDataDemo.pdf`,
+      `file-formats.pdf` and `Example_CutMesh.txt` from the source tree,
+      rewritten branch/tag history and refreshed release archives. Keep the
+      original files only in a private local backup.
 
 ## Open before public release
 
@@ -25,10 +29,6 @@ that every file is cleared. Publication is a separate author decision.
       under GPL-3.0-only and confirm authorship/affiliations. Jan will contact
       Tammo Ripken; a current contact for Giovanno Moebes has not been found.
       Resolve any relevant institutional/contractual questions with the authors.
-- [ ] Decide whether to remove or document redistribution permission for
-      `A03-R-039.pdf`, `ReadAllPolyDataDemo.pdf`, `file-formats.pdf` and
-      `Example_CutMesh.txt`. These reference files are not covered by the cherry
-      provenance. They have not been removed without the author's decision.
 - [ ] Complete a final review of identifying metadata, confidential material,
       Actions logs/artifacts and any external copies. Cleaning branch/tag history
       does not certify deletion from GitHub caches, forks or existing clones.

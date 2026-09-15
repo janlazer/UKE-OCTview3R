@@ -66,9 +66,9 @@ and acknowledgement of funding. [Paper format](https://joss.readthedocs.io/en/la
 - [ ] Add a reproducible C++/Qt/VTK CI environment. The paper workflow does not run
       the Windows application tests and must not be represented as software CI.
 - [ ] Provide a reproducible, shareable overlay example. Current bundled data
-      include non-medical market-cherry TIFF/RAW files. Deleted VTK exports are
-      removed from the rewritten history; reference files still need a decision in the
-      [public-release checks](../docs/public-release-checklist.md).
+      include non-medical market-cherry TIFF/RAW files. Deleted VTK exports and
+      former PDF/text references are removed from the rewritten history. See the
+      remaining [public-release checks](../docs/public-release-checklist.md).
 - [ ] Document real public bug reports, discussions, contributions, and releases
       as they occur. Do not manufacture activity to satisfy an eligibility check.
 

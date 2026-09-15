@@ -68,8 +68,8 @@ See [SUBMISSION_CHECKLIST.md](SUBMISSION_CHECKLIST.md) for the dated readiness
 assessment, author decisions, public-development requirement, and submission
 route. A prepared GitHub software release is not a JOSS submission.
 Also complete the [public-release checks](../docs/public-release-checklist.md)
-before changing repository visibility; the source snapshot still contains
-legacy PDF/text reference files beyond the documented cherry TIFF/RAW data.
+before changing repository visibility. The ImageData examples are limited to
+documented cherry TIFF/RAW data; legacy PDF/text references have been removed.
 
 - Confirm the author order and each author's current submission affiliation.
 - Add ORCIDs for Giovanno Möbes and Tammo Ripken if available.

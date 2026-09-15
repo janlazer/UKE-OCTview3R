@@ -16,9 +16,9 @@ together with segmented surfaces, meshes, and point data.
 Both binary packages include Qt 5.15.2, VTK 8.2, Qt plugins, and the
 application-local Microsoft Visual C++/OpenMP runtime. They contain no research
 datasets and do not require a separate Qt, VTK, Visual Studio, or Python setup.
-The source snapshot contains documented market-cherry TIFF/RAW examples and
-legacy PDF/text reference files whose redistribution review remains open.
-Removed mesh exports and obsolete data paths are excluded from the new snapshot.
+The source snapshot's ImageData directory contains only the documented
+market-cherry TIFF/RAW examples and their README. Removed mesh exports, obsolete
+data paths and former PDF/text references are excluded from the new snapshot.
 
 ## Requirements and installation notes
 
