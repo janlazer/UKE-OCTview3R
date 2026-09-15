@@ -16,9 +16,9 @@ together with segmented surfaces, meshes, and point data.
 Both binary packages include Qt 5.15.2, VTK 8.2, Qt plugins, and the
 application-local Microsoft Visual C++/OpenMP runtime. They contain no research
 datasets and do not require a separate Qt, VTK, Visual Studio, or Python setup.
-The source snapshot also contains legacy example geometry and reference files;
-their provenance/redistribution review must be completed before public release.
-The TIFF examples are documented non-medical scans of a market-bought cherry.
+The source snapshot contains documented market-cherry TIFF/RAW examples and
+legacy PDF/text reference files whose redistribution review remains open.
+Removed mesh exports and obsolete data paths are excluded from the new snapshot.
 
 ## Requirements and installation notes
 
@@ -38,6 +38,7 @@ Follow institutional IT policy; do not disable Windows security.
 - Smooth scalar opacity, independent palette autoscaling and window/level,
   opaque-black slice planes, and memory checks for large RGB-to-grayscale changes.
 - Dark/light themes, OCT-volume branding, dataset information, and About dialog.
+- Acknowledgement of Miroslav Zabic's advice on preparing the public release.
 - Installer and pipeline regression tests, architecture documentation, updated
   screenshots, and an expanded JOSS manuscript draft.
 
@@ -49,6 +50,9 @@ developer dependency paths removed, and uninstall preserving an additional
 synthetic user file. These local checks do not replace a clean-machine test,
 rendered-image comparisons, scientific validation, or a performance benchmark.
 The software is for research, not clinical decision-making.
+
+An independent release test by Miroslav Zabic is planned but has not yet been
+reported. The release remains a private draft pending author decisions and review.
 
 ## License and source
 

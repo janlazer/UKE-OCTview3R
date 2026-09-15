@@ -81,7 +81,9 @@ Copy-Item -LiteralPath (Join-Path $repositoryRoot 'packaging\START_HERE.txt') -D
 Copy-Item -LiteralPath (Join-Path $repositoryRoot 'packaging\INSTALLER_README.txt') -Destination (Join-Path $payloadDirectory 'INSTALLATION.txt')
 $docsDirectory = Join-Path $payloadDirectory 'docs'
 New-Item -ItemType Directory -Path $docsDirectory -Force | Out-Null
-Copy-Item -LiteralPath (Join-Path $repositoryRoot 'docs\architecture.md') -Destination $docsDirectory
+foreach ($name in @('architecture.md', 'developer-guide.md', 'public-release-checklist.md', 'history-cleanup.md', 'release-test.md')) {
+    Copy-Item -LiteralPath (Join-Path $repositoryRoot "docs\$name") -Destination $docsDirectory
+}
 
 # Ship the actual Qt runtime license texts, not only installer-distribution notices.
 $qtSourceDirectory = [IO.Path]::GetFullPath((Join-Path $env:QTDIR '..\Src'))

@@ -234,6 +234,9 @@ Surgery group in the Department of Biomedical Optics at Laser Zentrum Hannover
 e.V. for the scientific environment in which the original viewer was developed
 and applied.
 
+The authors thank Miroslav Zabic for his advice on preparing OCTview3R for
+public release.
+
 <!-- TODO before submission: add exact funders, grant identifiers, and the
 sponsors' role; obtain confirmation from all authors for the conflict-of-interest
 statement; replace future-tense wording in the AI disclosure after human review. -->

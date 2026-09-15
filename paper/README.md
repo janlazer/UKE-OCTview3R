@@ -68,8 +68,8 @@ See [SUBMISSION_CHECKLIST.md](SUBMISSION_CHECKLIST.md) for the dated readiness
 assessment, author decisions, public-development requirement, and submission
 route. A prepared GitHub software release is not a JOSS submission.
 Also complete the [public-release checks](../docs/public-release-checklist.md)
-before changing repository visibility; the source snapshot contains legacy
-reference/geometry files beyond the documented cherry TIFFs.
+before changing repository visibility; the source snapshot still contains
+legacy PDF/text reference files beyond the documented cherry TIFF/RAW data.
 
 - Confirm the author order and each author's current submission affiliation.
 - Add ORCIDs for Giovanno Möbes and Tammo Ripken if available.
@@ -81,9 +81,10 @@ reference/geometry files beyond the documented cherry TIFFs.
 - Add a current, publishable OCT/segmentation result image from the organoid
   study and cite the associated Organoid Paper once its bibliographic record is
   available. The included diagram currently documents the workflow only.
-- Confirm that the selected dissertation figure may be reproduced under the
-  publication agreement with TEWISS Verlag; Jan Hahn has approved its use as
-  the dissertation author.
+- Jan Hahn confirmed on 15 September 2026 that he alone holds the dissertation
+  rights and permits reuse of the selected figure. He also approved public
+  inclusion of the organoid concept. The future organoid result image still
+  needs its own provenance, caption and approval before it is added.
 - Expand the existing automated regression tests and add CI. The current
   numerical/UI checks do not replace rendered-image comparisons or benchmarks.
 - Plan for the public development history required by

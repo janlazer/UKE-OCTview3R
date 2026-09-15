@@ -36,8 +36,10 @@ Already present in OCTview3R:
 - [ ] Review all AI-assisted code, figures, references, and manuscript claims.
       Replace the future-tense AI disclosure only after this review has actually
       happened, and identify the tools/models as accurately as the records allow.
-- [ ] Confirm permission for the dissertation figure under the TEWISS agreement.
-      Author approval alone has not resolved that publication-agreement check.
+- [x] Jan Hahn confirmed on 15 September 2026 that he alone holds the dissertation
+      rights and permits reuse of the selected figure.
+- [x] Jan Hahn approved public inclusion of the organoid concept. No organoid
+      result image is supplied yet; clear each future image separately.
 - [ ] Decide whether to add a publishable organoid OCT/segmentation overlay with
       calibration, acquisition context, segmentation provenance, and explicit
       consent to disclose the image. A representative result would strengthen
@@ -56,15 +58,16 @@ and acknowledgement of funding. [Paper format](https://joss.readthedocs.io/en/la
 ## Software/community work still useful before review
 
 - [ ] Record a colleague's installation and representative TIFF/PolyData overlay
-      test on a clean Windows computer. The local packaging test is not that test.
+      test on a clean Windows computer. Miroslav Zabic is the planned tester;
+      his test is pending. The local packaging test is not that test.
 - [ ] Expand automated coverage of calibration, mesh imports, transformations,
       and mixed volume/geometry occlusion. Rendered-image baselines are currently
       missing; the 269 assertions do not provide image-quality validation.
 - [ ] Add a reproducible C++/Qt/VTK CI environment. The paper workflow does not run
       the Windows application tests and must not be represented as software CI.
 - [ ] Provide a reproducible, shareable overlay example. Current bundled data
-      include non-medical market-cherry TIFFs. Legacy geometry/reference files
-      remain and removed VTK examples are still in Git history; complete the
+      include non-medical market-cherry TIFF/RAW files. Deleted VTK exports are
+      removed from the rewritten history; reference files still need a decision in the
       [public-release checks](../docs/public-release-checklist.md).
 - [ ] Document real public bug reports, discussions, contributions, and releases
       as they occur. Do not manufacture activity to satisfy an eligibility check.

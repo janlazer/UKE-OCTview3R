@@ -1,51 +1,47 @@
 # Checks before changing repository visibility
 
-This is a review checklist, not a declaration that every file is cleared.
-The market-cherry TIFF provenance was confirmed by Jan Hahn on 15 September 2026.
-No repository visibility change, file removal or history rewrite is performed by
-adding this document. The paper and software release are separate decisions.
+Status recorded on 15 September 2026. The repository and v1.1.0 release remain
+private/draft. This checklist is not a legal certification or a declaration
+that every file is cleared. Publication is a separate author decision.
 
-## Recorded observations
+## Completed or confirmed
 
-- The four TIFF examples listed in `OCTview3R/ImageData/README.md` are scans of a
-  cherry purchased at a market, not human or clinical datasets.
-- Other legacy files remain tracked: RAW, BYU, STL, PLY, XYZ, TXT, C++ example
-  material and PDFs. The TIFF provenance does not by itself establish their origin
-  or the redistribution terms of externally authored material.
-- Previously removed VTK-family datasets remain in earlier commits. Current
-  `.gitignore` rules are not a history-removal mechanism.
-- The manuscript and its figures are tracked, including the historical lens
-  figure and the ongoing organoid-workflow description.
-- The prepared v1.1.0 installer/portable payload contains no research datasets.
-  Its source archive was created from the tagged source revision and includes
-  that revision's example/reference files. The draft release is not a rights audit.
+- [x] Jan Hahn confirmed that the retained TIFF/RAW examples show an ordinary
+      market-bought cherry. The exact files are listed in
+      [example-data provenance](../OCTview3R/ImageData/README.md).
+- [x] Jan Hahn confirmed that he alone holds the dissertation rights and permits
+      reuse of the selected lens figure.
+- [x] Jan Hahn approved public inclusion of the organoid concept. No new organoid
+      result image is available yet; each future image needs separate review.
+- [x] Jan Hahn authorized removal of deleted VTK-family exports and obsolete
+      personal paths from branch/tag history, with a private local backup.
+      See [history-cleanup scope](history-cleanup.md).
+- [x] Miroslav Zabic is acknowledged for publication advice in the About dialog,
+      README and manuscript. His planned release test is not claimed as complete.
 
-## Human decisions and final verification
+## Open before public release
 
-- [ ] Confirm the co-authors agree to public software/documentation release and
-  verify that the stated GPL terms can be applied to their contributions. Resolve
-  any institutional or contractual questions rather than inferring ownership from
-  either an affiliation or private development alone.
-- [ ] Classify each remaining example/reference file and record its provenance
-  and permission, or decide that it should not be distributed.
-- [ ] Resolve the dissertation figure's reuse terms and approve public disclosure
-  of the ongoing organoid project description with the relevant collaborators.
-- [ ] Check all reachable Git history, tags and release archives for credentials,
-  identifying metadata, confidential research and material not cleared for sharing.
-  No complete secret/rights audit has yet been certified.
-- [ ] If something must be removed from history, agree an explicit scoped plan
-  with collaborators, preserve a private backup, and update affected tags/archive
-  references. Do not silently force-push or create a misleading development record.
-- [ ] Review Actions logs/artifacts and release notes as well as current files.
-  GitHub documents that Actions history/logs become public with the repository.
-- [ ] Recreate affected source archives and checksums if the release contents
-  change; do not present the old draft assets as a newly cleared source snapshot.
-- [ ] Ask a colleague to install and inspect a representative TIFF/geometry
-  overlay on a clean Windows computer. Record problems as real issues.
+- [ ] Obtain the co-authors' agreement to public software/documentation release
+      under GPL-3.0-only and confirm authorship/affiliations. Jan will contact
+      Tammo Ripken; a current contact for Giovanno Moebes has not been found.
+      Resolve any relevant institutional/contractual questions with the authors.
+- [ ] Decide whether to remove or document redistribution permission for
+      `A03-R-039.pdf`, `ReadAllPolyDataDemo.pdf`, `file-formats.pdf` and
+      `Example_CutMesh.txt`. These reference files are not covered by the cherry
+      provenance. They have not been removed without the author's decision.
+- [ ] Complete a final review of identifying metadata, confidential material,
+      Actions logs/artifacts and any external copies. Cleaning branch/tag history
+      does not certify deletion from GitHub caches, forks or existing clones.
+- [ ] After history cleanup, verify that the draft release's source archive,
+      installer/portable manifests, tag and checksums identify the same revision.
+      Rebuild packages rather than retaining an old source snapshot.
+- [ ] Receive and record Miroslav's independent Windows installation/overlay
+      test. See [release-test record](release-test.md). Local automated tests
+      do not establish his result.
+- [ ] Review new organoid result images, captions and acquisition/segmentation
+      provenance before adding them. Concept approval is not approval of images
+      that do not yet exist.
 
 GitHub's [visibility guidance](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/managing-repository-settings/setting-repository-visibility)
-describes the consequences. Public forks/copies cannot be recalled merely by
-making the original repository private again.
-
-For JOSS-specific requirements and author decisions, use
-[SUBMISSION_CHECKLIST.md](../paper/SUBMISSION_CHECKLIST.md).
+describes the consequences of publication. See the separate
+[JOSS checklist](../paper/SUBMISSION_CHECKLIST.md) for submission readiness.

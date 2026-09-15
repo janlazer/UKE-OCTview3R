@@ -8,7 +8,7 @@ The repository contains the application sources, Qt Designer forms, icons,
 and a small collection of example data sets. The included TIFF volumes are
 OCT scans of an ordinary cherry purchased at a market and contain no human or
 clinical data. See [example-data provenance](OCTview3R/ImageData/README.md) for
-the separate review status of legacy geometry and reference files.
+the exact example files and formats.
 
 ## Download for Windows
 
@@ -263,6 +263,12 @@ input files supplied by users.
 OCTview3R was developed privately. The affiliations provide scientific
 context and do not designate institutional copyright ownership. Further
 information is available in [`AUTHORS.md`](AUTHORS.md).
+
+## Acknowledgements
+
+We thank **Miroslav Zabic** for his advice on preparing OCTview3R for public
+release. His independent release test is planned; it is not yet reported as
+completed validation.
 
 ## Citation
 

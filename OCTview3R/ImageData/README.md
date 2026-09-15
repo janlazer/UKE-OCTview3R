@@ -1,32 +1,28 @@
 # Example data
 
-The TIFF volumes in this directory are optical coherence tomography scans of
-a commercially available cherry purchased at a market, as confirmed by Jan Hahn.
-They are provided solely as non-medical demonstration data for
-OCTview3R and contain no human, patient, or animal subject information.
+The retained image data are OCT scans of an ordinary cherry purchased at a
+market. Jan Hahn confirmed their origin and the selection below on 15 September
+2026. They are non-medical demonstration data and contain no human, patient or
+animal subject information.
 
-Included TIFF files:
+| File | Format | Dimensions |
+| --- | --- | --- |
+| `100x100x100_8bit.tif` | 8-bit TIFF stack | 100 x 100 x 100 |
+| `100x100x100_16bit.tif` | 16-bit TIFF stack | 100 x 100 x 100 |
+| `100x100x100_8bit.raw` | Unsigned 8-bit, headerless RAW | 100 x 100 x 100 |
 
-- `100x100x100_8bit.tif`
-- `_70x100x100_8bit.tif`
-- `Auswahl/100x100x100_8bit.tif`
-- `Auswahl/100x100x100_16bit.tif`
+For RAW import, enter the dimensions explicitly; the RAW file does not encode
+them or a physical voxel spacing. The examples can exercise loading, thresholds,
+cropping, planes and rendering. They are distributed under GPL-3.0-only.
 
-The files differ in bit depth and/or selected slice range and can be used to
-exercise volume loading, thresholds, cropping, planes, and rendering.
+Removed VTK-family exports and obsolete example-data paths are excluded from
+the rewritten branch/tag history. Their private local backup is not part of
+the repository or release packages. The application still accepts users' own
+VTK, VTI, VTP and VTR inputs.
 
-The cherry TIFF files were created for OCTview3R and are distributed under
-the repository's GPL-3.0-only license.
+## Reference files still awaiting a decision
 
-VTK-family examples (`.vtk`, `.vti`, `.vtp`, and `.vtr`) were removed from the
-current checkout and are ignored for new additions. They still exist in earlier
-Git commits; removing a file from the working tree does not remove its history.
-
-The cherry statement applies to the listed TIFF examples, not automatically to
-all other files in this directory. Legacy RAW, BYU, STL, PLY, XYZ, TXT, C++ example
-and PDF files are still tracked. Their individual provenance and redistribution
-terms have not all been documented. In particular, do not infer the origin of
-`lens3D_polydata_*.ply` or permission to redistribute the PDFs from the TIFF
+`A03-R-039.pdf`, `ReadAllPolyDataDemo.pdf`, `file-formats.pdf` and
+`Example_CutMesh.txt` remain reference material, not cherry data. Their
+redistribution review is still open; do not infer permission from the image-data
 provenance. See [public-release checks](../../docs/public-release-checklist.md).
-
-Users may load their own compatible data through the volume and PolyData dialogs.
