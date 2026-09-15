@@ -16,7 +16,9 @@ together with segmented surfaces, meshes, and point data.
 Both binary packages include Qt 5.15.2, VTK 8.2, Qt plugins, and the
 application-local Microsoft Visual C++/OpenMP runtime. They contain no research
 datasets and do not require a separate Qt, VTK, Visual Studio, or Python setup.
-The source repository contains only the documented non-medical cherry examples.
+The source snapshot also contains legacy example geometry and reference files;
+their provenance/redistribution review must be completed before public release.
+The TIFF examples are documented non-medical scans of a market-bought cherry.
 
 ## Requirements and installation notes
 

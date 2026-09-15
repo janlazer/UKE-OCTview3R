@@ -9,6 +9,7 @@ OCTproZ JOSS paper.
 
 - `paper.md`: manuscript source
 - `paper.bib`: BibTeX references
+- `../docs/developer-guide.md`: source-reading order, interface contracts and UI invalidation
 - `../docs/architecture.md`: implementation-level companion covering ownership,
   filter chains, units, transparency, memory handling, and verification limits
 - `figures/octview3r-interface.png`: current application screenshot, shared
@@ -46,11 +47,18 @@ The review PDF is only a layout aid. The authoritative submission source is
   functions (Kindlmann and Durkin, 1998), OCT speckle (Schmitt et al., 1999),
   Fiji (Schindelin et al., 2012), organoid OCT morphology (Zhang et al., 2023),
   longitudinal organoid imaging (Monfort et al., 2023), and scientific colour
-  mapping (Crameri et al., 2020). The bibliography now contains 17 cited works;
+  mapping (Crameri et al., 2020). The bibliography now contains 19 cited works,
+  including two official extension-documentation references added on 15 September;
   DOI metadata and primary author/publisher records were used to check them.
   The organoid references provide background, not evidence that those groups
   used OCTview3R.
 - The current JOSS paper, review, AI-disclosure, and pre-submission criteria.
+
+The ParaView/3D Slicer comparison acknowledges their extension capabilities and
+explains the choice of an independent, focused Qt/VTK application. Informal
+reports of crashes or difficult plane interaction are not treated as comparative
+evidence: a stability claim would need versions, datasets, hardware and
+reproducible steps. No superiority in stability or usability is asserted.
 
 The two source PDFs are not versioned or redistributed with the repository.
 
@@ -59,6 +67,9 @@ The two source PDFs are not versioned or redistributed with the repository.
 See [SUBMISSION_CHECKLIST.md](SUBMISSION_CHECKLIST.md) for the dated readiness
 assessment, author decisions, public-development requirement, and submission
 route. A prepared GitHub software release is not a JOSS submission.
+Also complete the [public-release checks](../docs/public-release-checklist.md)
+before changing repository visibility; the source snapshot contains legacy
+reference/geometry files beyond the documented cherry TIFFs.
 
 - Confirm the author order and each author's current submission affiliation.
 - Add ORCIDs for Giovanno Möbes and Tammo Ripken if available.

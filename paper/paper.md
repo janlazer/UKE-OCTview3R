@@ -20,7 +20,7 @@ affiliations:
     name: University Medical Center Hamburg-Eppendorf (UKE), Hamburg, Germany
   - index: 2
     name: Laser Zentrum Hannover e.V. (LZH), Hannover, Germany
-date: 14 September 2026
+date: 15 September 2026
 bibliography: paper.bib
 ---
 
@@ -83,13 +83,23 @@ ITK-SNAP emphasizes anatomical segmentation [@yushkevich2006]; and Fiji provides
 an extensible platform for biological-image analysis [@schindelin2012]. These
 systems offer substantially broader acquisition or analysis capabilities.
 
-`OCTview3R` instead starts with processed files and concentrates the controls
-needed for volume/geometry comparison in a desktop interface. Its separate
-application design avoids requiring an acquisition system or a larger analysis
-environment for this narrow inspection task. The trade-off is reduced scope:
-there is no scripting interface, automated registration, distributed processing,
-or embedded segmentation. The viewer complements these platforms; no comparative
-performance or usability advantage is claimed.
+ParaView and 3D Slicer also support extensions, including additions to application
+functionality [@paraviewplugins; @slicerextensions]. `OCTview3R` does not address an
+absence of extensibility in these platforms. It deliberately targets a narrower
+workflow: joint inspection of processed OCT volumes and externally generated
+segmentation geometry. Its dedicated interface combines volume appearance,
+object transformations, and associated slice-plane interaction; each plane
+follows its parent volume's transformation.
+
+An independent Qt/VTK application gives the research team direct control over
+interface and pipeline changes without requiring integration into a host
+application's extension architecture. This build-versus-contribute choice
+prioritizes a focused inspection workflow and local source-level customization,
+while retaining responsibility for maintaining the application and dependencies.
+The trade-off is reduced scope: there is no scripting interface, automated
+registration, distributed processing, or embedded segmentation. The viewer
+complements these platforms; no comparative stability, performance, or usability
+advantage is claimed.
 
 # Software design
 

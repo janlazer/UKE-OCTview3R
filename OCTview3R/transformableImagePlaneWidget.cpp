@@ -29,6 +29,8 @@ void TransformableImagePlaneWidget::SetDisplayTransform(
 	vtkLinearTransform* transform)
 {
 	DisplayTransform = transform;
+	// Transform display props together, leaving PlaneSource and Reslice in image
+	// space. Applying the same transform to the input image would transform twice.
 	PlaneOutlineActor->SetUserTransform(transform);
 	TexturePlaneActor->SetUserTransform(transform);
 	CursorActor->SetUserTransform(transform);
@@ -57,6 +59,9 @@ void TransformableImagePlaneWidget::StartSliceMotion()
 		return;
 	}
 
+	// The picker returns world coordinates, while base-class state/margin tests
+	// use PlaneSource's local coordinates. Restore the world pick afterwards:
+	// OnMouseMove needs it to recover display depth for the next mouse event.
 	double worldPick[3] = {
 		LastPickPosition[0],
 		LastPickPosition[1],
@@ -105,6 +110,9 @@ void TransformableImagePlaneWidget::OnMouseMove()
 		depth,
 		worldPick);
 
+	// Project both mouse positions at the last picked depth, then undo the actor
+	// transform before calling base-class motion helpers. This keeps dragging
+	// consistent after rotation, translation and non-uniform dataset scaling.
 	double previousLocalPick[3] = {
 		previousWorldPick[0],
 		previousWorldPick[1],
@@ -145,6 +153,8 @@ void TransformableImagePlaneWidget::OnMouseMove()
 		double worldViewNormal[3] = {};
 		double localViewNormal[3] = {};
 		camera->GetViewPlaneNormal(worldViewNormal);
+		// Normals require TransformNormal (inverse-transpose semantics), not the
+		// point/vector transform, especially when the dataset scale is anisotropic.
 		if (inverse != nullptr)
 			inverse->TransformNormal(worldViewNormal, localViewNormal);
 		else
@@ -174,6 +184,9 @@ void TransformableImagePlaneWidget::OnMouseMove()
 		ManageTextDisplay();
 	}
 
+	// Consume the event so camera interaction does not also handle the same drag.
+	// Preserve VTK's event contract: window/level emits its own event, other plane
+	// changes emit InteractionEvent for the application's clipping refresh.
 	EventCallbackCommand->SetAbortFlag(1);
 	if (State == vtkImagePlaneWidget::WindowLevelling)
 	{
@@ -219,6 +232,8 @@ void TransformableImagePlaneWidget::UpdateTransformedCursor(int x, int y)
 
 	double worldPick[3] = {};
 	double localPick[3] = {};
+	// Hit-test the displayed actor in world space, sample the image in local
+	// space. Crosshair geometry stays local; CursorActor applies the display transform.
 	PlanePicker->GetPickPosition(worldPick);
 	if (DisplayTransform != nullptr)
 	{

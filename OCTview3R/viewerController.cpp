@@ -85,6 +85,8 @@ void ViewerController::refresh(
 	const Settings& settings,
 	bool resetCamera)
 {
+	// Other documents retain their existing props in this same renderer. The
+	// active document chooses which pipeline is edited, not which prop draws last.
 	if (activeDocument != nullptr && activeDocument->fileLoaded)
 		updateDocument(*activeDocument, settings);
 	if (resetCamera)
@@ -131,6 +133,8 @@ void ViewerController::updateDocument(
 
 void ViewerController::detach(ImageData& document)
 {
+	// Widgets keep callbacks/interactor links outside model ownership. Remove
+	// those links while ImageData is still alive, before releasing its smart pointers.
 	if (document.planeObserverTag != 0)
 	{
 		document.planeWidget->RemoveObserver(document.planeObserverTag);

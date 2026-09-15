@@ -390,6 +390,8 @@ namespace
 
 loading::loading(OpenData* openData)
 {
+	// Construct on the GUI thread, before moveToThread(): copy values, never keep
+	// the dialog pointer for later access from the reader thread.
 	setData(openData);
 }
 
@@ -432,6 +434,8 @@ void loading::updateWithProgress(
 		std::swap(context.startProgress, context.endProgress);
 
 	auto callback = vtkSmartPointer<vtkCallbackCommand>::New();
+	// context lives on this stack. The observer is valid only for the synchronous
+	// Update() below and must be removed before this function returns.
 	callback->SetClientData(&context);
 	callback->SetCallback(&loading::vtkProgressCallback);
 	const unsigned long observerTag =

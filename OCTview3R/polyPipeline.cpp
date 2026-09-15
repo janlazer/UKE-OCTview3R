@@ -37,6 +37,8 @@ void PolyPipeline::update(
 
 	if (initialize || data.dataPipelineDirty)
 	{
+		// Clip the original mesh before its display transform. VOI contains native
+		// floating-point mesh bounds; applying volume voxel rounding here is incorrect.
 		bool rangeIsRestricted = false;
 		for (int i = 0; i < 6; ++i)
 		{

@@ -6,6 +6,9 @@ implementation choices rather than a new rendering algorithm. The scientific
 background and related applications are cited in the manuscript's
 [bibliography](../paper/paper.bib).
 
+For a source-reading order, ownership contracts, UI invalidation table and an
+extension checklist, see the [developer guide](developer-guide.md).
+
 ## Components and ownership
 
 | Component | Responsibility | Main source |

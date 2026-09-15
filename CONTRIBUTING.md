@@ -3,6 +3,12 @@
 Contributions to OCTview3R are welcome through GitHub issues and pull
 requests.
 
+Start with the [developer guide](docs/developer-guide.md) and the
+[architecture conventions](docs/architecture.md). Use concise English comments
+for ownership, units, thread boundaries, update dependencies and VTK workarounds.
+Public class/method contracts use Doxygen-compatible comments. Explain the reason
+for non-obvious code rather than restating each assignment or keeping dead code.
+
 ## Before submitting a change
 
 - Build the affected `Debug | x64` or `Release | x64` configuration.

@@ -1,6 +1,3 @@
-//Unbedingt vor allen VTK-Befehlen/-Includes definieren!!!
-//#define vtkRenderingCore_AUTOINIT 4(vtkInteractionStyle,vtkRenderingFreeType,vtkRenderingFreeTypeOpenGL,vtkRenderingOpenGL)
-//#define vtkRenderingVolume_AUTOINIT 1(vtkRenderingVolumeOpenGL)
 #include <vtkAutoInit.h> 
 VTK_MODULE_INIT(vtkRenderingVolumeOpenGL2);
 VTK_MODULE_INIT(vtkRenderingOpenGL2)
@@ -31,7 +28,6 @@ VTK_MODULE_INIT(vtkRenderingFreeType);
 #include <vtkRenderWindowInteractor.h>
 #include <vtkVolume.h>
 #include <vtkVolumeProperty.h>
-//#include <vtkVolumeRayCastCompositeFunction.h>
 #include <vtkSmartVolumeMapper.h>
 #include <vtkImageReader.h>
 #include <vtkImageResample.h>
@@ -61,9 +57,6 @@ VTK_MODULE_INIT(vtkRenderingFreeType);
 #include <vtkClipVolume.h>
 #include <vtkCutter.h>
 #include <vtkImageClip.h>
-//#include <vtkVolumeRayCastMapper.h>
-//#include <vtkVolumeRayCastMIPFunction.h>
-//#include <vtkVolumeRayCastCompositeFunction.h>
 #include <vtkPlaneSource.h>
 #include <vtkPlaneCollection.h>
 //POINT
@@ -176,7 +169,9 @@ namespace
 	}
 
 	double cropDisplayValue(const ImageData& data, int axis, double voxelIndex)
-	{
+{
+		// Only calibrated volumes convert index -> millimetres -> displayed micrometres.
+		// Uncalibrated indices and native mesh bounds pass through unchanged.
 		if (!cropAxisIsCalibrated(data, axis))
 			return voxelIndex;
 		double origin[3] = {};
@@ -607,6 +602,8 @@ void OCTview3R::setupMetadataPanel()
 
 OCTview3R::~OCTview3R()
 {
+	// Reader Update() calls are synchronous: requestInterruption()/quit() do not
+	// forcibly cancel them. Wait before destroying GUI receivers and scene data.
 	for (QThread* thread : loadingThreads)
 	{
 		thread->requestInterruption();
@@ -851,6 +848,8 @@ void OCTview3R::slotThemeChanged(const QString& theme)
 
 void OCTview3R::markTransformDirty()
 {
+	// Each mark* helper sets only its own flag. Slots must request all affected
+	// stages explicitly; the dependency table is in docs/developer-guide.md.
 	if (activeImageData)
 		activeImageData->transformDirty = true;
 }
@@ -1051,6 +1050,8 @@ void OCTview3R::initializeVTKPipeline()
 }
 void OCTview3R::slotSetImageData(int index)
 {
+	// Selection restores controls and annotations only. Re-running a pipeline here
+	// could overwrite a document's appearance or change the shared camera.
 	if (index < 0 || index >= documentModel.size())
 		return;
 
@@ -1065,7 +1066,8 @@ void OCTview3R::slotSetImageData(ImageData* data)
 		return;
 
 	// Updating one document's controls must not invoke handlers for every
-	// programmatically assigned value.
+	// programmatically assigned value. Keep blockers alive until all editors,
+	// actions and dataset-specific enable states have been restored.
 	std::vector<std::unique_ptr<QSignalBlocker>> signalBlockers;
 	const QList<QObject*> objects = findChildren<QObject*>();
 	signalBlockers.reserve(static_cast<std::size_t>(objects.size()));
@@ -1323,6 +1325,8 @@ void OCTview3R::slotShowPlane(bool value)
 }
 void OCTview3R::onePlaneCallbackFunction(vtkObject* caller, unsigned long eventId, void *clientData, void *callData)
 {
+	// VTK invokes this synchronously on the interaction/GUI thread. Rendering may
+	// trigger nested events; the boolean prevents reentrant refresh, not data races.
 	OCTview3R *self = reinterpret_cast<OCTview3R*>(clientData);
 	if(self->onePlaneCallbackMutex){
 		self->onePlaneCallbackMutex = false;
@@ -1441,7 +1445,7 @@ void OCTview3R::slotDataFileDialogClosed(
 		data->image			= tmpData;
 		tmpData->Delete();
 
-		// Transfer ownership to the document model and add a matching tab.
+		// create() already gave ownership to the model; now add the matching GUI tab.
 		addDocumentTab(*data);
 		settings.oneFileLoaded = true;
 		//set values in GUI
@@ -1480,7 +1484,7 @@ void OCTview3R::slotPolyFileDialogClosed(vtkPolyData* tmpPoly)
 				: 0;
 		tmpPoly->Delete();
 		
-		// Transfer ownership to the document model and add a matching tab.
+		// create() already gave ownership to the model; now add the matching GUI tab.
 		addDocumentTab(*data);
 		settings.oneFileLoaded = true;
 		//set values in GUI
@@ -1495,6 +1499,8 @@ void OCTview3R::slotPolyFileDialogClosed(vtkPolyData* tmpPoly)
 }
 void OCTview3R::slotProcessDataFile()
 {
+	// Snapshot the dialog before moving the worker. AutoConnection queues results
+	// back to this window; renderer/UI mutations must remain in the result slots.
 	if(openData->isValidData()){
 		openData->setLoading(true);
 		loading *worker = new loading(openData);
@@ -1519,6 +1525,9 @@ void OCTview3R::slotProcessDataFile()
 }
 void OCTview3R::slotProcessPolyFile()
 {
+	// Same lifecycle as the volume reader: finished schedules worker deletion and
+	// thread shutdown on both success and failure. Raw result pointers transfer
+	// one VTK reference, consumed by slotPolyFileDialogClosed().
 	if(openPoly->isValidData()){
 		openPoly->setLoading(true);
 		loading *worker = new loading(openPoly);
@@ -1556,6 +1565,8 @@ void OCTview3R::slotPolyLoadFailed(const QString& message)
 
 void OCTview3R::refreshViewer()
 {
+	// firstFileLoaded is a one-shot request. Ordinary appearance/plane edits must
+	// preserve the user's camera rather than replaying this initial view setup.
 	if (!viewerController)
 		return;
 
@@ -2353,6 +2364,8 @@ void OCTview3R::slotCloseTab(int index)
 	if (index < 0 || index >= documentModel.size())
 		return;
 
+	// takeAt transfers ownership into this local variable. It keeps VTK resources
+	// alive through detach(), removal of the tab and selection of the next document.
 	DocumentModel::Document data = documentModel.takeAt(index);
 	viewerController->detach(*data);
 

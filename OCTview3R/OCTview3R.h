@@ -31,17 +31,29 @@ class vtkObject;
 class vtkCamera;
 class vtkTransform;
 
+/**
+ * @brief GUI-thread bridge between Designer controls, document state and rendering.
+ *
+ * Slots validate user input, edit only the selected document, mark affected
+ * pipeline stages dirty, and request a refresh. Tab restoration blocks signals
+ * so assigning controls cannot overwrite another document's values. Layout stays
+ * in OCTview3R.ui; processing belongs in the focused pipeline classes.
+ * See docs/developer-guide.md for the event flow and extension checklist.
+ */
 class OCTview3R : public QMainWindow
 {
 	Q_OBJECT
 
 public:
-	//con-/destructor
+	/// Create the Designer UI, scene controller, preferences and signal connections.
 	OCTview3R();
+	/// Wait for readers, detach scene resources, then destroy documents and the UI.
 	~OCTview3R() override;
 
 public slots:
+	/// Snapshot validated dialog settings and start a volume-loading worker thread.
 	virtual void slotProcessDataFile();
+	/// Geometry equivalent of slotProcessDataFile(); no renderer calls run in the worker.
 	virtual void slotProcessPolyFile();
 	virtual void slotExit();
 
@@ -55,29 +67,34 @@ signals:
 	void signalLoadFileFinished(void);
 
 protected slots:
+	/// Consume the active document's dirty flags; camera reset is limited to first-load setup.
 	void refreshViewer(void);
 
-	//new file
+	// Document selection and queued worker results (all handlers execute on the GUI thread).
+	/// Restore controls from a borrowed loaded model document with child signals blocked.
 	void slotSetImageData(ImageData*);
+	/// Select the model/tab index and update decorations without rebuilding dataset pipelines.
 	void slotSetImageData(int);
 	void slotOpenDataFileDialog(void);
 	void slotOpenPolyFileDialog(void);
 	void slotShowAbout(void);
+	/// Adopt or release the worker's extra VTK reference, including rejected-result paths.
 	void slotDataFileDialogClosed(
 		vtkImageData*,
 		unsigned int spacingInMillimetresMask,
 		double displayScalarMinimum,
 		double displayScalarMaximum);
+	/// Geometry result with the same transfer-reference contract as slotDataFileDialogClosed().
 	void slotPolyFileDialogClosed(vtkPolyData*);
 	void slotDataLoadFailed(const QString&);
 	void slotPolyLoadFailed(const QString&);
 
-	//threshold
+	// Threshold acceptance changes both data filtering and opacity/colour functions.
 	void slotSetThreshold(void);
 	void slotCheckMinThresholdSlider(int);
 	void slotCheckMaxThresholdSlider(int);
 
-	//color mapping
+	// Appearance controls; RGB window/level also changes derived image buffers.
 	void slotSetColormap(QString);
 	void slotAdjustColormap(bool);
 	void slotAutoWindow(bool);
@@ -94,7 +111,7 @@ protected slots:
 	void slotSetPolyGloss(int);
 	void slotSetPointSize(int);
 
-	//object
+	// Per-document transforms, independent of camera rotation and other documents.
 	void slotShowObject(bool);
 	void slotRotX(double);
 	void slotRotY(double);
@@ -103,7 +120,7 @@ protected slots:
 	void slotShiftY(double);
 	void slotShiftZ(double);
 
-	//plane
+	// Plane controls: enabling the plane clips the volume; texture visibility is separate.
 	void slotShowPlane(bool);
 	void slotPlaneUp(void);
 	void slotPlaneDown(void);
@@ -116,14 +133,16 @@ protected slots:
 	void slotCheckFlipPlane(bool);
 	void slotPlaneVisibility(bool);
  
-	//scale and axis
+	// Scene decorations (do not modify source data or registration).
 	void slotShowScalarBar(bool);
 	void slotShowAxesTriad(bool);
 	void slotShowOrientAxes(bool);
 	void slotShowAxesBox(bool);
 
 	//general slots
+	/// Commit pending crop editors, convert calibrated units, round voxels and validate bounds.
 	void slotApplyRanges(void);
+	/// Mark editors pending only; do not run expensive crop filters on each keystroke.
 	void slotRangesEdited(void);
 	void slotResetRanges(void);
 	void slotResetObjectTransform(void);
@@ -161,6 +180,7 @@ private:
 		void *clientData,
 		void *callData
 	);
+	// GUI-thread reentrancy guard, NOT a mutex or synchronization primitive.
 	bool onePlaneCallbackMutex;
 	void setupEnhancedUi();
 	void setupGeneralPanel();
@@ -173,6 +193,7 @@ private:
 	void updateRangePresentation();
 	void setRangesPending(bool pending);
 	void applyAutomaticWindowLevel();
+	// These helpers set one flag only; they neither render nor propagate dependencies.
 	void markTransformDirty();
 	void markAppearanceDirty();
 	void markDataPipelineDirty();
@@ -197,12 +218,13 @@ private:
 	QAction *parallelProjectionAction = nullptr;
 	QString currentTheme = QStringLiteral("System");
 
-	//designer form
+	// Designer form and GUI-owned dialogs.
 	Ui_OCTview3R *ui;
 	OpenData *openData;
 	OpenPoly *openPoly;
 
-	//parameter structures
+	// Scene-wide state and document ownership. activeImageData is borrowed from
+	// documentModel and must be replaced/cleared before its document is destroyed.
 	Settings settings;
 	ImageData* activeImageData = nullptr;
 	DocumentModel documentModel;
@@ -210,7 +232,7 @@ private:
 	std::unique_ptr<ViewerController> viewerController;
 
 public:
-	//helper
+	/// Bind the controller to the Designer QVTK widget once during GUI initialization.
 	void initializeVTKPipeline();
 };
 

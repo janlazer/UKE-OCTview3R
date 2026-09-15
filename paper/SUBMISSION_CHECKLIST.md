@@ -18,7 +18,7 @@ Already present in OCTview3R:
 - A 1.1.0 Windows installer/portable packaging workflow, dependency notices,
   checksums, installation tests, and documented build instructions.
 - 269 synthetic production-pipeline and Qt-control regression checks.
-- A roughly 1,400-word manuscript with the required sections, 17 references,
+- A roughly 1,500-word manuscript with the required sections, 19 references,
   four figures, and an implementation-level architecture companion.
 - Documented historical lens-imaging use in Hahn's dissertation. The organoid
   workflow is identified as ongoing, not presented as a completed validation.
@@ -44,7 +44,10 @@ Already present in OCTview3R:
       the use case; a second completed science paper is not itself mandatory.
 - [ ] Make the build-versus-contribute argument more concrete if possible: which
       lens/organoid inspection steps motivated this particular GUI and pipeline?
-      Do not claim superior speed or accuracy without measurements.
+      The comparison now acknowledges ParaView/Slicer extensions and explains
+      source-level customization of the independent application. Confirm that
+      this rationale represents the authors' actual design decisions. Do not
+      claim superior stability, speed or accuracy without measurements.
 
 The manuscript already contains comments marking unresolved author information.
 The JOSS format requires disclosure of AI use and verification, accurate metadata,
@@ -60,7 +63,9 @@ and acknowledgement of funding. [Paper format](https://joss.readthedocs.io/en/la
 - [ ] Add a reproducible C++/Qt/VTK CI environment. The paper workflow does not run
       the Windows application tests and must not be represented as software CI.
 - [ ] Provide a reproducible, shareable overlay example. Current bundled data
-      are non-medical cherry TIFFs; VTK examples were deliberately removed.
+      include non-medical market-cherry TIFFs. Legacy geometry/reference files
+      remain and removed VTK examples are still in Git history; complete the
+      [public-release checks](../docs/public-release-checklist.md).
 - [ ] Document real public bug reports, discussions, contributions, and releases
       as they occur. Do not manufacture activity to satisfy an eligibility check.
 

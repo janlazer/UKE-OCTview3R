@@ -219,6 +219,8 @@ void VolumePipeline::update(
 	const bool planeChanged = initialize || data.planeDirty;
 	const bool visibilityChanged = initialize || data.visibilityDirty;
 
+	// Capture flags before consuming any stage. Plane clipping depends on the new
+	// transform and input; mapper setup must follow both to avoid a mixed old/new state.
 	if (transformChanged)
 	{
 		data.transform->Identity();
@@ -308,6 +310,8 @@ void VolumePipeline::updateImageFilters(ImageData& data) const
 	const bool colorInput =
 		data.image->GetNumberOfScalarComponents() >= 3;
 	data.extractVOI->SetInputData(data.image);
+	// UI/model volume ranges are half-open [min, max); vtkExtractVOI takes an
+	// inclusive maximum. Keep this conversion here, not in the stored VOI values.
 	data.extractVOI->SetVOI(
 		static_cast<int>(data.VOI[0]), static_cast<int>(data.VOI[1]) - 1,
 		static_cast<int>(data.VOI[2]), static_cast<int>(data.VOI[3]) - 1,
@@ -422,6 +426,9 @@ void VolumePipeline::updatePlane(
 	if (transformedPlane != nullptr)
 		transformedPlane->SetDisplayTransform(data.transform);
 
+	// Moving the existing widget must not reconnect its input/reset its placement.
+	// UI changes that need reconnection explicitly set changePlaneInput as well
+	// as the appropriate dirty flag (see docs/developer-guide.md).
 	if (!data.changePlaneInput)
 		return;
 
@@ -501,6 +508,8 @@ void VolumePipeline::updateVolume(
 
 	if (data.showPlane)
 	{
+		// Mapper clipping planes live in world space, unlike the widget's local
+		// image-space plane. Transform the normal correctly under anisotropic scale.
 		double worldOrigin[3] = {};
 		double worldNormal[3] = {};
 		data.transform->TransformPoint(

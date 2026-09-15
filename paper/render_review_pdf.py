@@ -58,7 +58,7 @@ def parse_bibliography(text: str) -> dict[str, dict[str, str]]:
 
 def author_year(entry: dict[str, str]) -> str:
     authors = entry.get("author", "Unknown").split(" and ")
-    first = authors[0].split(",", 1)[0]
+    first = authors[0].split(",", 1)[0].strip("{}")
     if len(authors) == 1:
         author_text = first
     elif len(authors) == 2:
@@ -166,6 +166,11 @@ def format_reference(entry: dict[str, str]) -> str:
         reference_text += f' <link href="{url}">{url}</link>.'
     elif entry.get("isbn"):
         reference_text += f" ISBN {html.escape(entry['isbn'])}."
+    elif entry.get("url"):
+        url = html.escape(entry["url"], quote=True)
+        reference_text += f' <link href="{url}">{url}</link>.'
+        if entry.get("urldate"):
+            reference_text += f" Accessed {html.escape(entry['urldate'])}."
     return reference_text
 
 
@@ -181,7 +186,7 @@ def footer(canvas, document) -> None:
 
 
 def reference_sort_key(entry: dict[str, str]) -> tuple[str, str]:
-    surname = entry.get("author", "").split(",", 1)[0]
+    surname = entry.get("author", "").split(",", 1)[0].strip("{}")
     surname = "".join(
         char for char in unicodedata.normalize("NFKD", surname)
         if not unicodedata.combining(char)
@@ -191,6 +196,8 @@ def reference_sort_key(entry: dict[str, str]) -> tuple[str, str]:
 
 def build_pdf() -> None:
     source = PAPER_PATH.read_text(encoding="utf-8")
+    date_match = re.search(r"^date:\s*(.+)$", source, flags=re.MULTILINE)
+    draft_date = html.escape(date_match.group(1).strip() if date_match else "not specified")
     bibliography = parse_bibliography(BIB_PATH.read_text(encoding="utf-8"))
     _, _, body = source.partition("---\n")
     _, _, body = body.partition("---\n")
@@ -338,7 +345,7 @@ def build_pdf() -> None:
         Paragraph(
             "<super>1</super> University Medical Center Hamburg-Eppendorf (UKE), Hamburg, Germany<br/>"
             "<super>2</super> Laser Zentrum Hannover e.V. (LZH), Hannover, Germany<br/>"
-            "Draft dated 14 September 2026",
+            f"Draft dated {draft_date}",
             styles["Affiliations"],
         ),
         Paragraph(

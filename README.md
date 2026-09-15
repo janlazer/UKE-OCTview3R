@@ -6,7 +6,9 @@ Qt for the user interface and VTK for data processing and 3D rendering.
 
 The repository contains the application sources, Qt Designer forms, icons,
 and a small collection of example data sets. The included TIFF volumes are
-OCT scans of a cherry and contain no human or clinical data.
+OCT scans of an ordinary cherry purchased at a market and contain no human or
+clinical data. See [example-data provenance](OCTview3R/ImageData/README.md) for
+the separate review status of legacy geometry and reference files.
 
 ## Download for Windows
 
@@ -282,7 +284,8 @@ published and added to this section.
 See the [architecture and rendering conventions](docs/architecture.md) for the
 dataset model, VTK filter chains, coordinate units, transparency rules, and
 current test coverage. The [JOSS draft](paper/paper.md) places these design
-choices in the scientific literature.
+choices in the scientific literature. The [developer guide](docs/developer-guide.md)
+adds a source-reading order, ownership contracts and UI update dependencies.
 
 ```text
 OCTview3R.sln
@@ -304,7 +307,7 @@ OCTview3R/
   openpoly.cpp/.h/.ui    Polygonal-data import dialog
   OCTview3R.ui           Main Qt Designer form
   Resources/             Icons and color-map resources
-  ImageData/             Non-medical example data and provenance notes
+  ImageData/             Example data and legacy reference files; see provenance notes
 ```
 
 ## Versioning and releases
