@@ -42,9 +42,10 @@ accents. Scientific data colours, axis colours and viewer background settings
 remain independent of the branding. The header is outside the render widget,
 so it is not included in exported scientific renderings.
 
-Layout margins, control-group sizes, the theme-free General panel and camera
-icons are defined in the `.ui` forms. Shared control padding is defined in
-`Resources/darkstyle/darkstyle.qss`; native text sizes are retained. To preview
-these shared styles in Qt Designer, launch Designer with its `-stylesheet`
-option pointing to that file. Resource-based SVG icons are resolved by the
-application's `.qrc` resources at runtime.
+Layout margins, control-group sizes, the theme-free General panel, camera icons,
+dark palettes and compact stylesheets are all defined in the four `.ui` forms;
+native text sizes are retained. Open a form normally in Qt Designer and use
+Form > Preview (Ctrl+R). No `-stylesheet` option is needed. Edit `palette` and
+`styleSheet` on the top-level form; each dialog has its own theme properties for
+standalone preview. Resource-based SVG icons are resolved through the included
+`OCTview3R.qrc`, both in Designer and in the application.

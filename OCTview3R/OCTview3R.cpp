@@ -108,8 +108,6 @@ VTK_MODULE_INIT(vtkRenderingFreeType);
 #include <QApplication>
 #include <QCheckBox>
 #include <QCloseEvent>
-#include <QTimer>
-#include <QFile>
 #include <QFileDialog>
 #include <QColorDialog>
 #include <QComboBox>
@@ -123,7 +121,6 @@ VTK_MODULE_INIT(vtkRenderingFreeType);
 #include <QSlider>
 #include <QSpinBox>
 #include <QStyle>
-#include <QStyleFactory>
 #include <QTabBar>
 #include <QThread>
 #include <QFileInfo>
@@ -144,7 +141,20 @@ VTK_MODULE_INIT(vtkRenderingFreeType);
 namespace
 {
 	constexpr double micrometresPerMillimetre = 1000.0;
-	constexpr int controlsLayoutVersion = 1;
+
+	void updateDatasetColorSwatch(QPushButton* button, const QColor& color)
+	{
+		// Only the dataset colour is dynamic. Preserve the Designer's borders,
+		// padding and any other local styling when selecting another document.
+		constexpr auto templateProperty = "_octview3r_designerSwatchStyle";
+		if (!button->property(templateProperty).isValid())
+			button->setProperty(templateProperty, button->styleSheet());
+		const QString base = button->property(templateProperty).toString();
+		const QString colourRule = QStringLiteral("background-color: %1;").arg(color.name());
+		button->setStyleSheet(base + (base.contains(QLatin1Char('{'))
+			? QStringLiteral("\nQPushButton#%1 { %2 }").arg(button->objectName(), colourRule)
+			: QStringLiteral("\n") + colourRule));
+	}
 
 	QString micrometreUnit()
 	{
@@ -291,7 +301,6 @@ namespace
 
 OCTview3R::OCTview3R()
 	: cam(nullptr),
-	  statusLabel(nullptr),
 	  ui(new Ui_OCTview3R),
 	  openData(nullptr),
 	  openPoly(nullptr)
@@ -327,32 +336,12 @@ OCTview3R::OCTview3R()
 
 	//setup ui pointer
 	this->ui->setupUi(this);
-	// Apply the only supported theme before showing windows or creating dialogs.
-	applyDarkTheme();
+	// Built-in dialogs/tooltips share the main form's Designer-owned appearance.
+	// Never put independent colours, padding or dimensions in this adapter.
+	qApp->setPalette(palette());
+	qApp->setStyleSheet(styleSheet());
+	qApp->setWindowIcon(windowIcon());
 	setupEnhancedUi();
-
-	//Qt GUI Initials
-	Qt::WindowFlags flags = 0;
-	flags = flags | Qt::WindowSystemMenuHint;
-	flags = flags | Qt::CustomizeWindowHint;
-	flags = flags | Qt::WindowTitleHint;
-	flags = flags | Qt::WindowMinimizeButtonHint;
-	flags = flags | Qt::WindowMaximizeButtonHint;
-	flags = flags | Qt::WindowCloseButtonHint;
-	this->setWindowFlags(flags);
-
-	this->ui->actionObject->setCheckable(false);
-	this->ui->actionPlane->setCheckable(false);
-	this->ui->actionAxesTriad->setCheckable(false);
-	this->ui->actionAxesBox->setCheckable(false);
-	this->ui->actionScalarBar->setCheckable(false);
-	this->ui->actionOrientAxes->setCheckable(false);
-	this->ui->groupBox_colorMapping->setEnabled(false);
-	this->ui->groupBox_threshold->setEnabled(false);
-	this->ui->planeLineEdit->setReadOnly(true);
-	this->ui->xLabel->setText("[0,0]");
-	this->ui->yLabel->setText("[0,0]");
-	this->ui->zLabel->setText("[0,0]");
 
 	//set up action signals and slots
 	connect(this->ui->actionOpenData, SIGNAL(triggered()), this, SLOT(slotOpenDataFileDialog()));
@@ -431,10 +420,8 @@ OCTview3R::OCTview3R()
 	openPoly = new OpenPoly(this);
 	connect(openPoly, SIGNAL(signalStartProcess()), this, SLOT(slotProcessPolyFile()));
 
-	//setup statusBar
-	statusLabel = new QLabel();
-	this->ui->statusBar->addWidget(statusLabel);
-	statusLabel->setText("No file loaded.");
+	// Status messages are dynamic content of the Designer-owned status bar.
+	ui->statusBar->showMessage(tr("No file loaded."));
 
 	initializeVTKPipeline();
 	loadApplicationSettings();
@@ -463,7 +450,6 @@ void OCTview3R::setupEnhancedUi()
 	setupObjectPanel();
 	setupNumericEditors();
 	setupCameraToolbar();
-	setupMetadataPanel();
 }
 
 void OCTview3R::setupObjectPanel()
@@ -588,11 +574,6 @@ void OCTview3R::setupCameraToolbar()
 		&OCTview3R::slotParallelProjection);
 }
 
-void OCTview3R::setupMetadataPanel()
-{
-	// Static layout and properties are defined in OCTview3R.ui.
-}
-
 OCTview3R::~OCTview3R()
 {
 	// Reader Update() calls are synchronous: requestInterruption()/quit() do not
@@ -637,18 +618,6 @@ void OCTview3R::loadApplicationSettings()
 		applicationSettings.value(QStringLiteral("window/state")).toByteArray();
 	if (!state.isEmpty())
 		restoreState(state);
-	// Migrate the former wide dock once, but preserve later user resizing.
-	if (state.isEmpty() || applicationSettings.value(
-		QStringLiteral("window/controlsLayoutVersion"), 0).toInt() < controlsLayoutVersion)
-	{
-		// QMainWindow must finish its initial layout before dock sizes take effect.
-		QTimer::singleShot(0, this, [this] {
-			// Both sides need a target because the central widget has zero width.
-			// Resizing only the left dock otherwise redistributes space back to it.
-			resizeDocks({ ui->dockWidget_preferences, ui->dockWidget_visualization },
-				{ 480, std::max(300, contentsRect().width() - 480) }, Qt::Horizontal);
-		});
-	}
 
 	const QString background1 = applicationSettings
 		.value(QStringLiteral("view/background1"), QStringLiteral("000-000-000"))
@@ -702,7 +671,7 @@ void OCTview3R::saveApplicationSettings() const
 	QSettings applicationSettings;
 	applicationSettings.setValue(QStringLiteral("window/geometry"), saveGeometry());
 	applicationSettings.setValue(QStringLiteral("window/state"), saveState());
-	applicationSettings.setValue(QStringLiteral("window/controlsLayoutVersion"), controlsLayoutVersion);
+	applicationSettings.remove(QStringLiteral("window/controlsLayoutVersion"));
 	// Legacy System/Light preferences must not restore an unsupported theme.
 	applicationSettings.remove(QStringLiteral("appearance/theme"));
 	applicationSettings.setValue(
@@ -741,54 +710,6 @@ void OCTview3R::saveApplicationSettings() const
 	applicationSettings.setValue(
 		QStringLiteral("paths/poly"),
 		openPoly->getFilePath());
-}
-
-void OCTview3R::applyDarkTheme()
-{
-	if (QStyle* style = QStyleFactory::create(QStringLiteral("Fusion")))
-		qApp->setStyle(style);
-
-	QPalette palette = qApp->palette();
-	// Graphite surfaces and cyan accents echo the OCT volume logo.
-	// Stylesheet foundations: Qt-Frameless-Window-DarkStyle (MIT).
-	const QColor text(225, 235, 240);
-	const QColor disabledText(123, 141, 153);
-	const QColor accent(64, 199, 219);
-	palette.setColor(QPalette::Window, QColor(25, 33, 41));
-	palette.setColor(QPalette::WindowText, text);
-	palette.setColor(
-		QPalette::Disabled, QPalette::WindowText, disabledText);
-	palette.setColor(QPalette::Base, QColor(17, 24, 31));
-	palette.setColor(QPalette::AlternateBase, QColor(38, 51, 63));
-	palette.setColor(QPalette::ToolTipBase, QColor(31, 45, 56));
-	palette.setColor(QPalette::ToolTipText, text);
-	palette.setColor(QPalette::Text, text);
-	palette.setColor(
-		QPalette::Disabled, QPalette::Text, disabledText);
-	palette.setColor(QPalette::Dark, QColor(46, 62, 74));
-	palette.setColor(QPalette::Shadow, QColor(11, 17, 23));
-	palette.setColor(QPalette::Mid, QColor(67, 87, 102));
-	palette.setColor(QPalette::Midlight, QColor(100, 124, 141));
-	palette.setColor(QPalette::Light, QColor(123, 146, 160));
-	palette.setColor(QPalette::Button, QColor(34, 47, 59));
-	palette.setColor(QPalette::ButtonText, text);
-	palette.setColor(
-		QPalette::Disabled, QPalette::ButtonText, disabledText);
-	palette.setColor(QPalette::BrightText, Qt::red);
-	palette.setColor(QPalette::Link, accent);
-	palette.setColor(QPalette::LinkVisited, QColor(157, 180, 237));
-	palette.setColor(QPalette::Highlight, accent);
-	palette.setColor(
-		QPalette::Disabled, QPalette::Highlight, QColor(56, 74, 87));
-	palette.setColor(QPalette::HighlightedText, QColor(13, 30, 38));
-	palette.setColor(
-		QPalette::Disabled, QPalette::HighlightedText, disabledText);
-	palette.setColor(QPalette::PlaceholderText, QColor(146, 166, 179));
-
-	qApp->setPalette(palette);
-	QFile styleFile(QStringLiteral(":/OCTview3R/Resources/darkstyle/darkstyle.qss"));
-	if (styleFile.open(QIODevice::ReadOnly | QIODevice::Text))
-		qApp->setStyleSheet(QString::fromUtf8(styleFile.readAll()));
 }
 
 void OCTview3R::markTransformDirty()
@@ -1120,10 +1041,9 @@ void OCTview3R::slotSetImageData(ImageData* data)
 		this->ui->comboBox_blendMode->setCurrentIndex(activeImageData->blendMode);
 		this->ui->comboBox_colormapStyle->setCurrentText(activeImageData->colormapName);
 		this->ui->comboBox_polyMode->setCurrentIndex(activeImageData->polyMode);
-		this->ui->spinBox_pointSize->setMinimum(1);
 		this->ui->spinBox_pointSize->setValue(activeImageData->pointSize);
-		this->ui->pushButton_pickPolyColor->setStyleSheet("background-color: "+activeImageData->polyColor.name());
-		this->ui->pushButton_pickVolumeColor->setStyleSheet("background-color: "+activeImageData->volumeColor.name());
+		updateDatasetColorSwatch(ui->pushButton_pickPolyColor, activeImageData->polyColor);
+		updateDatasetColorSwatch(ui->pushButton_pickVolumeColor, activeImageData->volumeColor);
 		this->ui->Slider_objectOpacity->setValue(int(100*activeImageData->objectOpacity));
 		this->opacitySpinBox->setValue(this->ui->Slider_objectOpacity->value());
 		const bool windowLevelSupported = activeImageData->isVolume;
@@ -1201,7 +1121,7 @@ void OCTview3R::slotSetImageData(ImageData* data)
 		this->ui->planVisibilityCheckBox->setChecked(activeImageData->planeIsVisible);
 		//data infos
 		const QFileInfo activeFile(activeImageData->fileName);
-		statusLabel->setText(tr("Active dataset: ") + activeFile.fileName());
+		ui->statusBar->showMessage(tr("Active dataset: ") + activeFile.fileName());
 
 		fitSelectedAction->setEnabled(true);
 		fitAllAction->setEnabled(true);
@@ -1545,7 +1465,7 @@ void OCTview3R::slotPickVolumeColor()
 		QColor color = QColorDialog::getColor(activeImageData->volumeColor, this);
 		if(color.isValid()){
 			activeImageData->volumeColor = color;
-			this->ui->pushButton_pickVolumeColor->setStyleSheet("background-color: "+activeImageData->volumeColor.name());
+			updateDatasetColorSwatch(ui->pushButton_pickVolumeColor, activeImageData->volumeColor);
 			markAppearanceDirty();
 	refreshViewer();
 		}
@@ -1557,7 +1477,7 @@ void OCTview3R::slotPickPolyColor()
 		QColor color = QColorDialog::getColor(activeImageData->polyColor, this);
 		if(color.isValid()){
 			activeImageData->polyColor = color;
-			this->ui->pushButton_pickPolyColor->setStyleSheet("background-color: "+activeImageData->polyColor.name());
+			updateDatasetColorSwatch(ui->pushButton_pickPolyColor, activeImageData->polyColor);
 			markAppearanceDirty();
 	refreshViewer();
 		}
@@ -2337,7 +2257,7 @@ void OCTview3R::slotCloseTab(int index)
 		ui->actionAxesBox->setCheckable(false);
 		ui->actionAxesTriad->setCheckable(false);
 		ui->actionOrientAxes->setCheckable(false);
-		statusLabel->setText(tr("No file loaded."));
+		ui->statusBar->showMessage(tr("No file loaded."));
 		fitSelectedAction->setEnabled(false);
 		fitAllAction->setEnabled(false);
 		updateMetadata();

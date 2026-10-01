@@ -61,6 +61,8 @@ and crop ranges.*
 - Camera presets, fit-selected/all, perspective/orthographic projection,
   orientation marker, scalar bar, and cube axes
 - Compact dark interface with cyan accents and an independent 3D background
+- Self-contained Qt Designer forms for editing the final static interface,
+  including styling, spacing, icons, and layout constraints
 - Dataset metadata for volume dimensions, spacing, scalar type, mesh bounds,
   and geometry counts
 - Automatic surface display and generated normals for polygonal meshes

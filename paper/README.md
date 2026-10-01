@@ -42,6 +42,9 @@ The review PDF is only a layout aid. The authoritative submission source is
   This includes the grayscale/RGB volume paths, luminance-derived RGB alpha
   masking, independent palette autoscaling and window/level controls, smooth
   scalar opacity, coordinate conventions, and the existing regression harness.
+- The 1 October 2026 interface update: compact dark-only styling, independently
+  previewable Designer forms, GUI checks at three display scales, and VTK
+  shutdown checks. These interface tests are not scientific image validation.
 - Eight additional references checked on 14 September 2026: direct volume
   rendering (Levoy, 1988), mixed polygon/volume rendering (Levoy, 1990), transfer
   functions (Kindlmann and Durkin, 1998), OCT speckle (Schmitt et al., 1999),

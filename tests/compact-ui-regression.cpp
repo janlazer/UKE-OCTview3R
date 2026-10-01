@@ -2,11 +2,16 @@
 #include "../OCTview3R/OCTview3R.h"
 #include "../OCTview3R/aboutdialog.h"
 #include "../OCTview3R/viewerController.h"
+#include "ui_OCTview3R.h"
+#include "ui_aboutdialog.h"
+#include "ui_opendata.h"
+#include "ui_openpoly.h"
 #include <QApplication>
 #include <QComboBox>
 #include <QDir>
 #include <QDockWidget>
 #include <QDoubleSpinBox>
+#include <QImage>
 #include <QLabel>
 #include <QLineEdit>
 #include <QPalette>
@@ -127,6 +132,94 @@ void sceneShutdownTests()
         renderWindow->Finalize();
     }
 }
+void designerFormTests(QApplication& app, const QString& output)
+{
+    // No OCTview3R constructor, theme adapter or saved settings: exactly the
+    // generated .ui setup used by Designer, under Qt's native application style.
+    require(app.styleSheet().isEmpty(), "Designer checks start without application styling");
+    QMainWindow preview;
+    Ui_OCTview3R form;
+    form.setupUi(&preview);
+    preview.setAttribute(Qt::WA_DontShowOnScreen);
+    preview.resize(1280, 900);
+    preview.show();
+    app.processEvents();
+    std::printf("Designer dock: %d, button: %d, toolbar: %d\n", form.dockWidget_preferences->width(), form.pushButton_reset->height(), form.toolBar->height());
+    std::printf("Designer preferences: viewport %d, minimum %d, scroll maximum %d\n", form.preferencesScrollArea->viewport()->width(), form.dockWidgetContents_3->minimumSizeHint().width(), form.preferencesScrollArea->horizontalScrollBar()->maximum());
+    require(preview.grab().save(output + "/designer-main.png"), "save standalone Designer main form");
+    require(preview.palette().color(QPalette::Window) == QColor(25, 33, 41), "main Designer form contains the dark palette");
+    require(!preview.styleSheet().isEmpty(), "main Designer form contains the complete stylesheet");
+    require(form.dockWidget_preferences->width() <= 490, "Designer default dock width matches the compact application layout");
+    require(form.pushButton_reset->height() <= 28, "Designer buttons are compact without runtime styling");
+    require(form.toolBar->height() <= 34, "Designer toolbar is compact without runtime styling");
+    require(form.preferencesScrollArea->horizontalScrollBar()->maximum() == 0, "Designer preferences fit without horizontal scrolling");
+    require(form.dockWidgetContents_3->palette().color(QPalette::Window) == QColor(25, 33, 41), "Designer scroll content stays dark across the dock boundary");
+    require(form.metadataLabel->palette().color(QPalette::WindowText) == QColor(225, 235, 240), "Designer labels retain light text without an application palette");
+    preview.resize(1920, 1080);
+    app.processEvents();
+    require(form.dockWidget_preferences->width() < form.dockWidget_visualization->width(), "wide Designer windows give most space to visualization");
+    preview.hide();
+
+    auto verifyDialog = [&](auto& ui, const QString& name) {
+        QDialog dialog;
+        ui.setupUi(&dialog);
+        dialog.setAttribute(Qt::WA_DontShowOnScreen);
+        dialog.show();
+        app.processEvents();
+        require(dialog.palette().color(QPalette::Window) == preview.palette().color(QPalette::Window), "standalone dialog form contains its own dark palette");
+        require(!dialog.styleSheet().isEmpty(), "standalone dialog form contains its own Designer styling");
+        require(dialog.height() >= dialog.minimumSizeHint().height(), "standalone dialog form fits its contents");
+        require(dialog.grab().save(output + "/designer-" + name + ".png"), "save standalone Designer dialog");
+    };
+    Ui_AboutDialog about;
+    Ui_OpenData data;
+    Ui_OpenPoly poly;
+    verifyDialog(about, "about");
+    verifyDialog(data, "OpenData");
+    verifyDialog(poly, "OpenPoly");
+}
+void swatchStyleTests(QApplication& app)
+{
+    class TestWindow : public OCTview3R {
+    public:
+        using OCTview3R::slotSetImageData;
+    };
+    DocumentModel fixture;
+    auto& data = fixture.create();
+    data.fileLoaded = data.isPolyData = true;
+    data.fileName = "synthetic-mesh.vtk";
+    auto sphere = vtkSmartPointer<vtkSphereSource>::New();
+    sphere->Update();
+    data.poly = sphere->GetOutput();
+    data.poly->GetBounds(data.VOI);
+    data.poly->GetBounds(data.sourceVOI);
+    TestWindow window;
+    window.setAttribute(Qt::WA_DontShowOnScreen);
+    window.showNormal();
+    auto* poly = window.findChild<QPushButton*>("pushButton_pickPolyColor");
+    auto* volume = window.findChild<QPushButton*>("pushButton_pickVolumeColor");
+    const QString polyStyle = poly->styleSheet();
+    // Both declaration-only Designer styles and selector-based styles must work.
+    volume->setStyleSheet("QPushButton { padding: 0; min-height: 18px; border: 1px solid #ff8800; }");
+    const QString volumeStyle = volume->styleSheet();
+    int lastStyleLength = 0;
+    for (const auto color : { QColor("#40c7db"), QColor("#ee9966"), QColor("#55cc88") }) {
+        data.polyColor = data.volumeColor = color;
+        window.slotSetImageData(&data);
+        app.processEvents();
+        require(poly->styleSheet().startsWith(polyStyle), "dataset changes preserve the Designer swatch declarations");
+        require(volume->styleSheet().startsWith(volumeStyle), "dataset changes preserve selector-based Designer styling");
+        for (auto* swatch : {poly, volume}) {
+            require(swatch->size() == QSize(22, 22), "dataset colour changes preserve compact Designer swatch sizes");
+            const auto pixels = swatch->grab().toImage();
+            require(pixels.pixelColor(pixels.width() / 2, pixels.height() / 2) == color, "swatch pixels show the actual dataset colour");
+        }
+        if (lastStyleLength != 0)
+            require(poly->styleSheet().length() == lastStyleLength, "swatch updates do not accumulate stylesheet rules");
+        lastStyleLength = poly->styleSheet().length();
+    }
+    window.close();
+}
 void tests(QApplication& app, const QString& output)
 {
     auto vtkOutput = vtkSmartPointer<RecordingVtkOutput>::New();
@@ -146,7 +239,7 @@ void tests(QApplication& app, const QString& output)
         window.showNormal();
         window.resize(1280, 900);
         app.processEvents();
-        app.processEvents(); // Apply the layout request posted by the startup migration.
+        app.processEvents();
         auto* preferencesDock = window.findChild<QDockWidget*>("dockWidget_preferences");
         require(preferencesDock && preferencesDock->width() <= 490, "default controls dock is approximately 480 logical pixels wide");
         require(window.findChild<QComboBox*>("themeComboBox") == nullptr, "theme selector removed from Designer form");
@@ -168,13 +261,6 @@ void tests(QApplication& app, const QString& output)
         for (auto* edit : window.findChildren<QLineEdit*>()) {
             if (edit->isVisibleTo(&window))
                 require(edit->height() >= edit->fontMetrics().height(), "numeric editor text is not vertically clipped");
-        }
-        // Dataset selection and colour pickers replace the local swatch style.
-        for (const char* name : {"pushButton_pickVolumeColor", "pushButton_pickPolyColor"}) {
-            auto* swatch = window.findChild<QPushButton*>(name);
-            swatch->setStyleSheet("background-color: #40c7db");
-            app.processEvents();
-            require(swatch->size() == QSize(22, 22), "colour updates preserve compact swatch size");
         }
         if (legacy == "Light") {
             require(window.grab().save(output + "/main.png"), "save current main-window layout");
@@ -274,7 +360,9 @@ int main(int argc, char** argv)
     app.setApplicationName("CompactUiRegression");
     app.setApplicationVersion("1.1.0");
     try {
+        designerFormTests(app, output);
         tests(app, output);
+        swatchStyleTests(app);
         sceneShutdownTests();
         std::printf("PASS: %d compact UI, dark-only, settings-migration and shutdown checks.\n", checks);
         return 0;

@@ -121,6 +121,36 @@ review that routing explicitly rather than assuming all planes are selected.
   `showPlane` enables clipping/interaction; `planeIsVisible` only hides its texture
   and margins. Black plane pixels stay opaque even when black volume voxels do not.
 
+## Editing the GUI in Qt Designer
+
+The four `.ui` forms (`OCTview3R.ui`, `aboutdialog.ui`, `opendata.ui` and
+`openpoly.ui`) own **all static appearance**: layout, margins, sizes, icons,
+initial states, the dark palette and the compact stylesheet. Open the relevant
+form directly in Qt Designer and use **Form > Preview** (Ctrl+R). No external
+stylesheet or forced Fusion style is needed. Keep `OCTview3R.qrc` alongside the
+forms so Designer can resolve the logo, toolbar icons and SVG control arrows.
+The VTK widget is a placeholder in Designer unless its Designer plugin is
+installed; the live 3D scene is necessarily created by the application.
+
+Select the top-level form in the Object Inspector to edit its `palette` and
+`styleSheet` properties. Each form carries its own theme so that even the import
+and About dialogs can be previewed independently; apply intended shared-theme
+changes to all four forms. Individual widget styles remain editable locally.
+Do not reintroduce a separate `.qss` file or hard-coded styling in C++.
+
+Dock constraints, size policies and the preferred space for the visualization
+header (`viewerBrandSpacer.sizeHint`) determine the default split in the main
+form. The running application still restores the user's saved window/dock layout;
+Designer previews the form's defaults, not those personal settings. There is no
+delayed C++ dock-width override.
+
+Runtime code only connects behaviour and updates data-dependent content such as
+dataset names, units/ranges, enabled states, progress and selected dataset colours.
+Colour swatches retain their Designer styling when their data colour changes.
+About version/library strings are also dynamic. The application copies its
+palette, stylesheet and icon **from the main form** for built-in Qt dialogs and
+tooltips, rather than maintaining a second theme definition in C++.
+
 ## Adding a feature safely
 
 1. Place persistent per-dataset values in `ImageData`, or scene-wide values in
@@ -156,14 +186,16 @@ python -B paper/render_review_pdf.py
 
 The threshold harness exercises production pipelines and Qt controls with separate
 test preferences. Its 269 checks are not an image-quality, performance or clinical
-validation. The compact-UI harness separately checks dark-only settings migration,
+validation. The compact-UI harness first constructs the four generated forms
+without the application constructor, theme adapter or saved settings, verifying
+that Designer previews are self-contained. It separately checks settings migration,
 control sizes and text fit at 100%, 150% and 200% scaling, including a small window
 and import/About dialogs. It also checks render-free, diagnostic-free teardown
 for empty scenes, PolyData, volumes, and volumes with active planes/annotations.
 It writes review screenshots below
 `tmp/compact-ui-regression/scale-<factor>/` without touching user preferences.
-Keep static layout dimensions in `.ui` files and shared control padding in the
-dark stylesheet; reducing font sizes is not the intended compaction mechanism.
+Keep layout dimensions and control padding in the `.ui` forms (including their
+`styleSheet` properties); reducing font sizes is not the intended compaction mechanism.
 
 The Python renderer creates a local review PDF, not an official JOSS
 proof; the official paper workflow must be run against the intended pushed revision.

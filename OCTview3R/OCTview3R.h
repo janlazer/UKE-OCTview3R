@@ -185,7 +185,6 @@ private:
 	void setupObjectPanel();
 	void setupNumericEditors();
 	void setupCameraToolbar();
-	void setupMetadataPanel();
 	void updateColorModeControls();
 	void updateMetadata();
 	void updateRangePresentation();
@@ -198,10 +197,8 @@ private:
 	void markPlaneDirty();
 	void loadApplicationSettings();
 	void saveApplicationSettings() const;
-	void applyDarkTheme();
 	void addDocumentTab(ImageData& data);
 
-	QLabel *statusLabel;
 	QLabel *metadataLabel = nullptr;
 	QSpinBox *opacitySpinBox = nullptr;
 	QSpinBox *glossSpinBox = nullptr;

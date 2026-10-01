@@ -20,3 +20,20 @@ following days. No test result has been reported yet.
 The 269 automated production-pipeline/Qt checks are a separate local test.
 Update the acknowledgement to include release testing only after a real result
 has been received. Do not infer a passed test from sending the installer.
+
+## Local packaging checks - 1 October 2026
+
+The current Designer-driven dark interface was checked locally before refreshing
+the private v1.1.0 draft. Release and Debug x64 builds succeeded. The compact-UI
+harness passed 246 checks at each of 100%, 150%, and 200% scaling, and the separate
+production-pipeline/Qt harness passed all 269 checks.
+
+An isolated test installer passed installation, repeated installation, all 249
+payload-file hashes, the 269 runtime checks with developer dependency paths
+removed, and uninstall while preserving an additional synthetic user file.
+The test AppId and preferences were separate from the normal viewer installation.
+
+These are development-machine checks, not Miroslav's independent test, a
+clean-machine validation, or a scientific image-quality assessment. The installer
+remains unsigned. Use the refreshed package's `BUILD-MANIFEST.json` and
+`SHA256SUMS.txt` to identify the exact source commit and binaries.

@@ -20,7 +20,7 @@ affiliations:
     name: University Medical Center Hamburg-Eppendorf (UKE), Hamburg, Germany
   - index: 2
     name: Laser Zentrum Hannover e.V. (LZH), Hannover, Germany
-date: 15 September 2026
+date: 1 October 2026
 bibliography: paper.bib
 ---
 
@@ -110,9 +110,12 @@ smart pointers, appearance settings, and spatial bounds. `ViewerController`
 coordinates the renderer and delegates processing to `VolumePipeline` and
 `PolyPipeline`. Dirty flags distinguish data filtering, appearance, transforms,
 plane updates, and visibility, so an appearance change need not reconstruct the
-entire pipeline. Qt Designer forms define the principal interface; background
-loading reports reader progress when available and returns results to the main
-thread for scene updates.
+entire pipeline. Self-contained Qt Designer forms define the static interface,
+including the compact dark styling, palette, icons, and layout constraints;
+developers can preview and edit the interface without a separate runtime theme.
+Runtime code connects behaviour and updates dataset-dependent controls.
+Background loading reports reader progress when available and returns results
+to the main thread for scene updates.
 
 ## Intensity, colour, and opacity
 
@@ -163,8 +166,11 @@ coordinates must be supplied by the analysis workflow.](figures/overlay-pipeline
 A synthetic regression harness exercises the production pipelines and Qt
 controls with 8-bit, 16-bit, and RGB volumes. Its 269 checks cover transfer
 functions, threshold behaviour, black-pixel handling, colour-mode transitions,
-and per-dataset state. This is numerical and interface regression coverage,
-not a benchmark or rendered-image validation study. Windows memory checks can
+and per-dataset state. A separate interface harness checks standalone Designer
+forms, control sizes and text fit at 100%, 150%, and 200% scaling, preserved
+dataset-colour styling, saved window layouts, and render-free VTK shutdown.
+These are numerical and interface regression checks, not a benchmark or a
+scientific rendered-image validation study. Windows memory checks can
 reject an RGB-to-grayscale conversion whose estimated working set exceeds
 available memory, but processing remains in-memory.
 

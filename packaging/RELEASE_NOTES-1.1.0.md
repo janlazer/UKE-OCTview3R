@@ -37,14 +37,22 @@ Follow institutional IT policy; do not disable Windows security.
   and per-dataset transformations.
 - Smooth scalar opacity, independent palette autoscaling and window/level,
   opaque-black slice planes, and memory checks for large RGB-to-grayscale changes.
-- Dark/light themes, OCT-volume branding, dataset information, and About dialog.
+- Compact dark-only interface, narrower default controls, OCT-volume branding,
+  dataset information, and About dialog.
+- Self-contained Qt Designer forms: palette, styling, icons, spacing, and layout
+  constraints can be previewed and edited without an external stylesheet.
+- Dataset colour changes preserve Designer styling; VTK teardown no longer
+  requests extra renders or opens a diagnostic window when closing.
 - Acknowledgement of Miroslav Zabic's advice on preparing the public release.
 - Installer and pipeline regression tests, architecture documentation, updated
   screenshots, and an expanded JOSS manuscript draft.
 
 ## Verification and limitations
 
-The production-pipeline/Qt harness performs 269 checks. Packaging verification
+The production-pipeline/Qt harness performs 269 checks. A separate UI harness
+performs 246 checks at each of 100%, 150%, and 200% scaling, including standalone
+Designer forms, text fit, colour swatches, saved layouts, and VTK shutdown.
+Packaging verification
 covers installation, repeated installation, payload hashes, runtime tests with
 developer dependency paths removed, and uninstall preserving an additional
 synthetic user file. These local checks do not replace a clean-machine test,
