@@ -32,14 +32,14 @@ invited collaborators can access releases.
 
 ## Screenshots
 
-![OCTview3R compact dark interface displaying a grayscale cherry example volume and separately imported blue organoid meshes](paper/figures/octview3r-interface.png)
+![OCTview3R compact dark interface displaying a grayscale volume with red PolyData surfaces and blue meshes](paper/figures/octview3r-interface.png)
 
-*The compact dark interface displaying the grayscale cherry example volume
-together with separately imported organoid meshes (blue). This illustrative
-scene combines independent datasets; it is not a registered OCT/segmentation
-pair from the same specimen. Per-dataset appearance, opacity, gloss, transforms,
-and crop ranges are available in the control panel. The organoid mesh data are
-not distributed with the software.*
+*The compact dark interface displaying a grayscale volume together with
+separately imported PolyData: red surfaces and blue meshes. The scene
+illustrates joint visualization and per-dataset appearance, opacity, gloss,
+transforms, and crop controls; it does not establish segmentation or registration
+accuracy. Colours distinguish displayed geometry, not quantitative measurements.
+The underlying organoid mesh data are not distributed with the software.*
 
 <p align="center">
   <img src="docs/images/octview3r-about.png" width="520" alt="OCTview3R About dialog in the dark theme with the cyan OCT-volume logo, version 1.1.0, authors, acknowledgements, and license">

@@ -42,11 +42,12 @@ contribution is a focused research interface and maintainable integration of
 established visualization methods, not a new reconstruction, segmentation, or
 registration algorithm.
 
-![OCTview3R 1.1.0 with its compact dark interface, displaying a grayscale cherry
-example volume and separately imported organoid meshes (blue). This
-illustrative scene combines independent datasets, not a registered volume and
-segmentation of the same specimen. The control panel provides per-dataset
-appearance, opacity, gloss, transforms, and crop ranges.](figures/octview3r-interface.png){ width=100% }
+![OCTview3R 1.1.0 with its compact dark interface, displaying a grayscale volume
+together with separately imported PolyData: red surfaces and blue meshes.
+Colours distinguish displayed geometry rather than quantitative measurements.
+The control panel provides per-dataset appearance, opacity, gloss, transforms,
+and crop ranges. This interface illustration does not establish segmentation
+or registration accuracy.](figures/octview3r-interface.png){ width=100% }
 
 # Statement of need
 

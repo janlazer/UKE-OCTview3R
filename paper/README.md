@@ -50,10 +50,10 @@ The review PDF is only a layout aid. The authoritative submission source is
   previewable Designer forms, GUI checks at three display scales, and VTK
   shutdown checks. These interface tests are not scientific image validation.
 - Jan Hahn supplied the updated interface screenshot on 1 October 2026 for
-  the README and paper. It shows the cherry example volume and independently
-  imported organoid meshes in one scene, not a registered pair from the same
-  specimen. It is an interface illustration, not an organoid result figure;
-  the underlying organoid meshes are not distributed.
+  the README and paper, then revised it to show a grayscale volume with red
+  surfaces and blue meshes. It illustrates joint volume/PolyData visualization,
+  not quantitative segmentation or registration validation. The underlying
+  organoid meshes are not distributed.
 - Eight additional references checked on 14 September 2026: direct volume
   rendering (Levoy, 1988), mixed polygon/volume rendering (Levoy, 1990), transfer
   functions (Kindlmann and Durkin, 1998), OCT speckle (Schmitt et al., 1999),
