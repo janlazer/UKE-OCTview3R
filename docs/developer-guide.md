@@ -28,8 +28,13 @@ Closing a tab calls `takeAt()`, which transfers ownership into a local
 `unique_ptr`. While that owner is still alive, `ViewerController::detach()`
 removes the interaction observer, disables/disconnects the plane widget and
 removes volume/geometry props. The UI then selects another document before the
-local owner is destroyed. Shutdown detaches all documents before clearing them.
-`ViewerController::clear()` does not itself erase model documents.
+local owner is destroyed. `ViewerController::clear()` renders the emptied scene
+and does not itself erase model documents. Window teardown instead calls the
+idempotent `shutdown(documents)` before Qt hides its OpenGL widget, with a fallback
+in the destructor. It blocks indirect widget renders, detaches all documents and
+decorations, and removes the borrowed window/interactor links before model deletion.
+Do not call `Off()` on a never-enabled plane or orientation widget: VTK 8.2 reports
+an unassigned interactor even for that disable request, opening its output window.
 
 File-loading sequence:
 
@@ -142,13 +147,25 @@ Then run:
 
 ```powershell
 .\tests\run-threshold-regression.ps1
+.\tests\run-compact-ui-regression.ps1 -Scale 1
+.\tests\run-compact-ui-regression.ps1 -Scale 1.5
+.\tests\run-compact-ui-regression.ps1 -Scale 2
 python -B tests/check-paper.py
 python -B paper/render_review_pdf.py
 ```
 
-The C++ harness exercises production pipelines and Qt controls with separate test
-preferences. Its 269 checks are not an image-quality, performance or clinical
-validation. The Python renderer creates a local review PDF, not an official JOSS
+The threshold harness exercises production pipelines and Qt controls with separate
+test preferences. Its 269 checks are not an image-quality, performance or clinical
+validation. The compact-UI harness separately checks dark-only settings migration,
+control sizes and text fit at 100%, 150% and 200% scaling, including a small window
+and import/About dialogs. It also checks render-free, diagnostic-free teardown
+for empty scenes, PolyData, volumes, and volumes with active planes/annotations.
+It writes review screenshots below
+`tmp/compact-ui-regression/scale-<factor>/` without touching user preferences.
+Keep static layout dimensions in `.ui` files and shared control padding in the
+dark stylesheet; reducing font sizes is not the intended compaction mechanism.
+
+The Python renderer creates a local review PDF, not an official JOSS
 proof; the official paper workflow must be run against the intended pushed revision.
 Neither paper checks nor a PDF build constitute Windows application CI.
 

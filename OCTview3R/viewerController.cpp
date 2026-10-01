@@ -34,16 +34,17 @@ ViewerController::ViewerController()
 
 ViewerController::~ViewerController()
 {
-	if (m_scalarBarWidget)
-		m_scalarBarWidget->Off();
-	if (m_orientationWidget)
-		m_orientationWidget->SetEnabled(0);
+	// Callers detach model-owned planes via shutdown(documents) first. This
+	// fallback also makes an unused / partially initialized controller safe.
+	shutdown(DocumentModel{});
 }
 
 void ViewerController::initialize(
 	vtkRenderWindow* renderWindow,
 	const Settings& settings)
 {
+	if (m_shuttingDown)
+		return;
 	m_renderWindow = renderWindow;
 	m_interactor = renderWindow != nullptr ? renderWindow->GetInteractor() : nullptr;
 	if (m_renderWindow == nullptr || m_interactor == nullptr)
@@ -85,6 +86,8 @@ void ViewerController::refresh(
 	const Settings& settings,
 	bool resetCamera)
 {
+	if (m_shuttingDown)
+		return;
 	// Other documents retain their existing props in this same renderer. The
 	// active document chooses which pipeline is edited, not which prop draws last.
 	if (activeDocument != nullptr && activeDocument->fileLoaded)
@@ -99,6 +102,8 @@ void ViewerController::refreshDecorations(
 	ImageData* activeDocument,
 	const Settings& settings)
 {
+	if (m_shuttingDown)
+		return;
 	finishRefresh(documents, activeDocument, settings);
 }
 
@@ -140,7 +145,10 @@ void ViewerController::detach(ImageData& document)
 		document.planeWidget->RemoveObserver(document.planeObserverTag);
 		document.planeObserverTag = 0;
 	}
-	document.planeWidget->Off();
+	// A PolyData document has a plane widget but never assigns an interactor.
+	// VTK 8.2 reports an error even for Off() on that uninitialized widget.
+	if (document.planeWidget->GetEnabled())
+		document.planeWidget->Off();
 	document.planeWidget->SetInteractor(nullptr);
 	m_renderer->RemoveVolume(document.volume);
 	m_renderer->RemoveActor(document.polyActor);
@@ -148,6 +156,8 @@ void ViewerController::detach(ImageData& document)
 
 void ViewerController::clear(const DocumentModel& documents)
 {
+	if (m_shuttingDown)
+		return;
 	for (const DocumentModel::Document& document : documents.documents())
 	{
 		if (document)
@@ -155,6 +165,34 @@ void ViewerController::clear(const DocumentModel& documents)
 	}
 	hideDecorations();
 	render();
+}
+
+void ViewerController::shutdown(const DocumentModel& documents)
+{
+	if (m_shuttingDown)
+		return;
+	m_shuttingDown = true;
+	// Disabling an active vtkImagePlaneWidget can itself call Interactor::Render.
+	// Stop these indirect renders before detaching anything; Qt owns the context
+	// and may already be hiding/destroying it when the destructor runs.
+	if (m_interactor)
+	{
+		m_interactor->EnableRenderOff();
+		m_interactor->Disable();
+	}
+	for (const DocumentModel::Document& document : documents.documents())
+	{
+		if (document)
+			detach(*document);
+	}
+	hideDecorations();
+	m_scalarBarWidget->SetInteractor(nullptr);
+	m_orientationWidget->SetInteractor(nullptr);
+	m_renderer->RemoveAllViewProps();
+	if (m_renderWindow)
+		m_renderWindow->RemoveRenderer(m_renderer);
+	m_renderWindow = nullptr;
+	m_interactor = nullptr;
 }
 
 void ViewerController::setBackground1(int red, int green, int blue)
@@ -233,7 +271,7 @@ bool ViewerController::parallelProjection() const
 
 void ViewerController::render()
 {
-	if (m_renderWindow)
+	if (m_renderWindow && !m_shuttingDown)
 		m_renderWindow->Render();
 }
 
@@ -383,7 +421,9 @@ void ViewerController::updateOrientationMarker(const Settings& settings)
 void ViewerController::hideDecorations()
 {
 	m_renderer->RemoveActor(m_axes);
-	m_scalarBarWidget->Off();
+	if (m_scalarBarWidget->GetEnabled())
+		m_scalarBarWidget->Off();
 	m_renderer->RemoveActor(m_scalarBarActor);
-	m_orientationWidget->SetEnabled(0);
+	if (m_orientationWidget->GetEnabled())
+		m_orientationWidget->SetEnabled(0);
 }

@@ -279,8 +279,6 @@ void uiTests(QApplication& app, const QString& output)
     palette->click();
     smooth->click();
 
-    auto* theme = window.findChild<QComboBox*>("themeComboBox");
-    theme->setCurrentText("Dark");
     app.processEvents();
     require(window.findChild<QGroupBox*>("groupBox_colorMapping")->grab().save(output + "/color-controls.png"),
         "save actual Designer color controls");

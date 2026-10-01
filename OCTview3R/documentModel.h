@@ -30,7 +30,7 @@ public:
 	ImageData& create();
 	/// Transfer ownership; invalid indices return empty. Select the next/last remaining index.
 	Document takeAt(int index);
-	/// Destroy all owned documents; call ViewerController::clear() first.
+	/// Destroy all documents; call ViewerController::clear() or shutdown() first.
 	void clear();
 
 	/// Borrow a document, or nullptr for an out-of-range index.

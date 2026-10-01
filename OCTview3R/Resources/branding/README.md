@@ -37,7 +37,14 @@ mark. Deliver as a high-resolution 1:1 raster suitable for downscaling to app ic
 
 Logo position and dimensions are defined in `OCTview3R.ui` and
 `aboutdialog.ui`, so both placements are visible in Qt Designer.
-The optional dark theme uses graphite surfaces with cyan accents. Scientific
-data colours, axis colours, viewer background settings, and light/system themes
-are independent of the branding. The header is outside the render widget,
+The interface always uses a compact dark theme with graphite surfaces and cyan
+accents. Scientific data colours, axis colours and viewer background settings
+remain independent of the branding. The header is outside the render widget,
 so it is not included in exported scientific renderings.
+
+Layout margins, control-group sizes, the theme-free General panel and camera
+icons are defined in the `.ui` forms. Shared control padding is defined in
+`Resources/darkstyle/darkstyle.qss`; native text sizes are retained. To preview
+these shared styles in Qt Designer, launch Designer with its `-stylesheet`
+option pointing to that file. Resource-based SVG icons are resolved by the
+application's `.qrc` resources at runtime.

@@ -53,7 +53,7 @@ OCTview3R dynamically links against VTK. The VTK 8.2.0 copyright notice is:
 
 ## Qt-Frameless-Window-DarkStyle elements
 
-Parts of the optional dark theme were adapted from
+Parts of the dark theme were adapted from
 Qt-Frameless-Window-DarkStyle by Juergen Skrotzky and are licensed under the
 MIT License. The complete notice is stored in
 `OCTview3R/Resources/darkstyle/LICENSE.txt` and copied into binary packages as

@@ -1,0 +1,9 @@
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Remove="main.cpp" />
+    <ClCompile Include="$(MSBuildProjectDirectory)\..\tests\compact-ui-regression.cpp" />
+  </ItemGroup>
+  <ItemDefinitionGroup>
+    <Link><OutputFile>$(OutDir)$(TargetName).exe</OutputFile></Link>
+  </ItemDefinitionGroup>
+</Project>

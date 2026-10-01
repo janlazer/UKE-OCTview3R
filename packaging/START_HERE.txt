@@ -19,7 +19,8 @@ The Visual C++ runtime is included beside the executable. The additional
 vc_redist.x64.exe installer is normally not needed for this package.
 
 Use File / Open Volume or Open PolyData to load your own data.
-The interface theme can be changed under General / Theme.
+The interface always uses the compact dark theme. The 3D background colors
+remain independently adjustable under General.
 Version and authorship are shown in About.
 
 Program settings are stored per Windows user. This package contains no

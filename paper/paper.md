@@ -43,7 +43,7 @@ established visualization methods, not a new reconstruction, segmentation, or
 registration algorithm.
 
 ![OCTview3R 1.1.0 displaying the non-medical cherry OCT example using composite
-volume rendering and the Rainbow palette. The optional dark theme shows
+volume rendering and the Rainbow palette. The dark interface shows
 dataset metadata, independent palette autoscaling and window/level controls,
 object transforms, and crop ranges.](figures/octview3r-interface.png){ width=100% }
 

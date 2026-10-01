@@ -108,6 +108,7 @@ VTK_MODULE_INIT(vtkRenderingFreeType);
 #include <QApplication>
 #include <QCheckBox>
 #include <QCloseEvent>
+#include <QTimer>
 #include <QFile>
 #include <QFileDialog>
 #include <QColorDialog>
@@ -143,6 +144,7 @@ VTK_MODULE_INIT(vtkRenderingFreeType);
 namespace
 {
 	constexpr double micrometresPerMillimetre = 1000.0;
+	constexpr int controlsLayoutVersion = 1;
 
 	QString micrometreUnit()
 	{
@@ -325,6 +327,8 @@ OCTview3R::OCTview3R()
 
 	//setup ui pointer
 	this->ui->setupUi(this);
+	// Apply the only supported theme before showing windows or creating dialogs.
+	applyDarkTheme();
 	setupEnhancedUi();
 
 	//Qt GUI Initials
@@ -439,7 +443,6 @@ OCTview3R::OCTview3R()
 void OCTview3R::setupEnhancedUi()
 {
 	metadataLabel = ui->metadataLabel;
-	themeComboBox = ui->themeComboBox;
 	opacitySpinBox = ui->opacitySpinBox;
 	glossSpinBox = ui->glossSpinBox;
 	minThresholdSpinBox = ui->minThresholdSpinBox;
@@ -457,20 +460,10 @@ void OCTview3R::setupEnhancedUi()
 		this,
 		static_cast<void (OCTview3R::*)(int)>(&OCTview3R::slotCloseTab));
 
-	setupGeneralPanel();
 	setupObjectPanel();
 	setupNumericEditors();
 	setupCameraToolbar();
 	setupMetadataPanel();
-}
-
-void OCTview3R::setupGeneralPanel()
-{
-	connect(
-		ui->themeComboBox,
-		&QComboBox::currentTextChanged,
-		this,
-		&OCTview3R::slotThemeChanged);
 }
 
 void OCTview3R::setupObjectPanel()
@@ -614,7 +607,9 @@ OCTview3R::~OCTview3R()
 	loadingThreads.clear();
 
 	if (viewerController)
-		viewerController->clear(documentModel);
+		viewerController->shutdown(documentModel);
+	viewerController.reset();
+	activeImageData = nullptr;
 	documentModel.clear();
 
 	delete ui;
@@ -624,6 +619,9 @@ void OCTview3R::closeEvent(QCloseEvent* event)
 {
 	saveApplicationSettings();
 	QMainWindow::closeEvent(event);
+	// Detach VTK widgets while the embedded Qt OpenGL context still exists.
+	if (event->isAccepted() && viewerController)
+		viewerController->shutdown(documentModel);
 }
 
 void OCTview3R::loadApplicationSettings()
@@ -639,17 +637,18 @@ void OCTview3R::loadApplicationSettings()
 		applicationSettings.value(QStringLiteral("window/state")).toByteArray();
 	if (!state.isEmpty())
 		restoreState(state);
-
-	currentTheme = applicationSettings
-		.value(QStringLiteral("appearance/theme"), QStringLiteral("System"))
-		.toString();
-	if (themeComboBox->findText(currentTheme) < 0)
-		currentTheme = QStringLiteral("System");
+	// Migrate the former wide dock once, but preserve later user resizing.
+	if (state.isEmpty() || applicationSettings.value(
+		QStringLiteral("window/controlsLayoutVersion"), 0).toInt() < controlsLayoutVersion)
 	{
-		const QSignalBlocker blocker(themeComboBox);
-		themeComboBox->setCurrentText(currentTheme);
+		// QMainWindow must finish its initial layout before dock sizes take effect.
+		QTimer::singleShot(0, this, [this] {
+			// Both sides need a target because the central widget has zero width.
+			// Resizing only the left dock otherwise redistributes space back to it.
+			resizeDocks({ ui->dockWidget_preferences, ui->dockWidget_visualization },
+				{ 480, std::max(300, contentsRect().width() - 480) }, Qt::Horizontal);
+		});
 	}
-	applyTheme(currentTheme);
 
 	const QString background1 = applicationSettings
 		.value(QStringLiteral("view/background1"), QStringLiteral("000-000-000"))
@@ -703,7 +702,9 @@ void OCTview3R::saveApplicationSettings() const
 	QSettings applicationSettings;
 	applicationSettings.setValue(QStringLiteral("window/geometry"), saveGeometry());
 	applicationSettings.setValue(QStringLiteral("window/state"), saveState());
-	applicationSettings.setValue(QStringLiteral("appearance/theme"), currentTheme);
+	applicationSettings.setValue(QStringLiteral("window/controlsLayoutVersion"), controlsLayoutVersion);
+	// Legacy System/Light preferences must not restore an unsupported theme.
+	applicationSettings.remove(QStringLiteral("appearance/theme"));
 	applicationSettings.setValue(
 		QStringLiteral("view/background1"),
 		ui->comboBox_background1->currentText());
@@ -742,108 +743,52 @@ void OCTview3R::saveApplicationSettings() const
 		openPoly->getFilePath());
 }
 
-void OCTview3R::applyTheme(const QString& theme)
+void OCTview3R::applyDarkTheme()
 {
-	static const QPalette systemPalette = qApp->palette();
-	static const QString systemStyleSheet = qApp->styleSheet();
-	static const QString systemStyleName = qApp->style()->objectName();
-
-	const bool useDarkTheme = theme == QStringLiteral("Dark");
-	const QString requestedStyle =
-		useDarkTheme ? QStringLiteral("Fusion") : systemStyleName;
-	if (QStyle* style = QStyleFactory::create(requestedStyle))
+	if (QStyle* style = QStyleFactory::create(QStringLiteral("Fusion")))
 		qApp->setStyle(style);
 
-	QPalette palette = systemPalette;
-	QString styleSheet = systemStyleSheet;
-	if (useDarkTheme)
-	{
-		// Graphite surfaces and cyan accents echo the OCT volume logo.
-		// Stylesheet foundations: Qt-Frameless-Window-DarkStyle (MIT).
-		const QColor text(225, 235, 240);
-		const QColor disabledText(123, 141, 153);
-		const QColor accent(64, 199, 219);
-		palette.setColor(QPalette::Window, QColor(25, 33, 41));
-		palette.setColor(QPalette::WindowText, text);
-		palette.setColor(
-			QPalette::Disabled, QPalette::WindowText, disabledText);
-		palette.setColor(QPalette::Base, QColor(17, 24, 31));
-		palette.setColor(QPalette::AlternateBase, QColor(38, 51, 63));
-		palette.setColor(QPalette::ToolTipBase, QColor(31, 45, 56));
-		palette.setColor(QPalette::ToolTipText, text);
-		palette.setColor(QPalette::Text, text);
-		palette.setColor(
-			QPalette::Disabled, QPalette::Text, disabledText);
-		palette.setColor(QPalette::Dark, QColor(46, 62, 74));
-		palette.setColor(QPalette::Shadow, QColor(11, 17, 23));
-		palette.setColor(QPalette::Mid, QColor(67, 87, 102));
-		palette.setColor(QPalette::Midlight, QColor(100, 124, 141));
-		palette.setColor(QPalette::Light, QColor(123, 146, 160));
-		palette.setColor(QPalette::Button, QColor(34, 47, 59));
-		palette.setColor(QPalette::ButtonText, text);
-		palette.setColor(
-			QPalette::Disabled, QPalette::ButtonText, disabledText);
-		palette.setColor(QPalette::BrightText, Qt::red);
-		palette.setColor(QPalette::Link, accent);
-		palette.setColor(QPalette::LinkVisited, QColor(157, 180, 237));
-		palette.setColor(QPalette::Highlight, accent);
-		palette.setColor(
-			QPalette::Disabled, QPalette::Highlight, QColor(56, 74, 87));
-		palette.setColor(QPalette::HighlightedText, QColor(13, 30, 38));
-		palette.setColor(
-			QPalette::Disabled, QPalette::HighlightedText, disabledText);
-		palette.setColor(QPalette::PlaceholderText, QColor(146, 166, 179));
+	QPalette palette = qApp->palette();
+	// Graphite surfaces and cyan accents echo the OCT volume logo.
+	// Stylesheet foundations: Qt-Frameless-Window-DarkStyle (MIT).
+	const QColor text(225, 235, 240);
+	const QColor disabledText(123, 141, 153);
+	const QColor accent(64, 199, 219);
+	palette.setColor(QPalette::Window, QColor(25, 33, 41));
+	palette.setColor(QPalette::WindowText, text);
+	palette.setColor(
+		QPalette::Disabled, QPalette::WindowText, disabledText);
+	palette.setColor(QPalette::Base, QColor(17, 24, 31));
+	palette.setColor(QPalette::AlternateBase, QColor(38, 51, 63));
+	palette.setColor(QPalette::ToolTipBase, QColor(31, 45, 56));
+	palette.setColor(QPalette::ToolTipText, text);
+	palette.setColor(QPalette::Text, text);
+	palette.setColor(
+		QPalette::Disabled, QPalette::Text, disabledText);
+	palette.setColor(QPalette::Dark, QColor(46, 62, 74));
+	palette.setColor(QPalette::Shadow, QColor(11, 17, 23));
+	palette.setColor(QPalette::Mid, QColor(67, 87, 102));
+	palette.setColor(QPalette::Midlight, QColor(100, 124, 141));
+	palette.setColor(QPalette::Light, QColor(123, 146, 160));
+	palette.setColor(QPalette::Button, QColor(34, 47, 59));
+	palette.setColor(QPalette::ButtonText, text);
+	palette.setColor(
+		QPalette::Disabled, QPalette::ButtonText, disabledText);
+	palette.setColor(QPalette::BrightText, Qt::red);
+	palette.setColor(QPalette::Link, accent);
+	palette.setColor(QPalette::LinkVisited, QColor(157, 180, 237));
+	palette.setColor(QPalette::Highlight, accent);
+	palette.setColor(
+		QPalette::Disabled, QPalette::Highlight, QColor(56, 74, 87));
+	palette.setColor(QPalette::HighlightedText, QColor(13, 30, 38));
+	palette.setColor(
+		QPalette::Disabled, QPalette::HighlightedText, disabledText);
+	palette.setColor(QPalette::PlaceholderText, QColor(146, 166, 179));
 
-		QFile styleFile(
-			QStringLiteral(":/OCTview3R/Resources/darkstyle/darkstyle.qss"));
-		if (styleFile.open(QIODevice::ReadOnly | QIODevice::Text))
-		{
-			if (!styleSheet.isEmpty())
-				styleSheet += QLatin1Char('\n');
-			styleSheet += QString::fromUtf8(styleFile.readAll());
-		}
-	}
-	else if (theme == QStringLiteral("Light"))
-	{
-		palette.setColor(QPalette::Window, QColor(245, 246, 248));
-		palette.setColor(QPalette::WindowText, QColor(28, 30, 33));
-		palette.setColor(QPalette::Base, Qt::white);
-		palette.setColor(QPalette::AlternateBase, QColor(236, 238, 241));
-		palette.setColor(QPalette::Text, QColor(28, 30, 33));
-		palette.setColor(QPalette::Button, QColor(239, 241, 244));
-		palette.setColor(QPalette::ButtonText, QColor(28, 30, 33));
-		palette.setColor(QPalette::Link, QColor(0, 100, 148));
-		palette.setColor(QPalette::LinkVisited, QColor(99, 65, 143));
-		palette.setColor(QPalette::Highlight, QColor(33, 118, 174));
-		palette.setColor(QPalette::HighlightedText, Qt::white);
-	}
 	qApp->setPalette(palette);
-	qApp->setStyleSheet(styleSheet);
-	// Camera direction cues stay legible against the dark toolbar.
-	const auto setCameraIcon = [useDarkTheme](QAction* action, const char* name)
-	{
-		const QString resource = useDarkTheme
-			? QStringLiteral(":/OCTview3R/Resources/darkstyle/view-%1.svg")
-			: QStringLiteral(":/OCTview3R/Resources/icons/%1.png");
-		action->setIcon(QIcon(resource.arg(QString::fromLatin1(name))));
-	};
-	setCameraIcon(ui->actionX, "x");
-	setCameraIcon(ui->actionXu, "xu");
-	setCameraIcon(ui->actionY, "y");
-	setCameraIcon(ui->actionYu, "yu");
-	setCameraIcon(ui->actionZ, "z");
-	setCameraIcon(ui->actionZu, "zu");
-	ui->actionRot->setIcon(QIcon(useDarkTheme
-		? QStringLiteral(":/OCTview3R/Resources/darkstyle/rotate.svg")
-		: QStringLiteral(":/OCTview3R/Resources/icons/transform_rotate_90.png")));
-	currentTheme = theme;
-	if (viewerController)
-		viewerController->updateAnnotationColor();
-}
-
-void OCTview3R::slotThemeChanged(const QString& theme)
-{
-	applyTheme(theme);
+	QFile styleFile(QStringLiteral(":/OCTview3R/Resources/darkstyle/darkstyle.qss"));
+	if (styleFile.open(QIODevice::ReadOnly | QIODevice::Text))
+		qApp->setStyleSheet(QString::fromUtf8(styleFile.readAll()));
 }
 
 void OCTview3R::markTransformDirty()

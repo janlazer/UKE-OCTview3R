@@ -1,5 +1,7 @@
 /*
- * OCTview3R dark theme: graphite surfaces and cyan OCT-volume accents.
+ * OCTview3R compact dark theme: graphite surfaces and cyan OCT-volume accents.
+ * Keep font sizes native; save space through padding, not smaller text.
+ * Layout margins, toolbar icons and widget sizing belong to the Designer forms.
  *
  * Portions of the visual language are adapted from
  * Qt-Frameless-Window-DarkStyle by Juergen Skrotzky.
@@ -16,7 +18,7 @@ QToolTip {
     background-color: #1f2d38;
     border: 1px solid #40c7db;
     border-radius: 4px;
-    padding: 5px 7px;
+    padding: 3px 5px;
 }
 QMenuBar, QStatusBar {
     background-color: #11181f;
@@ -25,7 +27,7 @@ QMenuBar, QStatusBar {
 QMenuBar { border-bottom: 1px solid #2e3e4a; }
 QStatusBar { border-top: 1px solid #2e3e4a; }
 QMenuBar::item {
-    padding: 5px 9px;
+    padding: 2px 7px;
     background: transparent;
 }
 QMenuBar::item:selected { background-color: #263d4a; }
@@ -34,7 +36,7 @@ QMenu {
     background-color: #1d2933;
     border: 1px solid #435766;
 }
-QMenu::item { padding: 6px 28px 6px 24px; }
+QMenu::item { padding: 3px 24px 3px 20px; }
 QMenu::item:selected {
     color: #e1f8fb;
     background-color: #244755;
@@ -42,25 +44,25 @@ QMenu::item:selected {
 QMenu::item:disabled { color: #7b8d99; }
 QMenu::separator {
     height: 1px;
-    margin: 5px 8px;
+    margin: 3px 6px;
     background-color: #354957;
 }
 QToolBar {
-    spacing: 4px;
-    padding: 4px;
+    spacing: 2px;
+    padding: 2px;
     background-color: #19232c;
     border: 0;
     border-bottom: 1px solid #31505e;
 }
 QToolBar::separator {
     width: 1px;
-    margin: 5px;
+    margin: 3px;
     background-color: #354957;
 }
 QToolButton {
-    min-width: 22px;
-    min-height: 22px;
-    padding: 4px;
+    min-width: 18px;
+    min-height: 18px;
+    padding: 2px;
     border: 1px solid transparent;
     border-radius: 4px;
     background: transparent;
@@ -77,8 +79,8 @@ QToolButton:pressed, QToolButton:checked {
 QToolButton:disabled { color: #7b8d99; }
 QToolButton:focus { border-color: #40c7db; }
 QMainWindow::separator {
-    width: 5px;
-    height: 5px;
+    width: 4px;
+    height: 4px;
     background-color: #11181f;
 }
 QMainWindow::separator:hover, QSplitter::handle:hover {
@@ -86,14 +88,14 @@ QMainWindow::separator:hover, QSplitter::handle:hover {
 }
 QDockWidget { background-color: palette(window); }
 QDockWidget::title {
-    padding: 6px 8px;
+    padding: 3px 6px;
     background-color: #14212b;
     border-bottom: 1px solid #31505e;
     color: #b5dbe5;
 }
 QGroupBox {
-    margin-top: 19px;
-    padding-top: 5px;
+    margin-top: 16px;
+    padding-top: 2px;
     border: 1px solid #2e3e4a;
     border-radius: 5px;
     background-color: #1d2832;
@@ -112,8 +114,8 @@ QTabWidget::pane {
 }
 QTabBar { qproperty-drawBase: 0; }
 QTabBar::tab {
-    min-width: 60px;
-    padding: 6px 10px;
+    min-width: 48px;
+    padding: 3px 7px;
     margin-right: 2px;
     color: #9fb5c3;
     background-color: #14202a;
@@ -129,12 +131,18 @@ QTabBar::tab:selected {
     border-bottom: 2px solid #40c7db;
 }
 QPushButton {
-    min-height: 22px;
-    padding: 4px 8px;
+    min-height: 18px;
+    padding: 2px 6px;
     border: 1px solid #3a5161;
     border-radius: 4px;
     background-color: palette(button);
     color: palette(button-text);
+}
+/* Runtime colour updates replace each swatch's local stylesheet. Keep the
+ * compact padding here as well so the Designer size survives those updates. */
+QPushButton#pushButton_pickVolumeColor, QPushButton#pushButton_pickPolyColor {
+    padding: 0;
+    min-height: 18px;
 }
 QPushButton:hover {
     border-color: #40c7db;
@@ -151,8 +159,8 @@ QPushButton:disabled {
     background-color: #1d2832;
 }
 QLineEdit, QComboBox, QSpinBox, QDoubleSpinBox {
-    min-height: 21px;
-    padding: 3px 6px;
+    min-height: 18px;
+    padding: 1px 4px;
     border: 1px solid #354957;
     border-radius: 4px;
     background-color: palette(base);
@@ -171,9 +179,9 @@ QLineEdit:disabled, QComboBox:disabled, QSpinBox:disabled, QDoubleSpinBox:disabl
     border-color: #2c3b47;
     background-color: #18222b;
 }
-QComboBox { padding-right: 24px; }
+QComboBox { padding-right: 20px; }
 QComboBox::drop-down {
-    width: 22px;
+    width: 18px;
     border: 0;
     border-left: 1px solid #354957;
 }
@@ -189,11 +197,11 @@ QComboBox QAbstractItemView {
     selection-background-color: palette(highlight);
     selection-color: palette(highlighted-text);
 }
-QSpinBox, QDoubleSpinBox { padding-right: 20px; }
+QSpinBox, QDoubleSpinBox { padding-right: 18px; }
 QSpinBox::up-button, QDoubleSpinBox::up-button {
     subcontrol-origin: border;
     subcontrol-position: top right;
-    width: 18px;
+    width: 16px;
     border-left: 1px solid #354957;
     border-top-right-radius: 4px;
     background-color: #24333f;
@@ -201,7 +209,7 @@ QSpinBox::up-button, QDoubleSpinBox::up-button {
 QSpinBox::down-button, QDoubleSpinBox::down-button {
     subcontrol-origin: border;
     subcontrol-position: bottom right;
-    width: 18px;
+    width: 16px;
     border-left: 1px solid #354957;
     border-bottom-right-radius: 4px;
     background-color: #24333f;
@@ -220,7 +228,7 @@ QSpinBox::down-arrow, QDoubleSpinBox::down-arrow {
     width: 10px;
     height: 10px;
 }
-QCheckBox { spacing: 6px; }
+QCheckBox { spacing: 4px; }
 QCheckBox::indicator {
     width: 14px;
     height: 14px;
@@ -238,7 +246,7 @@ QCheckBox::indicator:disabled { border-color: #354957; background-color: #1b2730
 QCheckBox::indicator:checked:disabled { background-color: #68818f; }
 QCheckBox:focus { color: #83e5ef; }
 QProgressBar {
-    min-height: 18px;
+    min-height: 16px;
     border: 1px solid #354957;
     border-radius: 4px;
     background-color: #11181f;
@@ -297,7 +305,7 @@ QAbstractItemView, QTableView, QTreeView {
     selection-color: palette(highlighted-text);
 }
 QHeaderView::section {
-    padding: 5px 7px;
+    padding: 3px 5px;
     border: 0;
     border-right: 1px solid #354957;
     border-bottom: 1px solid #354957;

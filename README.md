@@ -60,14 +60,14 @@ and crop ranges.*
 - Editable transform and crop tables with full-range reset
 - Camera presets, fit-selected/all, perspective/orthographic projection,
   orientation marker, scalar bar, and cube axes
-- System, light, and dark interface themes
+- Compact dark interface with cyan accents and an independent 3D background
 - Dataset metadata for volume dimensions, spacing, scalar type, mesh bounds,
   and geometry counts
 - Automatic surface display and generated normals for polygonal meshes
 - Incremental VTK updates for appearance, transform, crop, and plane changes
 - TIFF export of the current render window
 
-Window layout, interface theme, viewer background, camera options, and the
+Window layout, viewer background, camera options, and the
 last-used volume and PolyData directories are restored on the next start.
 
 ### Grayscale and RGB volumes
@@ -228,7 +228,7 @@ Microsoft Visual C++ runtime.
 
 ## Third-party components
 
-Parts of the optional dark interface theme are adapted from
+Parts of the dark interface theme are adapted from
 [Qt-Frameless-Window-DarkStyle](https://github.com/Jorgen-VikingGod/Qt-Frameless-Window-DarkStyle)
 by Juergen Skrotzky and are used under the MIT License. The corresponding
 license notice is included in

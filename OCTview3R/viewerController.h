@@ -57,6 +57,9 @@ public:
 	void detach(ImageData& document);
 	/// Detach all documents and hide decorations; does not delete model-owned data.
 	void clear(const DocumentModel& documents);
+	/// Permanently stop rendering and detach widgets before Qt destroys its context.
+	/// Idempotent; unlike clear(), this never renders a final empty frame.
+	void shutdown(const DocumentModel& documents);
 
 	/// Set the first background endpoint from 0..255 RGB; update annotations, not the frame.
 	void setBackground1(int red, int green, int blue);
@@ -71,12 +74,12 @@ public:
 	/// Change projection and render without resetting camera orientation.
 	void setParallelProjection(bool enabled);
 	bool parallelProjection() const;
-	/// Render on the GUI thread; no-op until a render window has been assigned.
+	/// Render on the GUI thread; no-op before initialization and after shutdown.
 	void render();
 
 	/// Borrow the owned renderer; never Delete() this returned pointer.
 	vtkRenderer* renderer() const;
-	/// Borrow the Qt-owned window, or nullptr before initialization.
+	/// Borrow the Qt-owned window, or nullptr before initialization/after shutdown.
 	vtkRenderWindow* renderWindow() const;
 	/// Borrow the window's interactor, or nullptr if initialization could not attach it.
 	vtkRenderWindowInteractor* interactor() const;
@@ -102,6 +105,7 @@ private:
 	vtkRenderWindow* m_renderWindow = nullptr;
 	vtkRenderWindowInteractor* m_interactor = nullptr;
 	bool m_scalarBarInitialized = false;
+	bool m_shuttingDown = false;
 	VolumePipeline m_volumePipeline;
 	PolyPipeline m_polyPipeline;
 };

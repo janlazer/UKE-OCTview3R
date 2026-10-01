@@ -171,7 +171,6 @@ protected slots:
 	void slotFitSelected(void);
 	void slotFitAll(void);
 	void slotParallelProjection(bool enabled);
-	void slotThemeChanged(const QString& theme);
 
 private:
 	static void onePlaneCallbackFunction(
@@ -183,7 +182,6 @@ private:
 	// GUI-thread reentrancy guard, NOT a mutex or synchronization primitive.
 	bool onePlaneCallbackMutex;
 	void setupEnhancedUi();
-	void setupGeneralPanel();
 	void setupObjectPanel();
 	void setupNumericEditors();
 	void setupCameraToolbar();
@@ -200,12 +198,11 @@ private:
 	void markPlaneDirty();
 	void loadApplicationSettings();
 	void saveApplicationSettings() const;
-	void applyTheme(const QString& theme);
+	void applyDarkTheme();
 	void addDocumentTab(ImageData& data);
 
 	QLabel *statusLabel;
 	QLabel *metadataLabel = nullptr;
-	QComboBox *themeComboBox = nullptr;
 	QSpinBox *opacitySpinBox = nullptr;
 	QSpinBox *glossSpinBox = nullptr;
 	QSpinBox *minThresholdSpinBox = nullptr;
@@ -216,7 +213,6 @@ private:
 	QAction *fitSelectedAction = nullptr;
 	QAction *fitAllAction = nullptr;
 	QAction *parallelProjectionAction = nullptr;
-	QString currentTheme = QStringLiteral("System");
 
 	// Designer form and GUI-owned dialogs.
 	Ui_OCTview3R *ui;
