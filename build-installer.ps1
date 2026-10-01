@@ -84,6 +84,12 @@ New-Item -ItemType Directory -Path $docsDirectory -Force | Out-Null
 foreach ($name in @('architecture.md', 'developer-guide.md', 'public-release-checklist.md', 'history-cleanup.md', 'release-test.md')) {
     Copy-Item -LiteralPath (Join-Path $repositoryRoot "docs\$name") -Destination $docsDirectory
 }
+# Keep the README's two image links usable in offline release packages.
+foreach ($relativePath in @('paper\figures\octview3r-interface.png', 'docs\images\octview3r-about.png')) {
+    $destination = Join-Path $payloadDirectory $relativePath
+    New-Item -ItemType Directory -Path (Split-Path -Parent $destination) -Force | Out-Null
+    Copy-Item -LiteralPath (Join-Path $repositoryRoot $relativePath) -Destination $destination
+}
 
 # Ship the actual Qt runtime license texts, not only installer-distribution notices.
 $qtSourceDirectory = [IO.Path]::GetFullPath((Join-Path $env:QTDIR '..\Src'))

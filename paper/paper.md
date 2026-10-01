@@ -42,10 +42,11 @@ contribution is a focused research interface and maintainable integration of
 established visualization methods, not a new reconstruction, segmentation, or
 registration algorithm.
 
-![OCTview3R 1.1.0 displaying the non-medical cherry OCT example using composite
-volume rendering and the Rainbow palette. The dark interface shows
-dataset metadata, independent palette autoscaling and window/level controls,
-object transforms, and crop ranges.](figures/octview3r-interface.png){ width=100% }
+![OCTview3R 1.1.0 with its compact dark interface, displaying a grayscale cherry
+example volume and separately imported organoid meshes (blue). This
+illustrative scene combines independent datasets, not a registered volume and
+segmentation of the same specimen. The control panel provides per-dataset
+appearance, opacity, gloss, transforms, and crop ranges.](figures/octview3r-interface.png){ width=100% }
 
 # Statement of need
 
@@ -136,8 +137,8 @@ before RGBA assembly; existing input alpha is not preserved. Scalar and RGB
 slice planes retain opaque black pixels, unlike the transparent background of
 the volume. Composite, additive, and intensity-projection modes are available.
 False-colour palettes aid exploration but can introduce perceptual emphasis
-[@crameri2020]; the Rainbow screenshot illustrates interface functionality, not
-a quantitative colour scale.
+[@crameri2020]; colours used to distinguish geometry in the interface screenshot
+are display choices, not a quantitative colour scale.
 
 ## Coordinates and joint rendering
 

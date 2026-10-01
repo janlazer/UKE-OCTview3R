@@ -59,6 +59,7 @@ TestResults/
 /tmp/
 /output/
 /paper/paper.pdf
+/paper/paper-joss-draft.pdf
 __pycache__/
 *.opendb
 *.tmp

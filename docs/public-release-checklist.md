@@ -11,8 +11,10 @@ that every file is cleared. Publication is a separate author decision.
       [example-data provenance](../OCTview3R/ImageData/README.md).
 - [x] Jan Hahn confirmed that he alone holds the dissertation rights and permits
       reuse of the selected lens figure.
-- [x] Jan Hahn approved public inclusion of the organoid concept. No new organoid
-      result image is available yet; each future image needs separate review.
+- [x] Jan Hahn approved public inclusion of the organoid concept and supplied
+      the 1 October 2026 GUI screenshot for the paper/README. Its caption states
+      that cherry OCT and organoid meshes are independent datasets, not a
+      registered pair. Each future scientific result image needs separate review.
 - [x] Jan Hahn authorized removal of deleted VTK-family exports and obsolete
       personal paths from branch/tag history, with a private local backup.
       See [history-cleanup scope](history-cleanup.md).

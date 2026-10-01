@@ -9,6 +9,7 @@ on:
       - 'paper/paper.bib'
       - 'paper/figures/**'
       - 'tests/check-paper.py'
+      - 'paper/make_review_copy.py'
       - '.github/workflows/joss-paper.yml'
   pull_request:
     paths:
@@ -16,6 +17,7 @@ on:
       - 'paper/paper.bib'
       - 'paper/figures/**'
       - 'tests/check-paper.py'
+      - 'paper/make_review_copy.py'
       - '.github/workflows/joss-paper.yml'
 
 permissions:
@@ -37,10 +39,17 @@ jobs:
         with:
           journal: joss
           paper-path: paper/paper.md
+      - name: Create watermark-free author-review copy and retain original
+        run: |
+          python3 -m pip install pypdf==6.10.0 pillow==12.3.0
+          mv paper/paper.pdf paper/paper-joss-draft.pdf
+          python3 -B paper/make_review_copy.py paper/paper-joss-draft.pdf paper/paper.pdf
       - name: Upload JOSS-format PDF for author review
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: octview3r-joss-paper
-          path: paper/paper.pdf
+          path: |
+            paper/paper.pdf
+            paper/paper-joss-draft.pdf
           if-no-files-found: error
           retention-days: 30

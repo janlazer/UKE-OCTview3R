@@ -14,6 +14,10 @@ OCTproZ JOSS paper.
   filter chains, units, transparency, memory handling, and verification limits
 - `figures/octview3r-interface.png`: current application screenshot, shared
   with the repository README so both use the same image
+- `make_review_copy.py`: removes only the large DRAFT watermark from the
+  JOSS-generated PDF, retaining all manuscript content and publication metadata
+- `paper.pdf`: generated JOSS-format author-review copy without that watermark
+  (ignored by Git); `paper-joss-draft.pdf` preserves the unmodified build
 - `figures/overlay-pipeline.png`: OCT/PolyData rendering architecture
 - `figures/lens-oct-polydata-overlay.png`: historical lens application from
   Figure 10.6 of Jan Hahn's dissertation
@@ -45,6 +49,11 @@ The review PDF is only a layout aid. The authoritative submission source is
 - The 1 October 2026 interface update: compact dark-only styling, independently
   previewable Designer forms, GUI checks at three display scales, and VTK
   shutdown checks. These interface tests are not scientific image validation.
+- Jan Hahn supplied the updated interface screenshot on 1 October 2026 for
+  the README and paper. It shows the cherry example volume and independently
+  imported organoid meshes in one scene, not a registered pair from the same
+  specimen. It is an interface illustration, not an organoid result figure;
+  the underlying organoid meshes are not distributed.
 - Eight additional references checked on 14 September 2026: direct volume
   rendering (Levoy, 1988), mixed polygon/volume rendering (Levoy, 1990), transfer
   functions (Kindlmann and Durkin, 1998), OCT speckle (Schmitt et al., 1999),
@@ -86,7 +95,8 @@ documented cherry TIFF/RAW data; legacy PDF/text references have been removed.
   available. The included diagram currently documents the workflow only.
 - Jan Hahn confirmed on 15 September 2026 that he alone holds the dissertation
   rights and permits reuse of the selected figure. He also approved public
-  inclusion of the organoid concept. The future organoid result image still
+  inclusion of the organoid concept. The supplied interface illustration does
+  not replace a matched organoid OCT/segmentation result image, which still
   needs its own provenance, caption and approval before it is added.
 - Expand the existing automated regression tests and add CI. The current
   numerical/UI checks do not replace rendered-image comparisons or benchmarks.
@@ -104,8 +114,18 @@ documented cherry TIFF/RAW data; legacy PDF/text references have been removed.
 The `JOSS paper draft` GitHub Actions workflow runs manuscript consistency
 checks and the official Open Journals PDF generator. It is also available via
 **Actions > JOSS paper draft > Run workflow**. Download the resulting
-`octview3r-joss-paper` artifact and inspect its PDF. This workflow is paper CI,
+`octview3r-joss-paper` artifact and inspect `paper.pdf`. The artifact also keeps
+the original `paper-joss-draft.pdf`. The review-copy step removes only the large
+DRAFT watermark; it does not change the unpublished status, invent a DOI, or
+turn the output into an accepted journal proof. This workflow is paper CI,
 not a Windows C++/Qt/VTK test runner, and never submits the paper to JOSS.
+
+To reproduce the watermark-free copy locally, install the workflow's pinned
+`pypdf` dependency and run:
+
+```powershell
+python .\paper\make_review_copy.py .\paper\paper-joss-draft.pdf .\paper\paper.pdf
+```
 
 Use the JOSS `inara` toolchain described in the JOSS documentation when Docker
 or the required container runtime is available. The local review renderer can

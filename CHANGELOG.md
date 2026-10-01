@@ -22,6 +22,9 @@ uses [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- Updated the shared README/paper screenshot to the compact interface with
+  independently loaded grayscale volume and organoid geometry, and added a
+  reproducible watermark-free manuscript review copy without changing its status.
 - Restored smooth intensity-dependent opacity for grayscale volumes, with an
   optional uniform-opacity mode retaining the hard threshold appearance.
 - Separated threshold-based palette autoscaling from automatic and manual

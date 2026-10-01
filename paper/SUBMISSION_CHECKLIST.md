@@ -38,8 +38,10 @@ Already present in OCTview3R:
       happened, and identify the tools/models as accurately as the records allow.
 - [x] Jan Hahn confirmed on 15 September 2026 that he alone holds the dissertation
       rights and permits reuse of the selected figure.
-- [x] Jan Hahn approved public inclusion of the organoid concept. No organoid
-      result image is supplied yet; clear each future image separately.
+- [x] Jan Hahn approved public inclusion of the organoid concept and supplied
+      an interface illustration on 1 October 2026. It combines cherry OCT and
+      organoid meshes, not a matched organoid result pair; clear each future
+      scientific result image separately.
 - [ ] Decide whether to add a publishable organoid OCT/segmentation overlay with
       calibration, acquisition context, segmentation provenance, and explicit
       consent to disclose the image. A representative result would strengthen

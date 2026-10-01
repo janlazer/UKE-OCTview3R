@@ -46,6 +46,10 @@ Follow institutional IT policy; do not disable Windows security.
 - Acknowledgement of Miroslav Zabic's advice on preparing the public release.
 - Installer and pipeline regression tests, architecture documentation, updated
   screenshots, and an expanded JOSS manuscript draft.
+- Updated README/paper interface illustration with grayscale volume and blue
+  organoid geometry, explicitly described as independent demonstration datasets.
+  The paper build also provides a review copy without the large DRAFT watermark;
+  the manuscript remains unpublished.
 
 ## Verification and limitations
 

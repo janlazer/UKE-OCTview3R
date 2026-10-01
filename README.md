@@ -32,12 +32,14 @@ invited collaborators can access releases.
 
 ## Screenshots
 
-![OCTview3R displaying the non-medical cherry OCT example with composite volume rendering and the Rainbow palette in the dark theme](paper/figures/octview3r-interface.png)
+![OCTview3R compact dark interface displaying a grayscale cherry example volume and separately imported blue organoid meshes](paper/figures/octview3r-interface.png)
 
-*Composite volume rendering of the included non-medical cherry OCT data set
-with the Rainbow palette. The dark interface shows dataset metadata,
-independent palette autoscaling and window/level controls, object transforms,
-and crop ranges.*
+*The compact dark interface displaying the grayscale cherry example volume
+together with separately imported organoid meshes (blue). This illustrative
+scene combines independent datasets; it is not a registered OCT/segmentation
+pair from the same specimen. Per-dataset appearance, opacity, gloss, transforms,
+and crop ranges are available in the control panel. The organoid mesh data are
+not distributed with the software.*
 
 <p align="center">
   <img src="docs/images/octview3r-about.png" width="520" alt="OCTview3R About dialog in the dark theme with the cyan OCT-volume logo, version 1.1.0, authors, acknowledgements, and license">

@@ -33,6 +33,9 @@ Outputs under `dist/installer/`:
 - `payload/OCTview3R/`, including `BUILD-MANIFEST.json` with source commit,
   compiler version, and per-file hashes
 
+The payload also includes the README's interface and About screenshots so its
+image links work offline. These are illustrations, not loadable research data.
+
 `-AllowDirty` permits local preview builds, not release publication.
 `-TestPackage` changes the installer AppId to isolate smoke-test registration.
 Never upload artifacts whose manifest has `source_dirty` or `test_package` set.
