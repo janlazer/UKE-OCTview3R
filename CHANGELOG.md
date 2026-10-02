@@ -24,7 +24,8 @@ uses [Semantic Versioning](https://semver.org/).
 
 - Updated the shared README/paper screenshot to the compact interface with
   independently loaded grayscale volume and organoid geometry, and added a
-  reproducible watermark-free manuscript review copy without changing its status.
+  reproducible DRAFT-labelled manuscript review PDF. The literature comparison
+  also covers Open Chrono-Morph Viewer and napari; the paper remains unsubmitted.
 - Restored smooth intensity-dependent opacity for grayscale volumes, with an
   optional uniform-opacity mode retaining the hard threshold appearance.
 - Separated threshold-based palette autoscaling from automatic and manual

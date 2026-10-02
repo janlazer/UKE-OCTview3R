@@ -48,8 +48,8 @@ Follow institutional IT policy; do not disable Windows security.
   screenshots, and an expanded JOSS manuscript draft.
 - Updated README/paper interface illustration with grayscale volume and blue
   organoid geometry, explicitly described as independent demonstration datasets.
-  The paper build also provides a review copy without the large DRAFT watermark;
-  the manuscript remains unpublished.
+  The paper build retains the DRAFT watermark; the manuscript remains
+  unsubmitted and has not been peer reviewed.
 
 ## Verification and limitations
 

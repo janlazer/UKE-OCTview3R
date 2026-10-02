@@ -148,6 +148,8 @@ def format_reference(entry: dict[str, str]) -> str:
         )
     elif entry_type == "book":
         pieces.append(f"{entry.get('edition', '')}th edition. {entry.get('publisher', '')}.")
+    elif entry_type == "software":
+        pieces.append(f"[Computer software]. {entry.get('publisher', '')}.")
     elif entry_type in {"thesis", "phdthesis"}:
         kind = entry.get(
             "type",
@@ -175,6 +177,14 @@ def format_reference(entry: dict[str, str]) -> str:
 
 
 def footer(canvas, document) -> None:
+    # Draw before the page content so the review status does not obscure text.
+    canvas.saveState()
+    canvas.translate(document.pagesize[0] / 2, document.pagesize[1] / 2)
+    canvas.rotate(45)
+    canvas.setFont("Helvetica-Bold", 100)
+    canvas.setFillColor(colors.HexColor("#e8e8e8"))
+    canvas.drawCentredString(0, 0, "DRAFT")
+    canvas.restoreState()
     canvas.saveState()
     canvas.setStrokeColor(colors.HexColor("#d1d5db"))
     canvas.line(0.72 * inch, 0.52 * inch, 7.78 * inch, 0.52 * inch)
@@ -349,6 +359,7 @@ def build_pdf() -> None:
             styles["Affiliations"],
         ),
         Paragraph(
+            "Unsubmitted manuscript draft; not peer reviewed. "
             "Review rendering generated without the official JOSS/Inara toolchain. "
             "The authoritative manuscript source is <font name='Courier'>paper.md</font>.",
             styles["DraftNotice"],

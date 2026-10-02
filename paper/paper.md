@@ -20,7 +20,7 @@ affiliations:
     name: University Medical Center Hamburg-Eppendorf (UKE), Hamburg, Germany
   - index: 2
     name: Laser Zentrum Hannover e.V. (LZH), Hannover, Germany
-date: 1 October 2026
+date: 2 October 2026
 bibliography: paper.bib
 ---
 
@@ -84,6 +84,16 @@ signal processing, and visualization through an extensible plug-in architecture
 ITK-SNAP emphasizes anatomical segmentation [@yushkevich2006]; and Fiji provides
 an extensible platform for biological-image analysis [@schindelin2012]. These
 systems offer substantially broader acquisition or analysis capabilities.
+
+`napari` provides multidimensional image viewing in Python, combining image,
+label, point, and surface layers with programmatic control and a plug-in
+ecosystem [@napari2019]. Open Chrono-Morph Viewer uses Qt and VTK to inspect
+heterogeneous volumetric time series, with dynamic clipping surfaces and
+scriptable animations [@faubert2025]. These applications demonstrate existing
+support for layered visualization and interactive volume exploration.
+`OCTview3R` instead concentrates on file-based OCT/segmentation inspection in a
+dedicated desktop interface, rather than a general Python analysis environment
+or a temporal animation workflow.
 
 ParaView and 3D Slicer also support extensions, including additions to application
 functionality [@paraviewplugins; @slicerextensions]. `OCTview3R` does not address an

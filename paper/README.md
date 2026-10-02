@@ -5,6 +5,10 @@ Journal of Open Source Software (JOSS). The structure follows the current JOSS
 paper requirements while retaining the concise, figure-led style of the
 OCTproZ JOSS paper.
 
+**Status: unsubmitted manuscript draft, not peer reviewed.** Both PDF build
+routes retain a visible DRAFT watermark; public availability is not journal
+submission or acceptance.
+
 ## Files
 
 - `paper.md`: manuscript source
@@ -14,10 +18,8 @@ OCTproZ JOSS paper.
   filter chains, units, transparency, memory handling, and verification limits
 - `figures/octview3r-interface.png`: current application screenshot, shared
   with the repository README so both use the same image
-- `make_review_copy.py`: removes only the large DRAFT watermark from the
-  JOSS-generated PDF, retaining all manuscript content and publication metadata
-- `paper.pdf`: generated JOSS-format author-review copy without that watermark
-  (ignored by Git); `paper-joss-draft.pdf` preserves the unmodified build
+- `paper.pdf`: generated JOSS-format author-review PDF with the original
+  DRAFT watermark (ignored by Git)
 - `figures/overlay-pipeline.png`: OCT/PolyData rendering architecture
 - `figures/lens-oct-polydata-overlay.png`: historical lens application from
   Figure 10.6 of Jan Hahn's dissertation
@@ -59,11 +61,17 @@ The review PDF is only a layout aid. The authoritative submission source is
   functions (Kindlmann and Durkin, 1998), OCT speckle (Schmitt et al., 1999),
   Fiji (Schindelin et al., 2012), organoid OCT morphology (Zhang et al., 2023),
   longitudinal organoid imaging (Monfort et al., 2023), and scientific colour
-  mapping (Crameri et al., 2020). The bibliography now contains 19 cited works,
+  mapping (Crameri et al., 2020). The bibliography now contains 21 cited works,
   including two official extension-documentation references added on 15 September;
   DOI metadata and primary author/publisher records were used to check them.
   The organoid references provide background, not evidence that those groups
   used OCTview3R.
+- Open Chrono-Morph Viewer (Faubert and Wang, 2025), checked against its
+  [Bioinformatics paper](https://doi.org/10.1093/bioinformatics/btae761), and
+  napari, cited using the project's recommended
+  [software DOI](https://doi.org/10.5281/zenodo.3555620), were added on
+  2 October 2026. Their documented time-series/clipping and layered Python
+  visualization capabilities are acknowledged in the introductory comparison.
 - The current JOSS paper, review, AI-disclosure, and pre-submission criteria.
 
 The ParaView/3D Slicer comparison acknowledges their extension capabilities and
@@ -114,18 +122,10 @@ documented cherry TIFF/RAW data; legacy PDF/text references have been removed.
 The `JOSS paper draft` GitHub Actions workflow runs manuscript consistency
 checks and the official Open Journals PDF generator. It is also available via
 **Actions > JOSS paper draft > Run workflow**. Download the resulting
-`octview3r-joss-paper` artifact and inspect `paper.pdf`. The artifact also keeps
-the original `paper-joss-draft.pdf`. The review-copy step removes only the large
-DRAFT watermark; it does not change the unpublished status, invent a DOI, or
-turn the output into an accepted journal proof. This workflow is paper CI,
+`octview3r-joss-paper` artifact and inspect `paper.pdf`. The official generator's
+DRAFT watermark and publication metadata are preserved without post-processing.
+The manuscript has not been submitted or accepted. This workflow is paper CI,
 not a Windows C++/Qt/VTK test runner, and never submits the paper to JOSS.
-
-To reproduce the watermark-free copy locally, install the workflow's pinned
-`pypdf` dependency and run:
-
-```powershell
-python .\paper\make_review_copy.py .\paper\paper-joss-draft.pdf .\paper\paper.pdf
-```
 
 Use the JOSS `inara` toolchain described in the JOSS documentation when Docker
 or the required container runtime is available. The local review renderer can

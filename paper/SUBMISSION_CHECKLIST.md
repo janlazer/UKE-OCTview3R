@@ -18,7 +18,7 @@ Already present in OCTview3R:
 - A 1.1.0 Windows installer/portable packaging workflow, dependency notices,
   checksums, installation tests, and documented build instructions.
 - 269 synthetic production-pipeline and Qt-control regression checks.
-- A roughly 1,500-word manuscript with the required sections, 19 references,
+- A roughly 1,700-word manuscript with the required sections, 21 references,
   four figures, and an implementation-level architecture companion.
 - Documented historical lens-imaging use in Hahn's dissertation. The organoid
   workflow is identified as ongoing, not presented as a completed validation.
