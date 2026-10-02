@@ -171,7 +171,8 @@ Transparency behaviour remains dependent on the VTK/OpenGL configuration.
 
 ![Separate volume and geometry pipelines feed one spatial scene. Each dataset
 retains its own transform; an image plane follows its parent volume. Compatible
-coordinates must be supplied by the analysis workflow.](figures/overlay-pipeline.png){ width=100% }
+coordinates must be supplied by the analysis workflow. Miniature volume and
+mesh views are schematic, not experimental data.](figures/overlay-pipeline.png){ width=100% }
 
 ## Verification and limitations
 
@@ -226,7 +227,8 @@ context; segmentation, tracking, intervention, and proteomics remain external.
 and segmentation feed an OCTview3R overlay for visual inspection. The derived
 geometry supports spatial characterization and supplies target context
 for laser ablation, targeted sampling, and proteomics. The diagram shows the
-workflow rather than quantitative results.](figures/organoid-study-workflow.png){ width=100% }
+workflow rather than quantitative results; the symbols are schematic. Dashed
+arrows indicate repeated acquisitions for motion analysis.](figures/organoid-study-workflow.png){ width=100% }
 
 <!-- TODO before submission: add a publishable OCT/segmentation result image
 from the Organoid Paper and cite that manuscript when a stable bibliographic

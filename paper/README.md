@@ -26,7 +26,13 @@ submission or acceptance.
 - `figures/organoid-study-workflow.png`: schematic of the ongoing organoid
   imaging, segmentation, ablation, and proteomics workflow (working project
   name: `Organoid-Paper`)
-- `generate_diagrams.py`: reproducible generator for both block diagrams
+- `generate_diagrams.py`: reproducible generator for both block diagrams,
+  with orthogonal connectors and original schematic scientific symbols;
+  each diagram has a manuscript PNG and an editable SVG in `figures/`.
+  The volume/mesh thumbnails are illustrations, not experimental data.
+  No BioRender or other third-party illustration assets are used.
+- `../tests/check-paper-diagrams.py`: checks orthogonal routing, module
+  avoidance, transparent shapes, and paired PNG/SVG generation (requires Pillow).
 - `render_review_pdf.py`: local review-PDF renderer for environments without
   the official JOSS/Inara toolchain
 - `../output/pdf/octview3r-joss-draft.pdf`: generated review PDF (ignored by
