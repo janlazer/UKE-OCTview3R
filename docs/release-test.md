@@ -37,3 +37,28 @@ These are development-machine checks, not Miroslav's independent test, a
 clean-machine validation, or a scientific image-quality assessment. The installer
 remains unsigned. Use the refreshed package's `BUILD-MANIFEST.json` and
 `SHA256SUMS.txt` to identify the exact source commit and binaries.
+
+## Local GPU and packaging checks - 18 October 2026
+
+Release and Debug x64 builds succeeded for the v1.1.1 candidate. The fix registers
+a neutral, disabled gradient-opacity table for VTK 8.2 and corrects RGB slice
+output component counts. The tests passed:
+
+- 269 production-pipeline/Qt checks.
+- 202 real-GPU synthetic checks covering scalar/RGB/RGBA, all four blend modes,
+  repeated colour-mode changes, rejected thresholds, zero opacity, and planes.
+- 228 GPU checks when additionally loading a locally supplied RGBA TIFF through
+  the production reader and rendering RGB/grayscale in MaxIP and composite.
+  That research input remains local and is excluded from Git and release assets.
+- 246 compact-UI/shutdown checks at each of 100%, 150%, and 200% scaling.
+- Isolated test installation and repeated installation with 251 payload hashes,
+  followed by the 269 pipeline checks and 202 GPU checks against installed DLLs
+  with development dependency paths removed. Uninstall preserved an additional
+  synthetic user file. The normal user installation was not modified.
+
+The GPU harness checks generated-shader errors and basic rendered visibility,
+not pixel-identical rendering across vendors or scientific image fidelity.
+The test installation is separate from the final normal-AppId installer;
+its test package must never be uploaded. These remain development-machine tests,
+not Miroslav's pending independent test. The v1.1.1 GitHub release stays a draft,
+the installer remains unsigned, and the existing public v1.1.0 tag is preserved.

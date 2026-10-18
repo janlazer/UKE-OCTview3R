@@ -445,7 +445,13 @@ void VolumePipeline::updatePlane(
 	// RGB passes through directly; grayscale uses the selected colour transfer
 	// function. In both modes the plane output remains opaque, so black pixels
 	// stay visible instead of adopting the volume's zero-opacity mask.
-	data.colorMap->SetOutputFormatToRGBA();
+	// Without a lookup table vtkImageMapToColors only passes input through;
+	// it cannot append alpha to RGB. Three-channel texture pixels are opaque,
+	// including black, while grayscale uses the LUT's explicit RGBA output.
+	if (showRgb)
+		data.colorMap->SetOutputFormatToRGB();
+	else
+		data.colorMap->SetOutputFormatToRGBA();
 	data.colorMap->PassAlphaToOutputOff();
 	data.planeWidget->SetColorMap(data.colorMap);
 	data.median->SetInputConnection(

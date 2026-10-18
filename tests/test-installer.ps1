@@ -1,7 +1,8 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory)][string]$PackageDirectory,
-    [string]$RegressionExecutable = (Join-Path $PSScriptRoot '..\tmp\threshold-regression\bin\ThresholdRegression.exe')
+    [string]$RegressionExecutable = (Join-Path $PSScriptRoot '..\tmp\threshold-regression\bin\ThresholdRegression.exe'),
+    [string]$GpuRegressionExecutable = (Join-Path $PSScriptRoot '..\tmp\gpu-volume-regression\bin\GpuVolumeRegression.exe')
 )
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
@@ -11,6 +12,7 @@ $payloadDirectory = Join-Path $PackageDirectory 'payload\OCTview3R'
 $manifest = Get-Content -LiteralPath (Join-Path $payloadDirectory 'BUILD-MANIFEST.json') -Raw | ConvertFrom-Json
 if (-not $manifest.test_package) { throw 'Only a package built with -TestPackage may be installed by this test.' }
 if (-not (Test-Path -LiteralPath $RegressionExecutable -PathType Leaf)) { throw 'Run tests/run-threshold-regression.ps1 first.' }
+if (-not (Test-Path -LiteralPath $GpuRegressionExecutable -PathType Leaf)) { throw 'Run tests/run-gpu-volume-regression.ps1 first.' }
 $setup = Join-Path $PackageDirectory "OCTview3R-$($manifest.version)-windows-x64-setup.exe"
 $registration = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\OCTview3R.InstallerSmokeTest.x64_is1'
 if (Test-Path -LiteralPath $registration) { throw 'An earlier installer smoke test is still registered. Inspect and uninstall it first.' }
@@ -57,6 +59,8 @@ foreach ($iteration in 1, 2) {
 # Run it beside the installed DLLs, without any developer dependency paths.
 $installedHarness = Join-Path $installDirectory 'ThresholdRegression.exe'
 Copy-Item -LiteralPath $RegressionExecutable -Destination $installedHarness
+$installedGpuHarness = Join-Path $installDirectory 'GpuVolumeRegression.exe'
+Copy-Item -LiteralPath $GpuRegressionExecutable -Destination $installedGpuHarness
 $environmentNames = @('PATH', 'QTDIR', 'QT_PLUGIN_PATH', 'QT_QPA_PLATFORM', 'QT_QPA_PLATFORM_PLUGIN_PATH', 'VTKDIR', 'VTKLIB', 'VTKBIN')
 $savedEnvironment = @{}
 foreach ($name in $environmentNames) {
@@ -77,6 +81,20 @@ try {
     Write-Host $runtimeOutput
     if ($process.ExitCode -ne 0 -or $runtimeOutput -notmatch 'PASS: 269') {
         throw 'Installed-runtime regression failed; inspect the logs.'
+    }
+    $gpuProcess = Start-Process -FilePath $installedGpuHarness -WorkingDirectory $testRoot -WindowStyle Hidden -PassThru `
+        -RedirectStandardOutput (Join-Path $testRoot 'gpu-stdout.log') `
+        -RedirectStandardError (Join-Path $testRoot 'gpu-stderr.log')
+    if (-not $gpuProcess.WaitForExit(60000)) {
+        Stop-Process -Id $gpuProcess.Id
+        throw 'Installed GPU regression timed out.'
+    }
+    $gpuProcess.WaitForExit()
+    $gpuOutput = Get-Content -LiteralPath (Join-Path $testRoot 'gpu-stdout.log') -Raw
+    Write-Host $gpuOutput
+    Get-Content -LiteralPath (Join-Path $testRoot 'gpu-stderr.log')
+    if ($gpuProcess.ExitCode -ne 0 -or $gpuOutput -notmatch 'PASS: [1-9][0-9]* GPU volume checks\.') {
+        throw 'Installed GPU regression failed; inspect the logs.'
     }
 } finally {
     foreach ($name in $environmentNames) {

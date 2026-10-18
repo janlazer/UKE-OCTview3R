@@ -71,13 +71,17 @@ development paths removed, and verifies uninstall and preservation of an
 additional synthetic user file:
 
 ```powershell
+.\tests\run-threshold-regression.ps1
+.\tests\run-gpu-volume-regression.ps1
 .\build-installer.ps1 -ISCC 'C:\Tools\Inno Setup 7\ISCC.exe' -TestPackage -OutputDirectory .\dist\installer-test
 .\tests\test-installer.ps1 -PackageDirectory .\dist\installer-test
 ```
 
 The test package uses a separate registration and does not create the normal
 Start menu or desktop shortcuts. Tests do not launch the normal user session;
-the regression harness uses separate INI preferences. Test logs and preserved
+the pipeline and real-GPU regression harnesses use separate INI preferences.
+The GPU checks require an OpenGL-capable session and use only synthetic data.
+Test logs and preserved
 probe files remain in a unique directory under `tmp/installer-smoke-*`.
 
 Before publication, verify that the packaged EXE matches the tested Release

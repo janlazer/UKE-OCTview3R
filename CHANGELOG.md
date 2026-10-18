@@ -3,7 +3,26 @@
 All notable changes to OCTview3R are documented in this file. The project
 uses [Semantic Versioning](https://semver.org/).
 
-## [1.1.0] - Unreleased
+## [1.1.1] - Unreleased
+
+### Fixed
+
+- Initialize a neutral, disabled gradient-opacity table for VTK 8.2 so the
+  RGBA volume shader cannot emit an unnamed sampler. Scalar opacity, thresholds,
+  window/level, and the shared VTK installation remain unchanged.
+- Pass RGB slice-plane colours through as three opaque channels instead of
+  requesting an unsupported RGB-to-RGBA conversion without a lookup table.
+
+### Added
+
+- Real GPU rendering regression tests for scalar, RGB and RGBA volumes, all
+  blend modes, colour-mode changes, transparency, and slice planes; optional
+  local TIFF checks use the production reader without distributing the data.
+- GPU regression checks against the DLLs from an isolated test installation.
+- Ignore local root-level TIFF inputs while retaining the documented cherry
+  examples. Prepare a new v1.1.1 tag without rewriting the existing v1.1.0 tag.
+
+## [1.1.0] - Previous release candidate
 
 ### Added
 
@@ -54,3 +73,4 @@ uses [Semantic Versioning](https://semver.org/).
 - Legacy VTK-family example data from the distributed repository.
 
 [1.1.0]: https://github.com/janlazer/UKE-OCTview3R/releases/tag/v1.1.0
+[1.1.1]: https://github.com/janlazer/UKE-OCTview3R/releases/tag/v1.1.1

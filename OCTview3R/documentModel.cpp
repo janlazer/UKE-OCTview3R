@@ -27,6 +27,8 @@
 #include <vtkSmartVolumeMapper.h>
 #include <vtkTransform.h>
 #include <vtkVolume.h>
+#include <vtkVolumeProperty.h>
+#include <vtkVersion.h>
 
 #include <algorithm>
 
@@ -46,6 +48,19 @@ ImageData& DocumentModel::create()
 	document->rgbComponents =
 		vtkSmartPointer<vtkImageExtractComponents>::New();
 	document->volume = vtkSmartPointer<vtkVolume>::New();
+#if VTK_MAJOR_VERSION == 8 && VTK_MINOR_VERSION == 2
+	// VTK 8.2's ComputeGradientOpacity1DDecl emits an unnamed sampler when
+	// HasGradientOpacity() is false (notably with dependent RGBA components).
+	// Register a neutral table before the first render so its sampler is named,
+	// but disable gradient opacity to avoid gradient-based transparency/shading.
+	// Keep this per-volume: do not patch the shared VTK DLL or alter scalar alpha.
+	auto neutralGradient = vtkSmartPointer<vtkPiecewiseFunction>::New();
+	neutralGradient->AddPoint(0.0, 1.0);
+	neutralGradient->AddPoint(255.0, 1.0);
+	neutralGradient->ClampingOn();
+	document->volume->GetProperty()->SetGradientOpacity(neutralGradient);
+	document->volume->GetProperty()->DisableGradientOpacityOn();
+#endif
 	document->actor = vtkSmartPointer<vtkActor>::New();
 	document->transform = vtkSmartPointer<vtkTransform>::New();
 	document->luminance = vtkSmartPointer<vtkImageLuminance>::New();

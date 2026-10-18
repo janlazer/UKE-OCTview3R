@@ -13,7 +13,7 @@ authors:
   - family-names: "Ripken"
     given-names: "Tammo"
     affiliation: "Laser Zentrum Hannover e.V. (LZH)"
-version: "1.1.0"
+version: "1.1.1"
 repository-code: "https://github.com/janlazer/UKE-OCTview3R"
 url: "https://github.com/janlazer/UKE-OCTview3R"
 license: "GPL-3.0-only"

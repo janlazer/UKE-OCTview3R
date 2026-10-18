@@ -12,14 +12,18 @@ the exact example files and formats.
 
 ## Download for Windows
 
+The current **v1.1.1** packages are being prepared in an unpublished release
+draft. Draft assets are visible only to repository users with write access;
+public binary downloads will become available when the release is published.
+
 For use without setting up Qt, VTK, or Visual Studio, open
 [GitHub Releases](https://github.com/janlazer/UKE-OCTview3R/releases) and download
-`OCTview3R-1.1.0-windows-x64-setup.exe`. The installer includes the required
+`OCTview3R-1.1.1-windows-x64-setup.exe`. The installer includes the required
 runtime libraries and Qt plugins. It installs for the current user, provides a
 Start menu entry and optional desktop shortcut, and supports uninstalling through
 Windows Settings. Administrator rights are normally not required.
 
-Alternatively, extract the complete `OCTview3R-1.1.0-windows-x64-portable.zip`
+Alternatively, extract the complete `OCTview3R-1.1.1-windows-x64-portable.zip`
 and run `OCTview3R.exe` from its `OCTview3R` folder. Both downloads require
 Windows 10/11 x64, a suitable OpenGL graphics driver, and sufficient memory.
 They contain no research datasets and do not change your global PATH.
@@ -27,8 +31,8 @@ They contain no research datasets and do not change your global PATH.
 The installer is currently unsigned; Windows may show a SmartScreen or
 unknown-publisher warning. Use only the official release and compare its
 SHA-256 checksum with `SHA256SUMS.txt`. Follow your institution's IT policy;
-do not disable Windows security. While this repository is private, only
-invited collaborators can access releases.
+do not disable Windows security. The repository is public; the release draft
+is a separate, unpublished preparation step.
 
 ## Screenshots
 
@@ -281,9 +285,9 @@ used. GitHub can generate a formatted citation from
 [`CITATION.cff`](CITATION.cff). A publication-specific DOI can be added after
 the first archived release.
 
-For version 1.1.0, the preferred software citation is:
+For version 1.1.1, the preferred software citation is:
 
-> Hahn, J., Möbes, G., & Ripken, T. (2026). *OCTview3R* (Version 1.1.0)
+> Hahn, J., Möbes, G., & Ripken, T. (2026). *OCTview3R* (Version 1.1.1)
 > [Computer software]. https://github.com/janlazer/UKE-OCTview3R
 
 Please also cite the associated scientific paper once one has been
@@ -323,7 +327,8 @@ OCTview3R/
 ## Versioning and releases
 
 OCTview3R follows [Semantic Versioning](https://semver.org/). The first
-public release is prepared as **v1.1.0**. Release notes are maintained in
+public binary release is now prepared as **v1.1.1**, including the VTK 8.2
+RGBA shader fix. The existing v1.1.0 tag remains unchanged. Release notes are maintained in
 [`CHANGELOG.md`](CHANGELOG.md); packaged binaries should be built from the
 matching Git tag so source and executable versions remain traceable.
 
@@ -334,12 +339,18 @@ regression tests. With the build prerequisites above configured, run:
 
 ```powershell
 .\tests\run-threshold-regression.ps1
+.\tests\run-gpu-volume-regression.ps1
 ```
 
 The tests use synthetic 8-bit, 16-bit, and RGB volumes, check transfer functions
 and per-dataset UI state, and save control snapshots under
 `tmp/threshold-regression/`. They use separate settings and do not change user
-datasets or preferences. Several areas still need broader coverage:
+datasets or preferences. The separate GPU harness renders scalar/RGB/RGBA
+volumes, checks visibility and transparency, and fails on VTK shader errors or
+CPU fallback. It needs a working OpenGL context. An optional `-TiffPath` argument
+checks a local TIFF through the production loader; no data or images are uploaded.
+These are smoke tests, not scientific image-quality validation.
+Several areas still need broader coverage:
 
 - VTR and other scientific-data imports need broader format coverage tests.
 - Tab removal and repeated transform/render operations need regression tests.

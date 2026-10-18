@@ -177,6 +177,7 @@ Then run:
 
 ```powershell
 .\tests\run-threshold-regression.ps1
+.\tests\run-gpu-volume-regression.ps1
 .\tests\run-compact-ui-regression.ps1 -Scale 1
 .\tests\run-compact-ui-regression.ps1 -Scale 1.5
 .\tests\run-compact-ui-regression.ps1 -Scale 2
@@ -204,3 +205,27 @@ Neither paper checks nor a PDF build constitute Windows application CI.
 For installer changes, follow [packaging/README.md](../packaging/README.md).
 Use a fresh output directory and `-TestPackage` for automated installation tests;
 never run those tests against a user's ordinary installation.
+
+### VTK 8.2 RGBA shader compatibility
+
+`DocumentModel::create()` registers a constant-one gradient-opacity table and
+explicitly disables gradient opacity for VTK 8.2. Its shader composer otherwise
+emits `uniform sampler2D [4];` when no gradient table exists. A table supplies the
+missing uniform name; disabling it avoids gradient computations and preserves
+the existing scalar-opacity and threshold semantics. This workaround does not
+modify shared VTK binaries and is version-gated for a future VTK migration.
+See the upstream
+[shader composer](https://github.com/Kitware/VTK/blob/v8.2.0/Rendering/VolumeOpenGL2/vtkVolumeShaderComposer.h)
+and [transfer-table initialization](https://github.com/Kitware/VTK/blob/v8.2.0/Rendering/VolumeOpenGL2/vtkVolumeInputHelper.cxx).
+
+The GPU harness tests the production pipeline in a real offscreen OpenGL context,
+starting with a fresh RGBA volume, then RGB and scalar data. It checks all blend
+modes, repeated RGB/grayscale switches, background visibility at zero opacity
+and rejected thresholds, and active planes. Synthetic tests are self-contained;
+`-TiffPath <local-file>` additionally exercises the normal TIFF import/calibration
+and RGB/grayscale rendering without including that file in any package. Basic
+framebuffer checks tolerate driver differences; they are not golden-image tests.
+
+For RGB planes, `vtkImageMapToColors` without a LUT requires matching input/output
+component counts. Keep its output RGB (implicitly opaque), not RGBA. Grayscale
+planes still use RGBA LUT output; neither plane adopts the volume alpha mask.
