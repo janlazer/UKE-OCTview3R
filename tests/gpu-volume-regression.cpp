@@ -21,6 +21,7 @@
 #include <vtkVolume.h>
 #include <vtkVolumeProperty.h>
 #include <vtkPiecewiseFunction.h>
+#include <vtkPNGWriter.h>
 #include <vtkVersion.h>
 #include <vtkWindowToImageFilter.h>
 #include <algorithm>
@@ -137,6 +138,23 @@ struct Scene
         renderer->GetActiveCamera()->Elevation(15);
         renderer->ResetCameraClippingRange();
     }
+    double centerIntensity()
+    {
+        auto capture = vtkSmartPointer<vtkWindowToImageFilter>::New();
+        capture->SetInput(window);
+        capture->SetInputBufferTypeToRGB();
+        capture->ReadFrontBufferOff();
+        capture->ShouldRerenderOff();
+        capture->Update();
+        auto pixels = capture->GetOutput();
+        const int* size = pixels->GetDimensions();
+        double sum = 0;
+        for (int y = size[1] / 2 - 4; y < size[1] / 2 + 4; ++y)
+            for (int x = size[0] / 2 - 4; x < size[0] / 2 + 4; ++x)
+                for (int c = 0; c < 3; ++c)
+                    sum += pixels->GetScalarComponentAsDouble(x, y, 0, c);
+        return sum / (64 * 3 * 255);
+    }
 };
 
 void syntheticTests(RenderLog* log, int components)
@@ -144,6 +162,8 @@ void syntheticTests(RenderLog* log, int components)
     Scene scene(sample(components), log);
     scene.data.blendMode = 1;
     scene.frame();
+    require(scene.data.volume->GetProperty()->GetScalarOpacityUnitDistance() == 1.0,
+        "legacy grayscale/RGB opacity distance must remain unchanged");
 #if VTK_MAJOR_VERSION == 8 && VTK_MINOR_VERSION == 2
     auto property = scene.data.volume->GetProperty();
     require(property->HasGradientOpacity(), "VTK 8.2 needs a named gradient sampler before first render");
@@ -181,11 +201,61 @@ void syntheticTests(RenderLog* log, int components)
     std::printf("PASS: synthetic %d-component GPU rendering and transitions.\n", components);
 }
 
-void localTiffTest(const QString& path, RenderLog* log)
+void octCompositeTest(RenderLog* log)
+{
+    double previousIntensity = -1;
+    // Identical signed dB voxels in pixel-sized and micrometre-sized coordinates.
+    // A mere non-empty-image check misses a nearly transparent composite volume.
+    for (double spacing : {1.0, 0.003}) {
+        auto image = vtkSmartPointer<vtkImageData>::New();
+        image->SetDimensions(32, 32, 32);
+        image->SetSpacing(spacing, spacing, spacing);
+        image->AllocateScalars(VTK_FLOAT, 1);
+        for (int z = 0; z < 32; ++z)
+            for (int y = 0; y < 32; ++y)
+                for (int x = 0; x < 32; ++x)
+                    image->SetScalarComponentFromDouble(x, y, z, 0,
+                        x >= 8 && x < 24 && y >= 8 && y < 24 && z >= 8 && z < 24 ? 0.0 : -60.0);
+        Scene scene(image, log);
+        scene.data.dataFormat = DATA_OCT;
+        scene.data.zeroIsTransparent = false;
+        scene.data.minValue = scene.data.currentMinThreshold = -60;
+        scene.data.maxValue = scene.data.currentMaxThreshold = 20;
+        scene.data.blendMode = 1;
+        scene.frame();
+        scene.renderer->SetBackground(0, 0, 0);
+        scene.render();
+        const double blackBackground = scene.centerIntensity();
+        scene.renderer->SetBackground(1, 1, 1);
+        scene.render();
+        const double transmission = scene.centerIntensity() - blackBackground;
+        std::printf("OCT composite: spacing %.6g, center %.4f, background transmission %.4f\n",
+            spacing, blackBackground, transmission);
+        require(transmission < 0.05, "dense OCT composite must occlude the background at micrometre spacing");
+        require(blackBackground > 0.5, "OCT composite must retain visible grayscale, not just opaque black");
+        if (previousIntensity >= 0)
+            require(std::abs(blackBackground - previousIntensity) < 0.03,
+                "OCT composite appearance must not depend on coordinate-unit scale");
+        previousIntensity = blackBackground;
+        scene.data.objectOpacity = 0.01;
+        scene.render();
+        require(scene.centerIntensity() > blackBackground + 0.1, "OCT opacity slider must still reveal the background");
+        scene.data.objectOpacity = 0;
+        scene.render();
+        require(scene.centerIntensity() > 0.99, "zero OCT opacity must fully reveal the white background");
+        scene.data.objectOpacity = 1;
+        scene.data.currentMinThreshold = 1;
+        scene.render();
+        require(scene.centerIntensity() > 0.99, "rejected zero dB must remain transparent");
+    }
+    std::puts("PASS: OCT composite density, coordinate scale, opacity and threshold masking.");
+}
+
+void localVolumeTest(const QString& path, RenderLog* log)
 {
     OpenData dialog;
     require(QMetaObject::invokeMethod(&dialog, "fileAttributes", Qt::DirectConnection,
-        Q_ARG(QString, path), Q_ARG(QString, QString())), "initialize the TIFF import dialog");
+        Q_ARG(QString, path), Q_ARG(QString, QString())), "initialize the volume import dialog");
     loading reader(&dialog);
     vtkSmartPointer<vtkImageData> image;
     unsigned int calibration = 0;
@@ -198,13 +268,16 @@ void localTiffTest(const QString& path, RenderLog* log)
     QObject::connect(&reader, &loading::failed, [&](const QString& message) { error = message; });
     reader.loadData();
     if (!error.isEmpty()) throw std::runtime_error(error.toStdString());
-    require(image && image->GetNumberOfPoints() > 0, "local TIFF must load via production reader");
+    require(image && image->GetNumberOfPoints() > 0, "local volume must load via production reader");
     const int* dimensions = image->GetDimensions();
     const double* spacing = image->GetSpacing();
-    std::printf("TIFF: %d x %d x %d, %d components, spacing %.9g %.9g %.9g, calibrated axes %u\n",
+    std::printf("Volume: %d x %d x %d, %d components, spacing %.9g %.9g %.9g, calibrated axes %u\n",
         dimensions[0], dimensions[1], dimensions[2], image->GetNumberOfScalarComponents(),
         spacing[0], spacing[1], spacing[2], calibration);
     Scene scene(image, log);
+    scene.window->SetSize(640, 640);
+    scene.data.dataFormat = dialog.getDataFormat();
+    scene.data.zeroIsTransparent = scene.data.dataFormat != DATA_OCT;
     scene.data.minValue = scene.data.currentMinThreshold = static_cast<int>(std::floor(minimum));
     scene.data.maxValue = scene.data.currentMaxThreshold = static_cast<int>(std::ceil(maximum));
     scene.frame();
@@ -212,10 +285,23 @@ void localTiffTest(const QString& path, RenderLog* log)
         scene.data.renderRgb = image->GetNumberOfScalarComponents() >= 3 && pass != 1;
         for (int blend = 0; blend < 2; ++blend) {
             scene.data.blendMode = blend;
-            require(scene.render() > 0.5, "local TIFF must produce a non-empty image in RGB/grayscale");
+            require(scene.render() > 0.5, "local volume must produce a non-empty image in RGB/grayscale");
+            if (pass == 0) {
+                // Local-only visual QA. The optional input may be research data;
+                // these images belong in ignored tmp storage, never paper/assets.
+                const QString directory = QDir::currentPath() + "/tmp/gpu-volume-regression";
+                require(QDir().mkpath(directory), "create local-only render QA directory");
+                auto capture = vtkSmartPointer<vtkWindowToImageFilter>::New();
+                capture->SetInput(scene.window); capture->ReadFrontBufferOff();
+                capture->ShouldRerenderOff(); capture->Update();
+                auto writer = vtkSmartPointer<vtkPNGWriter>::New();
+                writer->SetFileName((directory + (blend == 0 ? "/local-maxip.png" : "/local-composite.png")).toLocal8Bit().constData());
+                writer->SetInputConnection(capture->GetOutputPort()); writer->Write();
+                require(log->errors == 0, "write local render QA image");
+            }
         }
     }
-    std::puts("PASS: local TIFF loader, RGB/grayscale transitions, MaxIP and composite GPU rendering.");
+    std::puts("PASS: local volume loader, colour modes, MaxIP and composite GPU rendering.");
 }
 }
 
@@ -234,7 +320,8 @@ int main(int argc, char** argv)
         syntheticTests(log, 4);
         syntheticTests(log, 3);
         syntheticTests(log, 1);
-        if (app.arguments().size() > 1) localTiffTest(app.arguments().at(1), log);
+        octCompositeTest(log);
+        if (app.arguments().size() > 1) localVolumeTest(app.arguments().at(1), log);
         require(log->errors == 0, "VTK errors during cleanup");
         std::printf("PASS: %d GPU volume checks.\n", checks);
         return 0;

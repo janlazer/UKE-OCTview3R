@@ -1,7 +1,7 @@
 [CmdletBinding()]
 param(
     [string]$MSBuild = 'C:\Program Files\Microsoft Visual Studio\2022\Community\MSBuild\Current\Bin\MSBuild.exe',
-    [string]$TiffPath = ''
+    [Alias('VolumePath')][string]$TiffPath = ''
 )
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'

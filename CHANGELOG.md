@@ -3,6 +3,29 @@
 All notable changes to OCTview3R are documented in this file. The project
 uses [Semantic Versioning](https://semver.org/).
 
+## Unreleased development changes (after the v1.1.1 candidate)
+
+### Added
+
+- Native Thorlabs `.oct` import for reconstructed float32 dB intensity volumes,
+  with ZIP/ZIP64 Stored/Deflate streaming, CRC/metadata validation, memory checks,
+  progress, correct ZXY-to-XYZ ordering, and intensity-object physical calibration.
+- A read-only float32 OCT type in the Designer import form and support for
+  singleton or larger-than-4000-pixel dimensions without silent clamping.
+- Separate OCT dB masking: valid zero/negative values are preserved; existing
+  TIFF/RGB source-black transparency is unchanged.
+- Synthetic OCT import regression tests and local GPU/visual tests. Research
+  `.oct` files are excluded from Git and binary payloads. Raw spectra are not reconstructed.
+
+### Fixed
+
+- Normalize Thorlabs OCT Composite opacity to the smallest voxel spacing instead
+  of VTK's default one scene unit (normally 1 mm). Micrometre-spaced volumes no
+  longer become unintentionally translucent. Preserve user opacity, thresholds,
+  and the smooth ramp; leave TIFF/RGB, other blend modes and slice planes unchanged.
+- Add GPU regression checks for background occlusion, coordinate-scale
+  invariance, and OCT opacity/threshold controls rather than visibility alone.
+
 ## [1.1.1] - Unreleased
 
 ### Fixed

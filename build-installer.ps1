@@ -59,7 +59,7 @@ $inputFiles = @(Get-ChildItem -LiteralPath $StandaloneDirectory -Recurse -Force)
 if (@($inputFiles | Where-Object { $_.Attributes -band [IO.FileAttributes]::ReparsePoint }).Count) {
     throw 'Reparse points are not permitted in the payload.'
 }
-if (@($inputFiles | Where-Object { -not $_.PSIsContainer -and $_.Extension -match '^\.(pdb|ilk|obj|tif|tiff|vtk|vti|vtp|vtr)$' }).Count) {
+if (@($inputFiles | Where-Object { -not $_.PSIsContainer -and $_.Extension -match '^\.(pdb|ilk|obj|tif|tiff|oct|vtk|vti|vtp|vtr)$' }).Count) {
     throw 'Debug files or research datasets were found in the runtime payload.'
 }
 $builtExecutable = Join-Path $repositoryRoot 'x64\Release\OCTview3R.exe'

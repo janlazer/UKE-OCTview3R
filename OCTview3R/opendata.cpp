@@ -1,10 +1,12 @@
 #include "OpenData.h"
 #include "ui_opendata.h"
+#include "thorlabsOctReader.h"
 
 #include <QCloseEvent>
 #include <QFileDialog>
 #include <QFileInfo>
 #include <QList>
+#include <QStandardItemModel>
 #include <QVariant>
 #include <QWidget>
 #include <QtGlobal>
@@ -67,10 +69,10 @@ void OpenData::closeEvent(QCloseEvent *event)
 void OpenData::openFile()
 {
 	//SLOT after pressing Button New File...
-	QFileDialog getFileDialog(this, "Open File", m_lastPath, "Volume Data (*.tif *.tiff *.raw *.jpg *.jpeg *.vtk)");
+	QFileDialog getFileDialog(this, "Open File", m_lastPath, "Volume Data (*.tif *.tiff *.oct *.raw *.jpg *.jpeg *.vtk)");
 	getFileDialog.setAcceptMode(QFileDialog::AcceptOpen);
 	QStringList filters;
-	filters << "TIFF files (*.tif *.tiff)" << "RAW files (*.raw)" << "JPEG files (*.jpg *.jpeg)" << "VTK files (*.vtk)";
+	filters << "TIFF files (*.tif *.tiff)" << "Thorlabs OCT files (*.oct)" << "RAW files (*.raw)" << "JPEG files (*.jpg *.jpeg)" << "VTK files (*.vtk)";
 	getFileDialog.setNameFilters(filters);
 	if(getFileDialog.exec() == QDialog::Accepted){
 		QString selectedFilter = getFileDialog.selectedNameFilter();
@@ -88,8 +90,35 @@ void OpenData::fileAttributes(QString fileName, QString selectedFilter)
 	//gets the user input, called by openFile()
 	Q_UNUSED(selectedFilter);
 	const QString suffix = QFileInfo(fileName).suffix().toLower();
+	m_validData = false;
+	ui->pushButton_ok->setEnabled(false);
+	// float32 is metadata for OCT, not a newly supported manual RAW setting.
+	if (auto* model = qobject_cast<QStandardItemModel*>(ui->comboBox_bitsize->model()))
+		model->item(bitsizeType::BIT32FLOAT)->setEnabled(suffix == "oct");
+	if (suffix != "oct" && ui->comboBox_bitsize->currentIndex() == bitsizeType::BIT32FLOAT)
+		setBitsize(bitsizeType::BIT8);
 
-	if(suffix == "raw"){
+	if (suffix == "oct") {
+		ThorlabsOct::Metadata metadata;
+		QString error;
+		if (!ThorlabsOct::inspect(fileName, metadata, error)) {
+			m_dataFormat = dataType::DATA_UNDEF;
+			m_fileName.clear();
+			ui->label_fileName->setText(tr("Cannot open OCT: %1").arg(error));
+			ui->label_fileName->setToolTip(error);
+			return;
+		}
+		m_dataFormat = dataType::DATA_OCT;
+		setWidth(metadata.dimensions[0]);
+		setHeight(metadata.dimensions[1]);
+		setDepth(metadata.dimensions[2]);
+		setBitsize(bitsizeType::BIT32FLOAT);
+		setEndian(endianType::LITTLE);
+		for (QWidget* control : QList<QWidget*>{ui->comboBox_endian, ui->label_endian,
+			ui->comboBox_bitsize, ui->label_format, ui->spinBox_width, ui->label_width,
+			ui->spinBox_height, ui->label_height, ui->spinBox_depth, ui->label_depth})
+			control->setEnabled(false);
+	}else if(suffix == "raw"){
 		m_dataFormat = dataType::DATA_RAW;
 		ui->comboBox_endian->setEnabled(true);
 		ui->label_endian->setEnabled(true);
@@ -210,7 +239,10 @@ void OpenData::fileAttributes(QString fileName, QString selectedFilter)
 	m_fileName = fileName;
 	m_lastPath = QFileInfo(fileName).absolutePath();
 	ui->label_fileName->setText(m_fileName);
+	ui->label_fileName->setToolTip(m_fileName);
 	ui->label_fileName->adjustSize();
+	m_validData = true;
+	ui->pushButton_ok->setEnabled(true);
 }
 void OpenData::doAccepted()
 {
@@ -292,6 +324,8 @@ void OpenData::initGUI()
 {
 	this->ui = new Ui_OpenData;
 	ui->setupUi(this);
+	if (auto* model = qobject_cast<QStandardItemModel*>(ui->comboBox_bitsize->model()))
+		model->item(bitsizeType::BIT32FLOAT)->setEnabled(false);
 	ui->label_fileName->setText(m_fileName);
 	updateProgress(0);
 	connect(ui->openFileButton, SIGNAL(clicked()), this, SLOT(openFile()));

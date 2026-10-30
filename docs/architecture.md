@@ -57,7 +57,9 @@ interpreted as a colour-preserving view of every voxel.
 ### Scalar volumes: separate visibility and appearance
 
 The cropped image passes through `vtkImageThreshold`. Accepted voxels retain
-their source scalar values; rejected voxels become zero in the derived output.
+their source scalar values; rejected voxels become zero in the derived output
+for ordinary image inputs. Thorlabs dB input instead uses `minValue - 1`, outside
+its complete source range, because a measured value of 0 dB is not black.
 The source image and file are not overwritten. Colour and opacity transfer
 functions then determine the rendered appearance.
 
@@ -71,10 +73,22 @@ Four settings are deliberately distinct:
 | Auto window / manual window and level | Neutral full-source-range brightness mapping, or an independently chosen contrast span and centre |
 
 For a non-degenerate threshold interval `[L, U]`, smooth opacity increases from
-zero at `L` to the dataset opacity at `U`. Zero is always transparent, including
-when signed source data straddle zero. A single accepted nonzero intensity uses
+zero at `L` to the dataset opacity at `U`. Source zero is transparent for ordinary
+images, including signed image data; Thorlabs dB volumes retain valid zero and
+negative intensities. A single accepted intensity uses
 uniform opacity. The ramp changes per-sample opacity, not an anatomical boundary;
 compositing through multiple samples also affects the final appearance.
+
+For Thorlabs OCT **Composite** rendering, `ScalarOpacityUnitDistance` is the
+smallest finite, positive input voxel spacing. VTK otherwise accumulates the
+transfer-function opacity over one scene unit (1 mm for calibrated volumes),
+which makes a sub-mm OCT slab unintentionally translucent. This voxel-relative
+choice is independent of crop extent and the renderer's sampling rate. It does
+not change dB scalars, geometry, or the smooth-opacity ramp. Other inputs and
+blend modes explicitly retain the legacy distance of 1; slice-plane mapping is
+separate. See the [VTK 8.2 volume-property documentation](https://vtk.org/doc/nightly/release/8.2/html/classvtkVolumeProperty.html).
+GPU tests compare the same dB cube at unit and micrometre spacing and measure
+background transmission; merely checking for a non-empty image is insufficient.
 
 Changing thresholds does not silently rewrite manual window/level. Editing
 window/level disables automatic windowing, but does not disable palette
@@ -124,6 +138,14 @@ converted to millimetres internally and tracked per axis. Volume controls
 present calibrated distances in micrometres; unknown calibration is not
 silently replaced by assumed millimetres. TIFF volume origin is set to
 `(0, 0, 0)`, rather than the geometric centre.
+
+The independent Thorlabs reader streams reconstructed float32 intensity from
+ZIP-based `.oct` files. The per-data-object ranges are authoritative: spacing is
+`Range / Size` in mm. In particular, `RangeZ` can already include the refractive
+index correction while `Image/SizeReal` describes optical depth; do not apply
+another correction or substitute the latter silently. Missing range fields
+remain uncalibrated. Z-fast samples are transposed to VTK X-fast storage, retaining
+a zero origin. Scanner centre/angle fields do not register a mesh automatically.
 
 For a calibrated axis, displayed micrometres are converted back to millimetres
 before calculating an index from `(coordinate - origin) / spacing`. Crop

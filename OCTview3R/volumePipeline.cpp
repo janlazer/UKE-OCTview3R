@@ -141,6 +141,30 @@ double scalarStep(const ImageData& data)
 	return std::max(1e-12, range * 1e-6);
 }
 
+double opacityUnitDistance(const ImageData& data)
+{
+	// VTK accumulates transfer-function opacity over this distance (default 1).
+	// OCT coordinates are normally millimetres, but a voxel is only a few um:
+	// using 1 mm makes even dense, sub-mm tissue almost transparent in composite.
+	// Define OCT composite opacity per smallest voxel spacing, independent of
+	// crop extent and sampling rate. Do not rescale geometry/dB values, modify
+	// the user's smooth-opacity ramp, or change existing TIFF/RGB/blend modes.
+	if (data.dataFormat != DATA_OCT || data.blendMode != 1 || !data.image)
+		return 1.0;
+	double distance = 1.0;
+	bool found = false;
+	for (int axis = 0; axis < 3; ++axis)
+	{
+		const double spacing = std::abs(data.image->GetSpacing()[axis]);
+		if (std::isfinite(spacing) && spacing > 0.0 && (!found || spacing < distance))
+		{
+			distance = spacing;
+			found = true;
+		}
+	}
+	return distance;
+}
+
 void configureOpacity(
 	ImageData& data,
 	double lower,
@@ -160,6 +184,16 @@ void configureOpacity(
 			? opacity * clamp01((scalar - lower) / (upper - lower))
 			: opacity;
 	};
+	if (!data.zeroIsTransparent)
+	{
+		// Signed dB values must remain intact, including zero. Rejected OCT
+		// voxels use a sentinel below the complete source range, never 0 dB.
+		data.opacityFun->AddPoint(static_cast<double>(data.minValue) - 1.0, 0.0);
+		data.opacityFun->AddPoint(lower, opacityAt(lower));
+		if (upper > lower)
+			data.opacityFun->AddPoint(upper, opacityAt(upper));
+		return;
+	}
 	data.opacityFun->AddPoint(0.0, 0.0);
 	if (lower < 0.0)
 	{
@@ -343,7 +377,8 @@ void VolumePipeline::updateImageFilters(ImageData& data) const
 	// rendered. Only rejected voxels are replaced by the transparent mask.
 	data.threshold->ReplaceInOff();
 	data.threshold->ReplaceOutOn();
-	data.threshold->SetOutValue(0.0);
+	data.threshold->SetOutValue(data.zeroIsTransparent ? 0.0
+		: static_cast<double>(data.minValue) - 1.0);
 	if (colorInput && !usesRgbRendering(data))
 	{
 		// Free the old RGB working set before allocating/updating the scalar
@@ -510,6 +545,7 @@ void VolumePipeline::updateVolume(
 	data.volume->GetProperty()->SetIndependentComponents(showRgb ? 0 : 1);
 	data.volume->GetProperty()->SetColor(data.colorFun);
 	data.volume->GetProperty()->SetScalarOpacity(data.opacityFun);
+	data.volume->GetProperty()->SetScalarOpacityUnitDistance(opacityUnitDistance(data));
 	data.volume->GetProperty()->SetInterpolationTypeToLinear();
 
 	if (data.showPlane)

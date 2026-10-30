@@ -55,6 +55,8 @@ The underlying organoid mesh data are not distributed with the software.*
 
 - Volume rendering for RAW, TIFF, JPEG stack, and legacy VTK image data,
   including grayscale and RGB image stacks
+- Direct Thorlabs `.oct` import for reconstructed float32 intensity volumes,
+  retaining dB values, physical calibration, and a zero origin
 - Polygonal and point-data import for VTK, STL, PLY, VTP, OBJ, BYU (`.g`),
   VTR, and XYZ files; legacy VTK PolyData versions through 5.1 are accepted
 - Maximum-intensity, composite, additive, and minimum-intensity blend modes
@@ -104,7 +106,8 @@ These controls are independent and stored per dataset:
 - **Smooth opacity (Min to Max)** restores intensity-dependent transparency for
   grayscale volumes: opacity rises linearly from zero at Min to the selected
   object opacity at Max. Disable it for uniform opacity and a hard cutoff.
-  Source-zero and rejected voxels remain transparent in either mode. This does
+  Source-zero and rejected voxels remain transparent in either mode (except
+  genuine Thorlabs dB data: 0 dB is a valid value, not black). This does
   not make slice planes transparent, and RGB retains its binary luminance mask.
 - **Autoscale palette** stretches the grayscale or false-colour palette across
   the selected threshold interval. Disable it to keep the full source range as
@@ -120,6 +123,44 @@ For the earlier soft OCT appearance, enable Smooth opacity, Autoscale palette,
 and Auto window. These are the defaults for new grayscale datasets. The
 transparency ramp is not spatial smoothing or a segmentation operation: the
 threshold interval still excludes values outside Min/Max.
+
+### Thorlabs OCT files
+
+In the current development build, choose **Open Volume → Open File → Thorlabs
+OCT files (*.oct)**. Supported files are ZIP-based `Ocity 1.0` containers with a
+reconstructed `data/Intensity.data` float32 volume. No Thorlabs installation or
+SDK DLL is needed. Stored and Deflate-compressed members, including ZIP64, are
+read directly without extracting the archive to disk.
+
+The original signed dB values are retained, not converted to 8-bit or logged
+again. Thresholds and window/level operate in dB using the existing whole-unit
+controls; fractional values remain intact in the volume. Rejected voxels use a
+transparent value outside the source range, so a valid 0 dB voxel is not erased.
+TIFF/RGB transparency is unchanged. Use window/level and thresholds to choose
+the useful contrast range; automatic full-range display is not a denoising step.
+In Composite mode, OCT opacity is accumulated per smallest voxel spacing rather
+than per 1 mm, so thin, calibrated volumes do not become artificially transparent.
+The opacity slider and smooth-opacity ramp still control transparency; MaxIP,
+other input formats, and opaque slice planes retain their existing behaviour.
+
+Data are reordered from Thorlabs' Z-fast storage to viewer X/Y/Z axes. Spacing
+comes from the intensity object's `RangeX/Y/Z / SizeX/Y/Z`, stored internally in
+mm and shown in µm. `RangeZ` is used as stored, without applying the refractive
+index twice; `Image/SizeReal` may contain a different optical depth. Missing
+ranges remain uncalibrated. The origin is `(0,0,0)`; scanner centre/angle settings
+are not automatic registration to a mesh.
+
+Raw-spectra-only files, complex/polarization data without intensity, time series,
+freeform scans, unsupported axis orders, corrupt archives, and non-finite or
+out-of-range intensity values are rejected with an explanation. Save a regular
+processed volume in ThorImageOCT if needed. Available RAM is checked before
+allocation, but GPU capacity and driver support still limit large volumes.
+Private `.oct` files are excluded from Git and binary release payloads.
+
+The container and processed-intensity conventions are described in the
+[Thorlabs ThorImageOCT manual, “OCT File Format”](https://device.report/m/501a40470b50e747b7484088b91604e3e3d2945826e65a514f9f28926f1061a1).
+The installed manufacturer's MATLAB reader was also used to verify storage
+order; the importer is an independent implementation, not a redistributed SDK.
 
 ## Requirements
 
@@ -340,6 +381,7 @@ regression tests. With the build prerequisites above configured, run:
 ```powershell
 .\tests\run-threshold-regression.ps1
 .\tests\run-gpu-volume-regression.ps1
+.\tests\run-oct-import-regression.ps1
 ```
 
 The tests use synthetic 8-bit, 16-bit, and RGB volumes, check transfer functions
@@ -347,8 +389,11 @@ and per-dataset UI state, and save control snapshots under
 `tmp/threshold-regression/`. They use separate settings and do not change user
 datasets or preferences. The separate GPU harness renders scalar/RGB/RGBA
 volumes, checks visibility and transparency, and fails on VTK shader errors or
-CPU fallback. It needs a working OpenGL context. An optional `-TiffPath` argument
-checks a local TIFF through the production loader; no data or images are uploaded.
+CPU fallback. It needs a working OpenGL context. An optional `-VolumePath` argument
+(`-TiffPath` remains supported) checks a local TIFF/OCT through the production loader
+and saves two local QA views in ignored `tmp/` storage; no data or images are uploaded.
+The OCT harness generates synthetic archives with Python's standard library and
+checks ZIP/ZIP64, corruption, axes, calibration, float/dB values, and memory rejection.
 These are smoke tests, not scientific image-quality validation.
 Several areas still need broader coverage:
 

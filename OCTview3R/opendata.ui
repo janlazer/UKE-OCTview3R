@@ -548,6 +548,11 @@ QLabel#versionLabel { color: #68d4e4; }</string>
            <string>unsigned short (16bit)</string>
           </property>
          </item>
+         <item>
+          <property name="text">
+           <string>float (32bit, OCT dB)</string>
+          </property>
+         </item>
         </widget>
        </item>
        <item row="1" column="0">
@@ -560,10 +565,10 @@ QLabel#versionLabel { color: #68d4e4; }</string>
        <item row="2" column="1">
         <widget class="QSpinBox" name="spinBox_width">
          <property name="minimum">
-          <number>2</number>
+          <number>1</number>
          </property>
          <property name="maximum">
-          <number>4000</number>
+          <number>2147483647</number>
          </property>
          <property name="value">
           <number>800</number>
@@ -580,10 +585,10 @@ QLabel#versionLabel { color: #68d4e4; }</string>
        <item row="3" column="1">
         <widget class="QSpinBox" name="spinBox_height">
          <property name="minimum">
-          <number>2</number>
+          <number>1</number>
          </property>
          <property name="maximum">
-          <number>4000</number>
+          <number>2147483647</number>
          </property>
          <property name="value">
           <number>800</number>
@@ -600,10 +605,10 @@ QLabel#versionLabel { color: #68d4e4; }</string>
        <item row="4" column="1">
         <widget class="QSpinBox" name="spinBox_depth">
          <property name="minimum">
-          <number>2</number>
+          <number>1</number>
          </property>
          <property name="maximum">
-          <number>4000</number>
+          <number>2147483647</number>
          </property>
          <property name="value">
           <number>800</number>

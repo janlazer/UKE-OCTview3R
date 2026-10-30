@@ -100,6 +100,7 @@
     <ClCompile Include="documentModel.cpp" />
     <ClCompile Include="legacyVtkCompatibility.cpp" />
     <ClCompile Include="loading.cpp" />
+    <ClCompile Include="thorlabsOctReader.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="OCTview3R.cpp" />
     <ClCompile Include="opendata.cpp" />
@@ -129,6 +130,7 @@
   <ItemGroup>
     <ClInclude Include="aboutdialog.h" />
     <ClInclude Include="dataTypes.h" />
+    <ClInclude Include="thorlabsOctReader.h" />
     <ClInclude Include="definitions.h" />
     <ClInclude Include="documentModel.h" />
     <ClInclude Include="legacyVtkCompatibility.h" />

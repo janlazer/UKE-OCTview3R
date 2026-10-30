@@ -1,6 +1,7 @@
 #include "loading.h"
 
 #include "legacyVtkCompatibility.h"
+#include "thorlabsOctReader.h"
 #include "opendata.h"
 #include "openpoly.h"
 
@@ -473,6 +474,19 @@ void loading::loadData()
 
 	switch (m_dataFormat)
 	{
+	case dataType::DATA_OCT:
+	{
+		ThorlabsOct::Metadata metadata;
+		QString error;
+		if (!ThorlabsOct::read(m_fileName, m_data, metadata, error,
+			[this](int value) { reportProgress(std::min(value, 99)); }))
+		{
+			reportFailure(error);
+			return;
+		}
+		m_spacingInMillimetresMask = metadata.calibratedAxes;
+		break;
+	}
 	case dataType::DATA_RAW:
 	{
 		if (m_width <= 0 || m_height <= 0 || m_depth <= 0)

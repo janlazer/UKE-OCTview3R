@@ -37,7 +37,7 @@ public:
 	~loading() override = default;
 
 public slots:
-	/// Read a volume, apply supported TIFF calibration, and emit dataLoaded or failed.
+	/// Read a volume, apply supported TIFF/OCT calibration, and emit dataLoaded or failed.
 	void loadData();
 	/// Read geometry, including the legacy VTK compatibility path, and emit its result.
 	void loadPoly();

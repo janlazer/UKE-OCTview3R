@@ -848,7 +848,8 @@ void OCTview3R::updateMetadata()
 		text += tr("Scalars: %1, %2 component(s), %3 range [%4, %5]")
 			.arg(QString::fromLatin1(activeImageData->image->GetScalarTypeAsString()))
 			.arg(activeImageData->image->GetNumberOfScalarComponents())
-			.arg(colorVolume ? tr("luminance") : tr("scalar"))
+			.arg(colorVolume ? tr("luminance") :
+				(activeImageData->dataFormat == DATA_OCT ? tr("dB") : tr("scalar")))
 			.arg(scalarRange[0], 0, 'g', 8)
 			.arg(scalarRange[1], 0, 'g', 8);
 		text += tr("\nColor mode: %1")
@@ -1268,6 +1269,9 @@ void OCTview3R::slotDataFileDialogClosed(
 		data->fileName		= openData->getFileName();
 		data->filePath		= openData->getFilePath();
 		data->dataFormat	= openData->getDataFormat();
+		data->zeroIsTransparent = data->dataFormat != DATA_OCT;
+		if (data->dataFormat == DATA_OCT)
+			data->typeName = "Thorlabs OCT";
 		int dimensions[3] = { 0, 0, 0 };
 		int extent[6] = { 0, 0, 0, 0, 0, 0 };
 		tmpData->GetDimensions(dimensions);
@@ -1275,7 +1279,8 @@ void OCTview3R::slotDataFileDialogClosed(
 		data->width			= dimensions[0];
 		data->height		= dimensions[1];
 		data->depth			= dimensions[2];
-		data->bitsize		= tmpData->GetScalarSize() > 1 ? bitsizeType::BIT16 : bitsizeType::BIT8;
+		data->bitsize = tmpData->GetScalarType() == VTK_FLOAT ? bitsizeType::BIT32FLOAT
+			: (tmpData->GetScalarSize() > 1 ? bitsizeType::BIT16 : bitsizeType::BIT8);
 		data->endian		= openData->getEndian();
 		data->minValue = static_cast<int>(
 			std::floor(displayScalarMinimum));

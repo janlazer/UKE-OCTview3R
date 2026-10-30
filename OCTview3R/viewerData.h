@@ -107,6 +107,7 @@ struct ImageData
 	bool adjustColormap = true; ///< Stretch palette across thresholds, independent of window/level.
 	bool autoWindow = true; ///< Neutral full-source-range window; false uses manual width/level.
 	bool smoothOpacity = true; ///< Scalar opacity ramp; not used by the binary RGB alpha mask.
+	bool zeroIsTransparent = true; ///< False for OCT dB data: 0 dB is a valid measurement, not black.
 	bool invertColormap = false;
 	bool renderRgb = false; ///< Effective only for input with at least three components.
 	int blendMode = 0; ///< 0: MaxIP, 1: composite, 2: additive, 3: MinIP.

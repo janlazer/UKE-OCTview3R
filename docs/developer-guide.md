@@ -178,6 +178,7 @@ Then run:
 ```powershell
 .\tests\run-threshold-regression.ps1
 .\tests\run-gpu-volume-regression.ps1
+.\tests\run-oct-import-regression.ps1
 .\tests\run-compact-ui-regression.ps1 -Scale 1
 .\tests\run-compact-ui-regression.ps1 -Scale 1.5
 .\tests\run-compact-ui-regression.ps1 -Scale 2
@@ -222,10 +223,40 @@ The GPU harness tests the production pipeline in a real offscreen OpenGL context
 starting with a fresh RGBA volume, then RGB and scalar data. It checks all blend
 modes, repeated RGB/grayscale switches, background visibility at zero opacity
 and rejected thresholds, and active planes. Synthetic tests are self-contained;
-`-TiffPath <local-file>` additionally exercises the normal TIFF import/calibration
-and RGB/grayscale rendering without including that file in any package. Basic
+`-VolumePath <local-file>` (also `-TiffPath`) additionally exercises the normal
+TIFF/OCT import/calibration and rendering without including that file in any package.
+Local MaxIP/composite QA images are written only under ignored `tmp/` storage. Basic
 framebuffer checks tolerate driver differences; they are not golden-image tests.
 
 For RGB planes, `vtkImageMapToColors` without a LUT requires matching input/output
 component counts. Keep its output RGB (implicitly opaque), not RGBA. Grayscale
 planes still use RGBA LUT output; neither plane adopts the volume alpha mask.
+
+### Thorlabs OCT import
+
+`thorlabsOctReader` is a read-only ZIP/ZIP64 and XML reader using Qt Core and
+the already linked VTK zlib. There is no SDK/Thorlabs runtime dependency and no
+archive extraction. `inspect()` reads bounded metadata for the dialog; `read()`
+runs in the loading worker, checks available RAM, allocates one float32 image,
+and transposes one buffered B-scan at a time. The peak-memory estimate reserves
+four volume buffers plus the B-scan and 512 MiB; it is not a VRAM guarantee.
+Only a fully read, CRC-verified volume is published. Non-finite or absolute
+intensities above 1,000,000 dB are rejected rather than passed into integer UI
+controls. DTDs, duplicate archive names and unsupported layouts are rejected.
+
+Only `data/Intensity.data`, declared Real/4-byte in an Ocity 1.0 header with ZXY
+or ZXYT order and no time dimension, is interpreted. Missing AxisOrder follows
+the older Thorlabs ZXY convention, verified against the manufacturer's MATLAB
+reader. Per-object ranges determine spacing; no Image-level optical-depth
+fallback or second refractive-index correction is applied. Calibration is
+tracked per axis, and the first voxel remains the origin.
+
+`zeroIsTransparent` defaults true for existing image formats and is false for
+OCT dB volumes. Its threshold sentinel is below the full source range, while
+the opacity function remains continuous through 0 dB. Do not change the actual
+source values or apply logarithms/normalization when adding other OCT variants.
+
+Run `tests/run-oct-import-regression.ps1` (optional `-Python <python.exe>`) for
+synthetic Stored/Deflate, ZIP64, data-descriptor, corruption, memory-budget and
+production-dialog/worker/pipeline checks. Test a real file with the GPU runner
+separately; never commit research inputs or the generated local QA pictures.

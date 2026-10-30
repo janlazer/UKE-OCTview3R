@@ -72,6 +72,7 @@ __pycache__/
 # Research data exports excluded from the public example-data set
 /*.tif
 /*.tiff
+*.oct
 OCTview3R/ImageData/**/*.vtk
 OCTview3R/ImageData/**/*.vti
 OCTview3R/ImageData/**/*.vtp
